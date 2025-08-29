@@ -22,9 +22,15 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // 브라우저 종료 시 쿠키가 삭제되도록 세션 쿠키로 설정
+              const sessionOptions = {
+                ...options,
+                maxAge: undefined, // maxAge 제거하여 세션 쿠키로 설정
+                expires: undefined, // expires 제거하여 세션 쿠키로 설정
+              }
+              cookieStore.set(name, value, sessionOptions)
+            })
           } catch {
             // SSR에서는 쿠키를 설정할 수 없음
           }

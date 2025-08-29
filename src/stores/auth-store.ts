@@ -308,6 +308,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (typeof window !== 'undefined') {
         localStorage.clear()
         sessionStorage.clear()
+        
+        // Supabase 관련 쿠키들도 확실히 제거
+        const cookies = document.cookie.split(';')
+        cookies.forEach(cookie => {
+          const [name] = cookie.split('=')
+          if (name.trim().includes('supabase') || name.trim().includes('sb-')) {
+            document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`
+          }
+        })
       }
       
       console.log('SignOut completed successfully')

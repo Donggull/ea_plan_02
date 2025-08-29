@@ -27,9 +27,15 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // 브라우저 종료 시 쿠키가 삭제되도록 세션 쿠키로 설정
+            const sessionOptions = {
+              ...options,
+              maxAge: undefined, // maxAge 제거하여 세션 쿠키로 설정
+              expires: undefined, // expires 제거하여 세션 쿠키로 설정
+            }
+            supabaseResponse.cookies.set(name, value, sessionOptions)
+          })
         },
       },
     }
