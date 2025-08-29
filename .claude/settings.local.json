@@ -20,7 +20,10 @@
       "Bash(npm install:*)",
       "Bash(git commit:*)",
       "Bash(npm run lint)",
-      "mcp__supabase__generate_typescript_types"
+      "mcp__supabase__generate_typescript_types",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__list_extensions",
+      "mcp__supabase__apply_migration"
     ],
     "deny": [],
     "ask": []
