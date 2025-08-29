@@ -4,6 +4,7 @@ import {
   Headphones, 
   Palette, 
   Folder, 
+  FolderOpen,
   Code, 
   Eye, 
   Terminal, 
@@ -23,7 +24,8 @@ import {
   Home,
   MessageSquare,
   Minimize2,
-  Maximize2
+  Maximize2,
+  LayoutDashboard
 } from 'lucide-react'
 
 const iconMap = {
@@ -32,6 +34,7 @@ const iconMap = {
   Headphones,
   Palette,
   Folder,
+  FolderOpen,
   Code,
   Eye,
   Terminal,
@@ -51,7 +54,8 @@ const iconMap = {
   Home,
   MessageSquare,
   Minimize2,
-  Maximize2
+  Maximize2,
+  LayoutDashboard
 }
 
 interface IconRendererProps {
