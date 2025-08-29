@@ -96,16 +96,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     
     try {
+      console.log('Starting signIn process for:', email)
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Auth signIn error:', error)
+        throw error
+      }
 
       if (!data.user) {
         throw new Error('로그인에 실패했습니다.')
       }
+
+      console.log('Auth successful, fetching user profile for ID:', data.user.id)
 
       // 사용자 정보 가져오기 (없으면 생성)
       const { data: initialUserData, error: userError } = await supabase
@@ -113,6 +120,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .select('*')
         .eq('id', data.user.id)
         .single()
+      
+      console.log('User profile query result:', { initialUserData, userError })
       
       let userData = initialUserData
 
@@ -147,10 +156,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // 조직 정보 가져오기 (없으면 생성)
+      console.log('Checking user organization ID:', userData.organization_id)
       let organizationData: Organization | null = null
       if (!userData.organization_id) {
         // 조직이 없으면 생성
-        console.log('Creating organization for user...')
+        console.log('No organization found, creating organization for user...')
         const orgSlug = `${userData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}-${data.user.id.slice(0, 8)}-${Date.now()}`
         
         const { data: orgData, error: orgError } = await supabase
@@ -180,23 +190,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       } else {
         // 기존 조직 가져오기
+        console.log('Fetching existing organization:', userData.organization_id)
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .select('*')
           .eq('id', userData.organization_id)
           .single()
 
-        if (!orgError && orgData) {
-          organizationData = orgData
+        console.log('Organization query result:', { orgData, orgError })
+        
+        if (orgError) {
+          console.error('Failed to fetch organization:', orgError)
+          throw new Error('조직 정보를 가져올 수 없습니다.')
         }
+        
+        if (!orgData) {
+          console.error('No organization data returned')
+          throw new Error('조직 정보를 찾을 수 없습니다.')
+        }
+        
+        organizationData = orgData
       }
 
+      console.log('Login successful, setting user and organization data')
+      
       set({ 
         user: userData, 
         organization: organizationData, 
         isLoading: false 
       })
     } catch (error) {
+      console.error('SignIn error:', error)
       set({ isLoading: false })
       throw error
     }
