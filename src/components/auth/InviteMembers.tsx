@@ -11,7 +11,7 @@ import {
 import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
 import Card from '@/basic/src/components/Card/Card'
-import { supabase } from '@/lib/supabase/client'
+// import { supabase } from '@/lib/supabase/client' // 임시 비활성화
 import { Plus, Trash2 } from 'lucide-react'
 
 interface InviteMembersProps {

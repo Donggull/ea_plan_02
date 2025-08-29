@@ -124,7 +124,7 @@ export async function middleware(request: NextRequest) {
       }
 
       // 구독 제한 확인
-      const limits = getSubscriptionLimits(organization.subscription_tier)
+      const limits = getSubscriptionLimits(organization.subscription_tier || 'free')
       
       // 헤더에 사용자 정보와 제한 정보 추가
       response.headers.set('x-user-id', user.id)
