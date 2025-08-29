@@ -114,6 +114,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       console.log('Auth successful, fetching user profile for ID:', data.user.id)
 
+      // 잠시 대기 후 사용자 정보 가져오기 (RLS 정책 적용 시간 확보)
+      await new Promise(resolve => setTimeout(resolve, 100))
+
       // 사용자 정보 가져오기 (없으면 생성)
       const { data: initialUserData, error: userError } = await supabase
         .from('users')
@@ -127,7 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // 사용자 프로필이 없으면 생성 (기존 사용자 대응)
       if (userError?.code === 'PGRST116' || !userData) {
-        console.log('User profile not found, creating one...')
+        console.log('User profile not found, trying to create one...')
         
         // 프로필 생성
         const displayName = data.user.user_metadata?.full_name || 
@@ -149,10 +152,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (createError) {
           console.error('Failed to create user profile:', createError)
-          throw new Error('사용자 프로필 생성에 실패했습니다.')
+          
+          // 중복 키 오류인 경우 기존 프로필을 다시 조회 시도
+          if (createError.code === '23505') {
+            console.log('User already exists, trying to fetch existing profile...')
+            const { data: existingUserData, error: existingUserError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', data.user.id)
+              .single()
+            
+            if (existingUserError || !existingUserData) {
+              console.error('Failed to fetch existing user profile:', existingUserError)
+              throw new Error('사용자 정보를 가져올 수 없습니다.')
+            }
+            
+            userData = existingUserData
+          } else {
+            throw new Error('사용자 프로필 생성에 실패했습니다.')
+          }
+        } else {
+          userData = newUserData
         }
-
-        userData = newUserData
       }
 
       // 조직 정보 가져오기 (없으면 생성)
