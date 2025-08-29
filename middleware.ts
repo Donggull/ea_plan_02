@@ -1,7 +1,38 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { Database } from '@/types/supabase'
-import { getSubscriptionLimits } from '@/lib/auth/helpers'
+
+// Edge Runtime 호환을 위해 getSubscriptionLimits를 인라인으로 구현
+function getSubscriptionLimits(tier: string) {
+  const limits = {
+    free: {
+      projects: 3,
+      members: 5,
+      storage: 1024 * 1024 * 100, // 100MB
+      ai_requests: 100,
+    },
+    starter: {
+      projects: 10,
+      members: 15,
+      storage: 1024 * 1024 * 1024, // 1GB
+      ai_requests: 1000,
+    },
+    pro: {
+      projects: 50,
+      members: 50,
+      storage: 1024 * 1024 * 1024 * 10, // 10GB
+      ai_requests: 10000,
+    },
+    enterprise: {
+      projects: -1, // unlimited
+      members: -1, // unlimited
+      storage: -1, // unlimited
+      ai_requests: -1, // unlimited
+    },
+  }
+
+  return limits[tier as keyof typeof limits] || limits.free
+}
 
 const publicRoutes = [
   '/',
