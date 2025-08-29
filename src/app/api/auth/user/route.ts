@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import type { Database } from '@/types/supabase'
 
 // Service role client for privileged operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseServiceKey) {
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
   throw new Error('Missing Supabase environment variables for admin client')
 }
 
-const supabaseAdmin = createClient<Database>(
+const supabaseAdmin = createClient(
   supabaseUrl,
   supabaseServiceKey,
   {
@@ -25,8 +25,28 @@ const supabaseAdmin = createClient<Database>(
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    const cookieStore = await cookies()
+    
+    const supabase = createServerClient(
+      supabaseUrl!,
+      supabaseAnonKey!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet: any) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }: any) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {
+              // SSR에서는 쿠키를 설정할 수 없음
+            }
+          },
+        },
+      }
+    )
     
     // Get the current user from the session
     const { data: { user }, error: userError } = await supabase.auth.getUser()
