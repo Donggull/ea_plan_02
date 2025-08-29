@@ -48,3 +48,26 @@ export interface GeneratedImage {
   metadata: Record<string, any>
   created_at: string
 }
+
+export interface ChatRequest {
+  message: string
+  model: 'claude' | 'gpt-4' | 'gemini'
+  project_id?: string
+  session_id?: string
+  context?: {
+    documents?: string[]
+    workflow_stage?: string
+  }
+}
+
+export interface ChatResponse {
+  message: string
+  model: string
+  tokens_used: number
+  cost: number
+  sources?: Array<{
+    title: string
+    url?: string
+    relevance: number
+  }>
+}
