@@ -39,7 +39,7 @@ export default function ResetPasswordPage() {
       const { error } = await resetPassword(data.email)
       
       if (error) {
-        setError(error.message)
+        setError('비밀번호 재설정 중 오류가 발생했습니다')
         return
       }
 

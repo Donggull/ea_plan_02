@@ -50,7 +50,7 @@ export default function SignupPage() {
       const { error } = await signUp(data.email, data.password, data.name)
       
       if (error) {
-        setError(error.message)
+        setError('회원가입 중 오류가 발생했습니다')
         return
       }
 

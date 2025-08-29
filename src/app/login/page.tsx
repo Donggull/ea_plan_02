@@ -41,7 +41,7 @@ export default function LoginPage() {
       const { error } = await signIn(data.email, data.password)
       
       if (error) {
-        setError(error.message)
+        setError('로그인 중 오류가 발생했습니다')
         return
       }
 
