@@ -10,17 +10,9 @@ interface MainContentProps {
 
 export function MainContent({ children }: MainContentProps) {
   const { 
-    sidebarOpen, 
-    sidebarWidth, 
-    sidebarCollapsed, 
-    darkMode, 
-    isMobile,
+    darkMode,
     chatPanelOpen 
   } = useUIStore()
-
-  const contentStyle = {
-    marginLeft: isMobile ? 0 : sidebarOpen ? (sidebarCollapsed ? '64px' : `${sidebarWidth}px`) : '0px',
-  }
 
   return (
     <main
@@ -31,7 +23,6 @@ export function MainContent({ children }: MainContentProps) {
         chatPanelOpen && 'pb-80', // 챗봇 패널이 열려있을 때 하단 여백 추가
         'md:pb-0' // 데스크탑에서는 챗봇 패널 고정 위치로 여백 제거
       )}
-      style={contentStyle}
     >
       {/* Content Container */}
       <div className={cn(
