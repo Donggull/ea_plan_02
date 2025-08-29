@@ -115,21 +115,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('Auth successful, user ID from auth:', data.user.id)
       console.log('Auth successful, user email:', data.user.email)
 
-      // Use server-side API to bypass RLS issues
+      // Use server-side API to get user profile (handles RLS properly)
       console.log('Fetching user profile via API...')
       
-      try {
-        const response = await fetch('/api/auth/user', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
+      const response = await fetch('/api/auth/user', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`)
-        }
-
+      if (response.ok) {
         const apiResult = await response.json()
         console.log('API response:', apiResult)
 
@@ -144,14 +140,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false 
         })
         
-        return // Early return since we got the data successfully
-        
-      } catch (apiError) {
-        console.error('API approach failed, falling back to direct database:', apiError)
+        return
       }
 
-      // Fallback to original approach if API fails
-      console.log('Falling back to direct database approach...')
+      // If API fails, continue with direct database approach
+      console.log('API failed, trying direct database approach...')
       
       // 잠시 대기 후 사용자 정보 가져오기 (RLS 정책 적용 시간 확보)
       await new Promise(resolve => setTimeout(resolve, 100))

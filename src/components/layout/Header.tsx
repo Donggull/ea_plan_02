@@ -48,8 +48,8 @@ export function Header() {
       console.log('Starting sign out process...')
       setUserMenuOpen(false)
       await signOut()
-      console.log('Sign out successful, redirecting to login...')
-      router.push('/auth/login')
+      console.log('Sign out successful, redirecting to main page...')
+      router.push('/')
     } catch (error) {
       console.error('Sign out error:', error)
     }

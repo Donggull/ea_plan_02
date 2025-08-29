@@ -1,2 +1,20 @@
-// Vercel 배포 호환을 위해 미들웨어 완전 비활성화
-// 추후 인증 기능 필요시 단계적으로 활성화 예정
+import { updateSession } from '@/lib/supabase/middleware'
+import { NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  return await updateSession(request)
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+  ],
+}
