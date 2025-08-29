@@ -107,20 +107,79 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('로그인에 실패했습니다.')
       }
 
-      // 사용자 정보 가져오기
-      const { data: userData, error: userError } = await supabase
+      // 사용자 정보 가져오기 (없으면 생성)
+      const { data: initialUserData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', data.user.id)
         .single()
+      
+      let userData = initialUserData
 
-      if (userError || !userData) {
-        throw new Error('사용자 정보를 가져올 수 없습니다.')
+      // 사용자 프로필이 없으면 생성 (기존 사용자 대응)
+      if (userError?.code === 'PGRST116' || !userData) {
+        console.log('User profile not found, creating one...')
+        
+        // 프로필 생성
+        const displayName = data.user.user_metadata?.full_name || 
+                          data.user.user_metadata?.name || 
+                          data.user.email?.split('@')[0] || 
+                          'User'
+        
+        const { data: newUserData, error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: data.user.id,
+            email: data.user.email!,
+            name: displayName,
+            user_role: 'user',
+            subscription_tier: 'free'
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Failed to create user profile:', createError)
+          throw new Error('사용자 프로필 생성에 실패했습니다.')
+        }
+
+        userData = newUserData
       }
 
-      // 조직 정보 가져오기
+      // 조직 정보 가져오기 (없으면 생성)
       let organizationData: Organization | null = null
-      if (userData.organization_id) {
+      if (!userData.organization_id) {
+        // 조직이 없으면 생성
+        console.log('Creating organization for user...')
+        const orgSlug = `${userData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}-${data.user.id.slice(0, 8)}-${Date.now()}`
+        
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: `${userData.name}의 조직`,
+            slug: orgSlug,
+            description: '개인 워크스페이스',
+            created_by: data.user.id,
+            is_active: true,
+            subscription_tier: 'free'
+          })
+          .select()
+          .single()
+
+        if (!orgError && orgData) {
+          organizationData = orgData
+          
+          // 사용자 프로필에 조직 연결
+          await supabase
+            .from('users')
+            .update({ 
+              organization_id: orgData.id,
+              role: 'owner'
+            })
+            .eq('id', data.user.id)
+        }
+      } else {
+        // 기존 조직 가져오기
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .select('*')
