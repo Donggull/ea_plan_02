@@ -27,7 +27,7 @@ interface AuthFormProps {
 export default function AuthForm({ 
   mode = 'signin', 
   onModeChange,
-  redirectTo = '/dashboard'
+  redirectTo: _redirectTo = '/dashboard'
 }: AuthFormProps) {
   const { signIn, signUp, resetPassword, isLoading } = useAuthStore()
   const [error, setError] = useState<string>('')
@@ -52,13 +52,8 @@ export default function AuthForm({
     try {
       setError('')
       await signIn(data.email, data.password)
-      
-      // 로그인 성공 후 상태 안정화를 위해 잠시 대기 후 리다이렉트
-      console.log(`Login successful, waiting for auth state to stabilize...`)
-      setTimeout(() => {
-        console.log(`Redirecting to ${redirectTo}`)
-        window.location.href = redirectTo // 새로고침 효과로 확실한 페이지 전환
-      }, 200)
+      // 로그인 성공 - 미들웨어가 자동으로 적절한 페이지로 리다이렉트함
+      console.log('Login successful, middleware will handle redirect')
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     }

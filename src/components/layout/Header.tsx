@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 export function Header() {
   const router = useRouter()
-  const { user, signOut } = useAuthStore()
+  const { user, signOut, isLoading } = useAuthStore()
   const { 
     toggleSidebar, 
     toggleDarkMode, 
@@ -183,17 +183,23 @@ export function Header() {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
-              </div>
+              {isLoading ? (
+                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center animate-pulse">
+                  <span className="text-white text-sm font-medium">...</span>
+                </div>
+              ) : (
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+              )}
               <div className="hidden md:block text-left">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user?.name || 'Anonymous'}
+                  {isLoading ? '로딩 중...' : (user?.name || user?.email?.split('@')[0] || 'Anonymous')}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {user?.role || 'Member'}
+                  {isLoading ? '...' : (user?.user_role || user?.role || 'Member')}
                 </div>
               </div>
             </Button>

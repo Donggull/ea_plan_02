@@ -60,6 +60,16 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/auth/')
   )
 
+  // 로그인된 사용자가 로그인 페이지에 접근하면 대시보드로 리다이렉트
+  if (user && request.nextUrl.pathname === '/auth/login') {
+    console.log('Authenticated user accessing login page, redirecting to dashboard')
+    const url = request.nextUrl.clone()
+    const redirectTo = url.searchParams.get('redirect') || '/dashboard'
+    url.pathname = redirectTo
+    url.searchParams.delete('redirect')
+    return NextResponse.redirect(url)
+  }
+
   // 비로그인 상태에서 보호된 페이지에 접근하려 하면 로그인 페이지로 리다이렉트
   if (!user && !isPublicPath) {
     console.log(`Redirecting unauthenticated user from ${request.nextUrl.pathname} to login`)

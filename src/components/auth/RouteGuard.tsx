@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface RouteGuardProps {
@@ -9,8 +9,7 @@ interface RouteGuardProps {
 }
 
 export default function RouteGuard({ children }: RouteGuardProps) {
-  const { user, isInitialized, isLoading, initialize } = useAuthStore()
-  const router = useRouter()
+  const { isInitialized, isLoading, initialize } = useAuthStore()
   const pathname = usePathname()
   const [isChecking, setIsChecking] = useState(true)
 
@@ -44,19 +43,6 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     checkAuth()
   }, [isInitialized, isLoading, initialize])
 
-  // 로그인 페이지에서 이미 로그인된 사용자만 리다이렉트 (미들웨어가 보호된 페이지 처리)
-  useEffect(() => {
-    // 초기화가 완료된 후에만 리다이렉트 로직 실행
-    if (!isInitialized || isChecking) return
-
-    // 로그인 페이지에서 이미 로그인된 사용자는 대시보드로 리다이렉트
-    if (pathname === '/auth/login' && user) {
-      const urlParams = new URLSearchParams(window.location.search)
-      const redirectTo = urlParams.get('redirect') || '/dashboard'
-      console.log(`User already logged in, redirecting from login page to ${redirectTo}`)
-      router.replace(redirectTo)
-    }
-  }, [user, isInitialized, isChecking, pathname, router])
 
   // 로딩 중이거나 인증 확인 중이면 로딩 화면 표시
   if (isChecking || isLoading || (!isInitialized && !isPublicPath)) {
