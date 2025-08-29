@@ -10,8 +10,7 @@ import {
   FolderOpen,
   Image,
   PaintBucket,
-  Plus,
-  Users
+  Plus
 } from 'lucide-react'
 
 const modules = [

@@ -33,7 +33,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     'aria-describedby': ariaDescribedBy,
     ...props 
   }, ref) => {
-    const inputId = id || React.useId()
+    const generatedId = React.useId()
+    const inputId = id || generatedId
     const errorId = error ? `${inputId}-error` : undefined
     const helperId = helper ? `${inputId}-helper` : undefined
     const describedBy = [errorId, helperId, ariaDescribedBy].filter(Boolean).join(' ') || undefined

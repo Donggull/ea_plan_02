@@ -5,10 +5,17 @@ import { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 
+interface RealtimePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+  new: Record<string, any>
+  old: Record<string, any>
+  errors: string[] | null
+}
+
 export function useRealtimeSubscription(
   table: string,
   filter?: { column: string; value: string },
-  onUpdate?: (payload: any) => void
+  onUpdate?: (payload: RealtimePayload) => void
 ) {
   const queryClient = useQueryClient()
   const channelRef = useRef<RealtimeChannel | null>(null)
@@ -53,7 +60,7 @@ export function useRealtimeSubscription(
         channelRef.current.unsubscribe()
       }
     }
-  }, [table, filter?.column, filter?.value, queryClient, onUpdate])
+  }, [table, filter, queryClient, onUpdate])
 
   return channelRef.current
 }

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Users, Building, Settings, Shield } from 'lucide-react'
+import { Users, Building, Settings, Shield } from 'lucide-react'
 import Link from 'next/link'
 
 export default function AdminPage() {

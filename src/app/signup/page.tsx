@@ -58,7 +58,7 @@ export default function SignupPage() {
       setTimeout(() => {
         router.push('/login')
       }, 2000)
-    } catch (err) {
+    } catch (_err) {
       setError('회원가입 중 오류가 발생했습니다')
     } finally {
       setIsLoading(false)

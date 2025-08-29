@@ -18,7 +18,8 @@
       "Bash(node fix-imports.js)",
       "Bash(git add:*)",
       "Bash(npm install:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []
