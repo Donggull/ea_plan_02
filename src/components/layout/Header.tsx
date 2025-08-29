@@ -11,11 +11,12 @@ import { cn } from '@/lib/utils'
 
 export function Header() {
   const router = useRouter()
-  const { user, signOut, isLoading } = useAuthStore()
+  const { user, signOut, isLoading, isInitialized } = useAuthStore()
   
   // 디버깅용 로그
-  console.log('Header user data:', user)
-  console.log('Header isLoading:', isLoading)
+  console.log('Header render - user:', user)
+  console.log('Header render - isLoading:', isLoading)
+  console.log('Header render - isInitialized:', isInitialized)
   const { 
     toggleSidebar, 
     toggleDarkMode, 
@@ -179,8 +180,20 @@ export function Header() {
             )}
           </div>
 
+          {/* User Menu Loading State */}
+          {isInitialized && !user && isLoading && (
+            <div className="flex items-center space-x-2 px-3 py-2">
+              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center animate-pulse">
+                <span className="text-white text-sm font-medium">...</span>
+              </div>
+              <div className="hidden md:block text-left">
+                <div className="text-sm font-medium text-gray-500">로딩 중...</div>
+              </div>
+            </div>
+          )}
+
           {/* User Menu - 로그인된 사용자만 표시 */}
-          {user && (
+          {(isInitialized && user) && (
             <div className="relative" ref={userMenuRef}>
             <Button
               variant="ghost"
@@ -188,35 +201,24 @@ export function Header() {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              {isLoading ? (
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center animate-pulse">
-                  <span className="text-white text-sm font-medium">...</span>
-                </div>
-              ) : (
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                  </span>
-                </div>
-              )}
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-medium">
+                  {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                </span>
+              </div>
               <div className="hidden md:block text-left">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {isLoading 
-                    ? '로딩 중...' 
-                    : user 
-                      ? (user.name || user.email?.split('@')[0] || 'Anonymous')
-                      : 'Not logged in'
-                  }
+                  {user.name || user.email?.split('@')[0] || 'Anonymous'}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {isLoading 
-                    ? '...' 
-                    : user 
-                      ? (user.user_role || user.role || 'Member')
-                      : ''
-                  }
+                  {user.user_role || user.role || 'Member'}
                 </div>
               </div>
+              <IconRenderer 
+                icon="ChevronDown" 
+                size={14} 
+                className="text-gray-500 dark:text-gray-400 ml-1"
+              />
             </Button>
 
             {userMenuOpen && (

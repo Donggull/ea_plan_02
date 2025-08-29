@@ -37,7 +37,8 @@
       "mcp__playwright-stealth__playwright_evaluate",
       "mcp__github-mcp__git-log",
       "Bash(if exist .next rmdir /s /q .next)",
-      "Bash(timeout 60 npm run build)"
+      "Bash(timeout 60 npm run build)",
+      "mcp__github-mcp__git-diff"
     ],
     "deny": [],
     "ask": []
