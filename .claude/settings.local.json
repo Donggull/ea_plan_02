@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npx:*)",
+      "Bash(npm run dev:*)",
+      "mcp__github-mcp__git-status",
+      "mcp__github-mcp__git-init",
+      "mcp__github-mcp__git-add-all"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

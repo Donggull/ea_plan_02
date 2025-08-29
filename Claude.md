@@ -1,0 +1,14 @@
+**모든 진행 설명은 한글로 출력해줘.**
+**모든 디자인 작업은 (./src/basic/)안에 있는 components를 이용해서 디자인 작업을 진행해 주고, 없는 컴포넌트는 tailwindcss와 shadcn을 같이 이용해서 트랜디 하고 세련되게 디자인 작업 진행해줘**
+**너는 MCP를 사용할 수 있어. 적용되어 있는 MCP를 우선적으로 사용하면서 작업을 진행해줘.**
+**요청한 요건이 완료되면 마지막에는 반드시 github MCP를 활용해서 커밋 하고 푸시해줘**
+git은 Donggull/ea_plan_02의 main 브랜치에 커밋과 푸시를 진행하면 돼.
+**모든 데이터는 실제 데이터인 supabase와 연동되도록 개발해줘.**
+
+PRD 문서 참조 : [자세히 보기](./PRD_part1.md)
+PRD 문서 참조 : [자세히 보기](./PRD_part2.md)
+PRD 문서 참조 : [자세히 보기](./PRD_part3.md)
+TRD 문서 참조 : [자세히 보기](./TRD_part1.md)
+TRD 문서 참조 : [자세히 보기](./TRD_part2.md)
+작업 진행을 위한 프롬프트 문서 참조 : [자세히 보기](./claude-code-prompts.md)
+작업 진행을 위한 프롬프트 문서 참조 : [자세히 보기](./claude-code-step-by-step.md)
