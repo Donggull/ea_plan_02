@@ -156,18 +156,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // 중복 키 오류인 경우 기존 프로필을 다시 조회 시도
           if (createError.code === '23505') {
             console.log('User already exists, trying to fetch existing profile...')
-            const { data: existingUserData, error: existingUserError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', data.user.id)
-              .single()
             
-            if (existingUserError || !existingUserData) {
-              console.error('Failed to fetch existing user profile:', existingUserError)
-              throw new Error('사용자 정보를 가져올 수 없습니다.')
+            // 여러 번 시도하여 RLS 정책 적용 시간 확보
+            let existingUserData = null
+            let existingUserError = null
+            
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              console.log(`Profile fetch attempt ${attempt}/3`)
+              await new Promise(resolve => setTimeout(resolve, attempt * 200))
+              
+              const result = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', data.user.id)
+                .single()
+              
+              existingUserData = result.data
+              existingUserError = result.error
+              
+              if (!existingUserError && existingUserData) {
+                break
+              }
             }
             
-            userData = existingUserData
+            if (existingUserError || !existingUserData) {
+              console.error('Failed to fetch existing user profile after multiple attempts:', existingUserError)
+              // 사용자는 이미 인증되었으므로, 기본값으로 로그인 성공 처리
+              console.log('Using fallback approach - login successful but profile data unavailable')
+              userData = {
+                id: data.user.id,
+                email: data.user.email!,
+                name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
+                user_role: 'user',
+                subscription_tier: 'free',
+                organization_id: null,
+                role: null,
+                avatar_url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }
+            } else {
+              userData = existingUserData
+            }
           } else {
             throw new Error('사용자 프로필 생성에 실패했습니다.')
           }
@@ -222,15 +252,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         
         if (orgError) {
           console.error('Failed to fetch organization:', orgError)
-          throw new Error('조직 정보를 가져올 수 없습니다.')
-        }
-        
-        if (!orgData) {
+          console.log('Continuing login without organization data')
+          organizationData = null
+        } else if (!orgData) {
           console.error('No organization data returned')
-          throw new Error('조직 정보를 찾을 수 없습니다.')
+          console.log('Continuing login without organization data')
+          organizationData = null
+        } else {
+          organizationData = orgData
         }
-        
-        organizationData = orgData
       }
 
       console.log('Login successful, setting user and organization data')

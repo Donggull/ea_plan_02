@@ -45,7 +45,10 @@ export function Header() {
 
   const handleSignOut = async () => {
     try {
+      console.log('Starting sign out process...')
+      setUserMenuOpen(false)
       await signOut()
+      console.log('Sign out successful, redirecting to login...')
       router.push('/auth/login')
     } catch (error) {
       console.error('Sign out error:', error)
@@ -210,10 +213,7 @@ export function Header() {
                   </button>
                   <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
                   <button
-                    onClick={() => {
-                      handleSignOut()
-                      setUserMenuOpen(false)
-                    }}
+                    onClick={handleSignOut}
                     className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded flex items-center space-x-2"
                   >
                     <IconRenderer icon="LogOut" size={16} />
