@@ -109,7 +109,9 @@ export async function checkPermission(
   user?: User
 ): Promise<boolean> {
   if (!user) {
-    user = await getUser()
+    const fetchedUser = await getUser()
+    if (!fetchedUser) return false
+    user = fetchedUser
   }
   
   if (!user) return false
