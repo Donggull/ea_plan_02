@@ -138,6 +138,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const organizationData = apiResult.organization
 
           console.log('Login successful via API, setting user and organization data')
+          console.log('API User data being set:', userData)
+          console.log('API Organization data being set:', organizationData)
           
           set({ 
             user: userData, 
@@ -248,6 +250,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       console.log('Login successful, setting user and organization data')
+      console.log('User data being set:', userData)
+      console.log('Organization data being set:', organizationData)
       
       set({ 
         user: userData, 

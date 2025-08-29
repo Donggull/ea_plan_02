@@ -12,6 +12,10 @@ import { cn } from '@/lib/utils'
 export function Header() {
   const router = useRouter()
   const { user, signOut, isLoading } = useAuthStore()
+  
+  // 디버깅용 로그
+  console.log('Header user data:', user)
+  console.log('Header isLoading:', isLoading)
   const { 
     toggleSidebar, 
     toggleDarkMode, 
@@ -175,8 +179,9 @@ export function Header() {
             )}
           </div>
 
-          {/* User Menu */}
-          <div className="relative" ref={userMenuRef}>
+          {/* User Menu - 로그인된 사용자만 표시 */}
+          {user && (
+            <div className="relative" ref={userMenuRef}>
             <Button
               variant="ghost"
               size="sm"
@@ -196,10 +201,20 @@ export function Header() {
               )}
               <div className="hidden md:block text-left">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {isLoading ? '로딩 중...' : (user?.name || user?.email?.split('@')[0] || 'Anonymous')}
+                  {isLoading 
+                    ? '로딩 중...' 
+                    : user 
+                      ? (user.name || user.email?.split('@')[0] || 'Anonymous')
+                      : 'Not logged in'
+                  }
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {isLoading ? '...' : (user?.user_role || user?.role || 'Member')}
+                  {isLoading 
+                    ? '...' 
+                    : user 
+                      ? (user.user_role || user.role || 'Member')
+                      : ''
+                  }
                 </div>
               </div>
             </Button>
@@ -228,7 +243,8 @@ export function Header() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
