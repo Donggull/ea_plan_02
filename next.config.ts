@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Vercel 배포 최적화
+  output: "standalone",
   eslint: {
     ignoreDuringBuilds: false,
   },
@@ -13,9 +14,11 @@ const nextConfig: NextConfig = {
     domains: [],
     unoptimized: false,
   },
+  // 정적 생성 최적화
+  trailingSlash: false,
   // 실험적 기능 비활성화 (안정성 확보)
   experimental: {
-    // 필요시 추가
+    optimizePackageImports: ['lucide-react'],
   },
 };
 
