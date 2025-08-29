@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Enhanced Input } from './Enhanced Input'
+import EnhancedInput from './Enhanced Input'
 
-const meta: Meta<typeof Enhanced Input> = {
+const meta: Meta<typeof EnhancedInput> = {
   title: 'Components/Enhanced Input',
-  component: Enhanced Input,
+  component: EnhancedInput,
   parameters: {
     layout: 'centered',
     docs: {
@@ -33,7 +33,7 @@ export const Default: Story = {
   }
 }
 
-export const Default: Story = {
+export const DefaultVariant: Story = {
   args: {
     ...Default.args,
     variant: 'default'

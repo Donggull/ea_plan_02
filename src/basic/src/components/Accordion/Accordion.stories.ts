@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Accordion } from './Accordion'
+import Accordion from './Accordion'
 
 const meta: Meta<typeof Accordion> = {
   title: 'Components/Accordion',
@@ -33,7 +33,7 @@ export const Default: Story = {
   }
 }
 
-export const Default: Story = {
+export const DefaultVariant: Story = {
   args: {
     ...Default.args,
     variant: 'default'

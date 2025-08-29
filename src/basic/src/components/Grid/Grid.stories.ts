@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Grid } from './Grid'
+import Grid from './Grid'
 
 const meta: Meta<typeof Grid> = {
   title: 'Components/Grid',
@@ -34,84 +34,84 @@ export const Default: Story = {
   }
 }
 
-export const 1: Story = {
+export const Col1: Story = {
   args: {
     ...Default.args,
     cols: '1'
   }
 }
 
-export const 2: Story = {
+export const Col2: Story = {
   args: {
     ...Default.args,
     cols: '2'
   }
 }
 
-export const 3: Story = {
+export const Col3: Story = {
   args: {
     ...Default.args,
     cols: '3'
   }
 }
 
-export const 4: Story = {
+export const Col4: Story = {
   args: {
     ...Default.args,
     cols: '4'
   }
 }
 
-export const 5: Story = {
+export const Col5: Story = {
   args: {
     ...Default.args,
     cols: '5'
   }
 }
 
-export const 6: Story = {
+export const Col6: Story = {
   args: {
     ...Default.args,
     cols: '6'
   }
 }
 
-export const 7: Story = {
+export const Col7: Story = {
   args: {
     ...Default.args,
     cols: '7'
   }
 }
 
-export const 8: Story = {
+export const Col8: Story = {
   args: {
     ...Default.args,
     cols: '8'
   }
 }
 
-export const 9: Story = {
+export const Col9: Story = {
   args: {
     ...Default.args,
     cols: '9'
   }
 }
 
-export const 10: Story = {
+export const Col10: Story = {
   args: {
     ...Default.args,
     cols: '10'
   }
 }
 
-export const 11: Story = {
+export const Col11: Story = {
   args: {
     ...Default.args,
     cols: '11'
   }
 }
 
-export const 12: Story = {
+export const Col12: Story = {
   args: {
     ...Default.args,
     cols: '12'

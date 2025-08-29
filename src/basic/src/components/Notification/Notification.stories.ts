@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Notification } from './Notification'
+import Notification from './Notification'
 
 const meta: Meta<typeof Notification> = {
   title: 'Components/Notification',
@@ -62,28 +62,28 @@ export const Error: Story = {
   }
 }
 
-export const Top-right: Story = {
+export const TopRight: Story = {
   args: {
     ...Default.args,
     position: 'top-right'
   }
 }
 
-export const Top-left: Story = {
+export const TopLeft: Story = {
   args: {
     ...Default.args,
     position: 'top-left'
   }
 }
 
-export const Bottom-right: Story = {
+export const BottomRight: Story = {
   args: {
     ...Default.args,
     position: 'bottom-right'
   }
 }
 
-export const Bottom-left: Story = {
+export const BottomLeft: Story = {
   args: {
     ...Default.args,
     position: 'bottom-left'

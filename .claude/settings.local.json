@@ -6,7 +6,17 @@
       "Bash(npm run dev:*)",
       "mcp__github-mcp__git-status",
       "mcp__github-mcp__git-init",
-      "mcp__github-mcp__git-add-all"
+      "mcp__github-mcp__git-add-all",
+      "mcp__github-mcp__git-commit",
+      "mcp__github-mcp__git-remote-add",
+      "mcp__github-mcp__git-push",
+      "Bash(git push:*)",
+      "Bash(git branch:*)",
+      "Bash(gh repo view:*)",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(node fix-imports.js)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

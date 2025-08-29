@@ -5,7 +5,7 @@ interface TypographyProps {
   variant?: 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'small' | 'code'
   children: React.ReactNode
   className?: string
-  as?: keyof JSX.IntrinsicElements
+  as?: keyof React.JSX.IntrinsicElements
 }
 
 const Typography = React.forwardRef<HTMLElement, TypographyProps>(
@@ -30,16 +30,16 @@ const Typography = React.forwardRef<HTMLElement, TypographyProps>(
       code: 'code'
     }
 
-    const Component = (as || defaultElement[variant]) as keyof JSX.IntrinsicElements
+    const Component = (as || defaultElement[variant]) as keyof React.JSX.IntrinsicElements
 
-    return (
-      <Component
-        ref={ref}
-        className={cn(variantClasses[variant], className)}
-        {...props}
-      >
-        {children}
-      </Component>
+    return React.createElement(
+      Component,
+      {
+        ref,
+        className: cn(variantClasses[variant], className),
+        ...props
+      },
+      children
     )
   }
 )

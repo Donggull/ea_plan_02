@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Toast } from './Toast'
+import Toast from './Toast'
 
 const meta: Meta<typeof Toast> = {
   title: 'Components/Toast',
@@ -33,7 +33,7 @@ export const Default: Story = {
   }
 }
 
-export const Default: Story = {
+export const DefaultVariant: Story = {
   args: {
     ...Default.args,
     variant: 'default'

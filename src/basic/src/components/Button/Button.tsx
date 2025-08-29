@@ -1,10 +1,7 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-interface ButtonProps {
-  variant?: string
-  size?: string
-} {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   children: React.ReactNode

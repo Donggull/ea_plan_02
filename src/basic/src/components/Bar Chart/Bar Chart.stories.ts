@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Bar Chart } from './Bar Chart'
+import BarChart from './Bar Chart'
 
-const meta: Meta<typeof Bar Chart> = {
-  title: 'Components/Bar Chart',
-  component: Bar Chart,
+const meta: Meta<typeof BarChart> = {
+  title: 'Components/BarChart',
+  component: BarChart,
   parameters: {
     layout: 'centered',
     docs: {
@@ -52,7 +52,7 @@ export const Horizontal: Story = {
   }
 }
 
-export const Default: Story = {
+export const DefaultVariant: Story = {
   args: {
     ...Default.args,
     variant: 'default'

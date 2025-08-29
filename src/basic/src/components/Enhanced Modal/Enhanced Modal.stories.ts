@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Enhanced Modal } from './Enhanced Modal'
+import EnhancedModal from './Enhanced Modal'
 
-const meta: Meta<typeof Enhanced Modal> = {
+const meta: Meta<typeof EnhancedModal> = {
   title: 'Components/Enhanced Modal',
-  component: Enhanced Modal,
+  component: EnhancedModal,
   parameters: {
     layout: 'centered',
     docs: {

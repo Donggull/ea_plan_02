@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Profile Card } from './Profile Card'
+import ProfileCard from './Profile Card'
 
-const meta: Meta<typeof Profile Card> = {
+const meta: Meta<typeof ProfileCard> = {
   title: 'Components/Profile Card',
-  component: Profile Card,
+  component: ProfileCard,
   parameters: {
     layout: 'centered',
     docs: {
@@ -37,7 +37,7 @@ export const Default: Story = {
   }
 }
 
-export const Default: Story = {
+export const DefaultVariant: Story = {
   args: {
     ...Default.args,
     variant: 'default'

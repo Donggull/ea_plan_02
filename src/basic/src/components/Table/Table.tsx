@@ -1,14 +1,16 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-interface TableProps {
-  data: Array<Record<string, any>>
-  columns: Array<{
-    key: string
-    title: string
-    width?: string
-    render?: (value: any, record: Record<string, any>) => React.ReactNode
-  }>
+interface TableColumn<T = Record<string, unknown>> {
+  key: string
+  title: string
+  width?: string
+  render?: (value: unknown, record: T) => React.ReactNode
+}
+
+interface TableProps<T = Record<string, unknown>> {
+  data: Array<T>
+  columns: Array<TableColumn<T>>
   variant?: 'default' | 'striped' | 'bordered'
   size?: 'sm' | 'md' | 'lg'
   className?: string
@@ -59,14 +61,17 @@ const Table = React.forwardRef<HTMLTableElement, TableProps>(
           <tbody>
             {data.map((record, index) => (
               <tr key={index} className="hover:bg-[hsl(var(--color-secondary-50))] transition-colors">
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className="border-b border-[hsl(var(--color-secondary-200))] text-[hsl(var(--color-secondary-700))]"
-                  >
-                    {column.render ? column.render(record[column.key], record) : record[column.key]}
-                  </td>
-                ))}
+                {columns.map((column) => {
+                  const value = (record as Record<string, unknown>)[column.key]
+                  return (
+                    <td
+                      key={column.key}
+                      className="border-b border-[hsl(var(--color-secondary-200))] text-[hsl(var(--color-secondary-700))]"
+                    >
+                      {column.render ? column.render(value, record) : String(value ?? '')}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>

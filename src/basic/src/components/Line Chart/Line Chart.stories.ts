@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Line Chart } from './Line Chart'
+import LineChart from './Line Chart'
 
-const meta: Meta<typeof Line Chart> = {
+const meta: Meta<typeof LineChart> = {
   title: 'Components/Line Chart',
-  component: Line Chart,
+  component: LineChart,
   parameters: {
     layout: 'centered',
     docs: {

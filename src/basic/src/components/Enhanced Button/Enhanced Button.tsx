@@ -1,12 +1,7 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-interface Enhanced ButtonProps {
-  variant?: string
-  size?: string
-  loading?: boolean
-  fullWidth?: boolean
-} {
+interface EnhancedButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   children: React.ReactNode
@@ -17,7 +12,7 @@ interface Enhanced ButtonProps {
   loadingText?: string
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+const EnhancedButton = React.forwardRef<HTMLButtonElement, EnhancedButtonProps>(
   ({ 
     className, 
     variant = 'primary', 
@@ -149,6 +144,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   }
 )
 
-Button.displayName = 'Button'
+EnhancedButton.displayName = 'EnhancedButton'
 
-export default Button
+export default EnhancedButton

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Tabs } from './Tabs'
+import Tabs from './Tabs'
 
 const meta: Meta<typeof Tabs> = {
   title: 'Components/Tabs',
@@ -34,7 +34,7 @@ export const Default: Story = {
   }
 }
 
-export const Default: Story = {
+export const DefaultVariant: Story = {
   args: {
     ...Default.args,
     variant: 'default'

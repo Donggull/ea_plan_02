@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Enhanced Button } from './Enhanced Button'
+import EnhancedButton from './Enhanced Button'
 
-const meta: Meta<typeof Enhanced Button> = {
+const meta: Meta<typeof EnhancedButton> = {
   title: 'Components/Enhanced Button',
-  component: Enhanced Button,
+  component: EnhancedButton,
   parameters: {
     layout: 'centered',
     docs: {
