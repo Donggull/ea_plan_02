@@ -115,32 +115,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('Auth successful, user ID from auth:', data.user.id)
       console.log('Auth successful, user email:', data.user.email)
 
+      // Wait for session to be properly established
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // Use server-side API to get user profile (handles RLS properly)
       console.log('Fetching user profile via API...')
       
-      const response = await fetch('/api/auth/user', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const apiResult = await response.json()
-        console.log('API response:', apiResult)
-
-        const userData = apiResult.user
-        const organizationData = apiResult.organization
-
-        console.log('Login successful via API, setting user and organization data')
-        
-        set({ 
-          user: userData, 
-          organization: organizationData, 
-          isLoading: false 
+      try {
+        const response = await fetch('/api/auth/user', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // 중요: 쿠키 포함
         })
-        
-        return
+
+        if (response.ok) {
+          const apiResult = await response.json()
+          console.log('API response:', apiResult)
+
+          const userData = apiResult.user
+          const organizationData = apiResult.organization
+
+          console.log('Login successful via API, setting user and organization data')
+          
+          set({ 
+            user: userData, 
+            organization: organizationData, 
+            isLoading: false 
+          })
+          
+          return
+        } else {
+          const errorData = await response.json()
+          console.error('API error response:', errorData)
+        }
+      } catch (apiError) {
+        console.error('API fetch error:', apiError)
       }
 
       // If API fails, continue with direct database approach
@@ -173,16 +184,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       let userData = initialUserData
 
-      // 사용자 프로필이 없으면 생성 (기존 사용자 대응)
+      // 사용자 프로필이 없으면 생성 또는 가상 프로필 사용
       if (userError?.code === 'PGRST116' || !userData) {
-        console.log('User profile not found, trying to create one...')
+        console.log('User profile not found, database might have RLS issues.')
+        console.log('Creating fallback user profile...')
         
-        // 프로필 생성
+        // 데이터베이스에 프로필이 없으면 fallback 프로필 생성
         const displayName = data.user.user_metadata?.full_name || 
                           data.user.user_metadata?.name || 
                           data.user.email?.split('@')[0] || 
                           'User'
         
+        // 직접 생성 시도 (이것도 실패할 수 있음)
         const { data: newUserData, error: createError } = await supabase
           .from('users')
           .insert({
@@ -197,127 +210,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (createError) {
           console.error('Failed to create user profile:', createError)
-          
-          // 중복 키 오류인 경우 기존 프로필을 다시 조회 시도
-          if (createError.code === '23505') {
-            console.log('User already exists, trying to fetch existing profile...')
-            
-            // 여러 번 시도하여 RLS 정책 적용 시간 확보
-            let existingUserData = null
-            let existingUserError = null
-            
-            for (let attempt = 1; attempt <= 3; attempt++) {
-              console.log(`Profile fetch attempt ${attempt}/3`)
-              await new Promise(resolve => setTimeout(resolve, attempt * 200))
-              
-              const result = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', data.user.id)
-                .single()
-              
-              existingUserData = result.data
-              existingUserError = result.error
-              
-              if (!existingUserError && existingUserData) {
-                break
-              }
-            }
-            
-            if (existingUserError || !existingUserData) {
-              console.error('Failed to fetch existing user profile after multiple attempts:', existingUserError)
-              
-              // 마지막으로 이메일을 기준으로 실제 사용자 데이터 확인
-              console.log('Attempting to find user by email as final fallback...')
-              const { data: emailUserData, error: emailUserError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', data.user.email!)
-                .single()
-              
-              if (!emailUserError && emailUserData) {
-                console.log('Found existing user by email:', emailUserData.id)
-                userData = emailUserData
-              } else {
-                // 완전히 실패한 경우, 기본값으로 처리하되 실제 존재하는 사용자 ID 사용
-                console.log('Using fallback approach - login successful but profile data unavailable')
-                userData = {
-                  id: data.user.id,
-                  email: data.user.email!,
-                  name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
-                  user_role: 'user',
-                  subscription_tier: 'free',
-                  organization_id: null,
-                  role: null,
-                  avatar_url: null,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                }
-              }
-            } else {
-              userData = existingUserData
-            }
-          } else {
-            throw new Error('사용자 프로필 생성에 실패했습니다.')
+          // 데이터베이스 생성 실패 시 fallback 프로필 사용
+          console.log('Database creation failed, using in-memory fallback profile')
+          userData = {
+            id: data.user.id,
+            email: data.user.email!,
+            name: displayName,
+            user_role: 'user',
+            subscription_tier: 'free',
+            organization_id: null,
+            role: null,
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           }
+          console.log('Fallback profile created:', userData)
         } else {
           userData = newUserData
+          console.log('Database profile created successfully:', userData)
         }
       }
 
-      // 조직 정보 가져오기 (없으면 생성)
-      console.log('Checking user organization ID:', userData.organization_id)
+      // 조직이 없으면 기본 조직을 설정하지 않고 그냥 진행
       let organizationData: Organization | null = null
-      if (!userData.organization_id) {
-        // 조직이 없으면 생성
-        console.log('No organization found, creating organization for user...')
-        const orgSlug = `${userData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}-${data.user.id.slice(0, 8)}-${Date.now()}`
-        
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .insert({
-            name: `${userData.name}의 조직`,
-            slug: orgSlug,
-            description: '개인 워크스페이스',
-            created_by: data.user.id,
-            is_active: true,
-            subscription_tier: 'free'
-          })
-          .select()
-          .single()
-
-        if (!orgError && orgData) {
-          organizationData = orgData
-          
-          // 사용자 프로필에 조직 연결
-          await supabase
-            .from('users')
-            .update({ 
-              organization_id: orgData.id,
-              role: 'owner'
-            })
-            .eq('id', data.user.id)
-        }
-      } else {
-        // 기존 조직 가져오기
-        console.log('Fetching existing organization:', userData.organization_id)
-        const { data: orgData, error: orgError } = await supabase
+      if (userData.organization_id) {
+        // 기존 조직만 가져오기 (생성하지 않음)
+        const { data: orgData } = await supabase
           .from('organizations')
           .select('*')
           .eq('id', userData.organization_id)
           .single()
 
-        console.log('Organization query result:', { orgData, orgError })
-        
-        if (orgError) {
-          console.error('Failed to fetch organization:', orgError)
-          console.log('Continuing login without organization data')
-          organizationData = null
-        } else if (!orgData) {
-          console.error('No organization data returned')
-          console.log('Continuing login without organization data')
-          organizationData = null
-        } else {
+        if (orgData) {
           organizationData = orgData
         }
       }
@@ -331,6 +255,64 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     } catch (error) {
       console.error('SignIn error:', error)
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  signUp: async (email: string, password: string, orgData: CreateOrgData) => {
+    set({ isLoading: true })
+    
+    try {
+      // 사용자 회원가입 - 데이터베이스 트리거가 자동으로 조직과 프로필을 생성
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: orgData.user.name,
+          },
+        },
+      })
+
+      if (authError) throw authError
+      if (!authData.user) throw new Error('회원가입에 실패했습니다.')
+
+      console.log('Signup successful, user will be created by database trigger')
+      set({ isLoading: false })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  signOut: async () => {
+    set({ isLoading: true })
+    
+    try {
+      console.log('Starting signOut process...')
+      
+      // 1. Supabase 세션 완전히 제거
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
+      if (error) throw error
+
+      // 2. 로컬 상태 초기화
+      set({ 
+        user: null, 
+        organization: null, 
+        isLoading: false,
+        isInitialized: false
+      })
+      
+      // 3. 브라우저 세션 저장소 클리어
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+      
+      console.log('SignOut completed successfully')
+    } catch (error) {
+      console.error('SignOut error:', error)
       set({ isLoading: false })
       throw error
     }

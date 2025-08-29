@@ -25,7 +25,12 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('API: Starting user profile fetch...')
+    
+    // 쿠키에서 세션 토큰 추출
     const cookieStore = await cookies()
+    const allCookies = cookieStore.getAll()
+    console.log('API: Available cookies:', allCookies.map(c => c.name))
     
     const supabase = createServerClient(
       supabaseUrl!,
@@ -40,8 +45,8 @@ export async function GET(request: NextRequest) {
               cookiesToSet.forEach(({ name, value, options }: any) =>
                 cookieStore.set(name, value, options)
               )
-            } catch {
-              // SSR에서는 쿠키를 설정할 수 없음
+            } catch (error) {
+              console.log('API: Cannot set cookies in SSR:', error)
             }
           },
         },
@@ -49,11 +54,21 @@ export async function GET(request: NextRequest) {
     )
     
     // Get the current user from the session
+    console.log('API: Getting user from session...')
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
-    if (userError || !user) {
+    if (userError) {
+      console.error('API: User session error:', userError)
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Session error', details: userError.message },
+        { status: 401 }
+      )
+    }
+    
+    if (!user) {
+      console.log('API: No user found in session')
+      return NextResponse.json(
+        { error: 'No authenticated user' },
         { status: 401 }
       )
     }
