@@ -74,11 +74,16 @@ src/
 
 ### Vercel 배포
 
-1. [Vercel](https://vercel.com)에서 프로젝트 임포트
-2. 환경 변수 설정:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. 배포
+1. [Vercel](https://vercel.com)에서 GitHub 저장소 임포트
+2. 프로젝트 설정에서 Environment Variables 섹션으로 이동
+3. 다음 환경 변수 설정 (Production, Preview, Development 모두에 적용):
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://ojeebtnqwsgatzxwasbn.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qZWVidG5xd3NnYXR6eHdhc2JuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0MzM3MjYsImV4cCI6MjA3MjAwOTcyNn0.wqxckMW2bAjZ2mrWekdgemNmgh4FEKQtrn2vsep9Hhg
+   ```
+4. 배포 실행
+
+> **중요**: 환경 변수 설정 후 반드시 새로운 배포를 트리거해야 합니다.
 
 ## 라이선스
 
