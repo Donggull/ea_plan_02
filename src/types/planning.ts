@@ -1,25 +1,12 @@
-export interface Project {
-  id: string
-  organization_id: string
-  name: string
-  description: string | null
-  type: 'proposal' | 'development' | 'operation'
-  status: string
-  rfp_data: Record<string, any> | null
-  settings: Record<string, any>
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-export interface RFPAnalysis {
-  summary: string
-  key_requirements: string[]
-  technical_specs: string[]
-  timeline: string
-  budget_estimate: number
-  risk_factors: string[]
-}
+// Re-export types from core for backwards compatibility
+export type {
+  Project,
+  ProjectType,
+  ProjectStatus,
+  WorkflowStage,
+  Workflow,
+  RFPAnalysis
+} from './core'
 
 export interface Proposal {
   id: string

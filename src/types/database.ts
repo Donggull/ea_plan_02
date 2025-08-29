@@ -1,3 +1,9 @@
+import type { 
+  OrganizationSettings,
+  UserSettings,
+  ProjectSettings 
+} from './core'
+
 export interface Database {
   public: {
     Tables: {
@@ -6,7 +12,8 @@ export interface Database {
           id: string
           name: string
           slug: string
-          settings: Record<string, any>
+          settings: OrganizationSettings
+          subscription_tier: 'free' | 'starter' | 'pro' | 'enterprise'
           created_at: string
           updated_at: string
         }
@@ -14,7 +21,8 @@ export interface Database {
           id?: string
           name: string
           slug: string
-          settings?: Record<string, any>
+          settings?: OrganizationSettings
+          subscription_tier?: 'free' | 'starter' | 'pro' | 'enterprise'
           created_at?: string
           updated_at?: string
         }
@@ -22,7 +30,8 @@ export interface Database {
           id?: string
           name?: string
           slug?: string
-          settings?: Record<string, any>
+          settings?: OrganizationSettings
+          subscription_tier?: 'free' | 'starter' | 'pro' | 'enterprise'
           created_at?: string
           updated_at?: string
         }
@@ -33,9 +42,9 @@ export interface Database {
           email: string
           name: string
           avatar_url: string | null
-          organization_id: string | null
-          role: string
-          settings: Record<string, any>
+          organization_id: string
+          role: 'owner' | 'admin' | 'member' | 'viewer'
+          settings: UserSettings
           created_at: string
           updated_at: string
         }
@@ -44,9 +53,9 @@ export interface Database {
           email: string
           name: string
           avatar_url?: string | null
-          organization_id?: string | null
-          role?: string
-          settings?: Record<string, any>
+          organization_id: string
+          role?: 'owner' | 'admin' | 'member' | 'viewer'
+          settings?: UserSettings
           created_at?: string
           updated_at?: string
         }
@@ -55,9 +64,9 @@ export interface Database {
           email?: string
           name?: string
           avatar_url?: string | null
-          organization_id?: string | null
-          role?: string
-          settings?: Record<string, any>
+          organization_id?: string
+          role?: 'owner' | 'admin' | 'member' | 'viewer'
+          settings?: UserSettings
           created_at?: string
           updated_at?: string
         }
@@ -69,9 +78,10 @@ export interface Database {
           name: string
           description: string | null
           type: 'proposal' | 'development' | 'operation'
-          status: string
+          status: 'active' | 'paused' | 'completed' | 'cancelled'
           rfp_data: Record<string, any> | null
-          settings: Record<string, any>
+          current_stage: string
+          settings: ProjectSettings
           created_by: string
           created_at: string
           updated_at: string
@@ -82,9 +92,10 @@ export interface Database {
           name: string
           description?: string | null
           type: 'proposal' | 'development' | 'operation'
-          status?: string
+          status?: 'active' | 'paused' | 'completed' | 'cancelled'
           rfp_data?: Record<string, any> | null
-          settings?: Record<string, any>
+          current_stage?: string
+          settings?: ProjectSettings
           created_by: string
           created_at?: string
           updated_at?: string
@@ -95,10 +106,58 @@ export interface Database {
           name?: string
           description?: string | null
           type?: 'proposal' | 'development' | 'operation'
-          status?: string
+          status?: 'active' | 'paused' | 'completed' | 'cancelled'
           rfp_data?: Record<string, any> | null
-          settings?: Record<string, any>
+          current_stage?: string
+          settings?: ProjectSettings
           created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      workflows: {
+        Row: {
+          id: string
+          project_id: string
+          stage: string
+          step: string
+          status: 'pending' | 'in_progress' | 'completed' | 'blocked'
+          data: Record<string, any>
+          assigned_to: string | null
+          estimated_hours: number | null
+          actual_hours: number | null
+          started_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          stage: string
+          step: string
+          status?: 'pending' | 'in_progress' | 'completed' | 'blocked'
+          data?: Record<string, any>
+          assigned_to?: string | null
+          estimated_hours?: number | null
+          actual_hours?: number | null
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          stage?: string
+          step?: string
+          status?: 'pending' | 'in_progress' | 'completed' | 'blocked'
+          data?: Record<string, any>
+          assigned_to?: string | null
+          estimated_hours?: number | null
+          actual_hours?: number | null
+          started_at?: string | null
+          completed_at?: string | null
           created_at?: string
           updated_at?: string
         }

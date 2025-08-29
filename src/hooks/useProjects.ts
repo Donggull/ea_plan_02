@@ -2,32 +2,31 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { Project } from '@/types/planning'
-import { Database } from '@/types/database'
+import { Database } from '@/types/supabase'
 
+type Project = Database['public']['Tables']['projects']['Row']
 type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 type ProjectUpdate = Database['public']['Tables']['projects']['Update']
 
-export function useProjects(organizationId?: string) {
+export function useProjects(userId?: string) {
   const queryClient = useQueryClient()
 
   const { data: projects, isLoading, error } = useQuery({
-    queryKey: ['projects', organizationId],
+    queryKey: ['projects', userId],
     queryFn: async () => {
       let query = supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
+      if (userId) {
+        query = query.eq('user_id', userId)
       }
 
       const { data, error } = await query
       if (error) throw error
       return data as Project[]
-    },
-    enabled: !!organizationId
+    }
   })
 
   const createProject = useMutation({
@@ -47,7 +46,10 @@ export function useProjects(organizationId?: string) {
   })
 
   const updateProject = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: ProjectUpdate }) => {
+    mutationFn: async ({ id, updates }: { 
+      id: string
+      updates: ProjectUpdate
+    }) => {
       const { data, error } = await supabase
         .from('projects')
         .update(updates)

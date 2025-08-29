@@ -3,18 +3,19 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { ChatMessage, ChatRequest, ChatResponse } from '@/types/ai'
-import { Database } from '@/types/database'
+import { Database } from '@/types/supabase'
 
-type ChatSessionInsert = Database['public']['Tables']['chat_sessions']['Insert']
-type ChatMessageInsert = Database['public']['Tables']['chat_messages']['Insert']
+type Conversation = Database['public']['Tables']['conversations']['Row']
+type ConversationInsert = Database['public']['Tables']['conversations']['Insert']
+type Message = Database['public']['Tables']['messages']['Row']
+type MessageInsert = Database['public']['Tables']['messages']['Insert']
 
-export function useChatSessions(projectId?: string) {
-  const { data: sessions, isLoading } = useQuery({
-    queryKey: ['chat-sessions', projectId],
+export function useConversations(projectId?: string) {
+  const { data: conversations, isLoading } = useQuery({
+    queryKey: ['conversations', projectId],
     queryFn: async () => {
       let query = supabase
-        .from('chat_sessions')
+        .from('conversations')
         .select('*')
         .order('updated_at', { ascending: false })
 
@@ -24,35 +25,35 @@ export function useChatSessions(projectId?: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return data
+      return data as Conversation[]
     }
   })
 
-  return { sessions, isLoading }
+  return { conversations, isLoading }
 }
 
-export function useChatMessages(sessionId: string) {
+export function useMessages(conversationId: string) {
   const queryClient = useQueryClient()
 
   const { data: messages, isLoading } = useQuery({
-    queryKey: ['chat-messages', sessionId],
+    queryKey: ['messages', conversationId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      return data as ChatMessage[]
+      return data as Message[]
     },
-    enabled: !!sessionId
+    enabled: !!conversationId
   })
 
   const addMessage = useMutation({
-    mutationFn: async (messageData: ChatMessageInsert) => {
+    mutationFn: async (messageData: MessageInsert) => {
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('messages')
         .insert(messageData)
         .select()
         .single()
@@ -61,22 +62,22 @@ export function useChatMessages(sessionId: string) {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
     }
   })
 
   return { messages, isLoading, addMessage }
 }
 
-export function useAIChat(projectId?: string) {
+export function useAIChat(_projectId?: string) {
   const [isLoading, setIsLoading] = useState(false)
   const queryClient = useQueryClient()
 
-  const createSession = useMutation({
-    mutationFn: async (sessionData: ChatSessionInsert) => {
+  const createConversation = useMutation({
+    mutationFn: async (conversationData: ConversationInsert) => {
       const { data, error } = await supabase
-        .from('chat_sessions')
-        .insert(sessionData)
+        .from('conversations')
+        .insert(conversationData)
         .select()
         .single()
 
@@ -84,41 +85,40 @@ export function useAIChat(projectId?: string) {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     }
   })
 
   const sendMessage = useCallback(async (
-    sessionId: string,
-    request: ChatRequest
-  ): Promise<ChatResponse> => {
+    conversationId: string,
+    content: string,
+    _userId?: string
+  ): Promise<Message> => {
     setIsLoading(true)
     
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...request,
-          session_id: sessionId,
-          project_id: projectId
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to send message')
+      const messageData: MessageInsert = {
+        conversation_id: conversationId,
+        role: 'user',
+        content
       }
 
-      const data = await response.json()
-      return data
+      const { data, error } = await supabase
+        .from('messages')
+        .insert(messageData)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data as Message
     } finally {
       setIsLoading(false)
     }
-  }, [projectId])
+  }, [])
 
   return {
     isLoading,
-    createSession,
+    createConversation,
     sendMessage
   }
 }
