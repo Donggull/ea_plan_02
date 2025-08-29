@@ -71,7 +71,8 @@ export function useAuth() {
         try {
           // 1. 개인 조직 생성
           const displayName = name || 'User'
-          const organizationSlug = `${displayName.toLowerCase().replace(/\s+/g, '-')}-${data.user.id.slice(0, 8)}`
+          const timestamp = Date.now().toString().slice(-6) // 마지막 6자리
+          const organizationSlug = `${displayName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${data.user.id.slice(0, 8)}-${timestamp}`
           
           const { data: orgData, error: orgError } = await supabase
             .from('organizations')
@@ -86,7 +87,7 @@ export function useAuth() {
 
           if (orgError) {
             console.error('Organization creation error:', orgError)
-            throw new Error('조직 생성에 실패했습니다.')
+            throw new Error(`조직 생성에 실패했습니다: ${orgError.message || orgError.details || 'Unknown error'}`)
           }
 
           // 2. 사용자 프로필 생성 (조직 연결)
@@ -104,7 +105,7 @@ export function useAuth() {
             console.error('User profile creation error:', userError)
             // 조직은 생성했지만 사용자 프로필 생성 실패 시 조직 삭제
             await supabase.from('organizations').delete().eq('id', orgData.id)
-            throw new Error('사용자 프로필 생성에 실패했습니다.')
+            throw new Error(`사용자 프로필 생성에 실패했습니다: ${userError.message || userError.details || 'Unknown error'}`)
           }
 
         } catch (setupError) {
