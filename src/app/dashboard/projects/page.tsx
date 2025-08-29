@@ -14,7 +14,7 @@ export default function ProjectsPage() {
   const router = useRouter()
   const { user } = useAuthStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [_showDeleteConfirm, _setShowDeleteConfirm] = useState<string | null>(null)
 
   // React Query 훅 사용
   const { data: projects = [], isLoading, error, refetch } = useProjects()

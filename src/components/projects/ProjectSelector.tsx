@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Search, Plus, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase/client'
@@ -40,9 +40,9 @@ export function ProjectSelector({
     if (user) {
       loadProjects()
     }
-  }, [user])
+  }, [user, loadProjects])
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     if (!user) return
 
     setLoading(true)
@@ -72,7 +72,7 @@ export function ProjectSelector({
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

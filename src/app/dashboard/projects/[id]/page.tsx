@@ -14,10 +14,8 @@ import {
   ArrowLeft, 
   Calendar, 
   Users, 
-  TrendingUp, 
   DollarSign,
   Settings,
-  UserPlus,
   Loader,
   AlertCircle
 } from 'lucide-react'

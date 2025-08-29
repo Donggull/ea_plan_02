@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const priority = searchParams.get('priority')
     const category = searchParams.get('category')
 
-    let query = supabase
+    const query = supabase
       .from('project_members')
       .select(`
         project:projects(

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Card from '@/basic/src/components/Card/Card'
 import Input from '@/basic/src/components/Input/Input'
 import Button from '@/basic/src/components/Button/Button'
@@ -37,9 +37,9 @@ export function MemberManagement({ projectId, onMemberChange }: MemberManagement
 
   useEffect(() => {
     loadMembers()
-  }, [projectId])
+  }, [projectId, loadMembers])
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('project_members')
@@ -59,7 +59,7 @@ export function MemberManagement({ projectId, onMemberChange }: MemberManagement
     } catch (error) {
       console.error('Error loading members:', error)
     }
-  }
+  }, [projectId])
 
   const handleInvite = async () => {
     if (!user || !inviteEmail) return
