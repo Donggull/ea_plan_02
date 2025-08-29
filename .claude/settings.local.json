@@ -24,7 +24,18 @@
       "mcp__supabase__list_tables",
       "mcp__supabase__list_extensions",
       "mcp__supabase__apply_migration",
-      "mcp__supabase__execute_sql"
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__get_logs",
+      "mcp__github-mcp__git-add",
+      "Bash(vercel:*)",
+      "mcp__playwright-stealth__playwright_navigate",
+      "mcp__playwright-stealth__playwright_screenshot",
+      "mcp__playwright-stealth__playwright_fill",
+      "mcp__playwright-stealth__playwright_click",
+      "mcp__playwright-stealth__playwright_console_logs",
+      "mcp__playwright-stealth__playwright_get_visible_html",
+      "mcp__playwright-stealth__playwright_evaluate",
+      "mcp__github-mcp__git-log"
     ],
     "deny": [],
     "ask": []
