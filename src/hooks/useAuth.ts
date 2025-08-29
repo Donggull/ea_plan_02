@@ -1,61 +1,98 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
+import type { User, AuthError } from '@supabase/supabase-js'
 
-// 임시 사용자 타입 (Supabase 의존성 제거)
-interface TempUser {
-  id: string
-  email?: string
-  name?: string
-}
-
-// 임시 오류 타입
-interface TempError {
-  message: string
-}
-
-// API 응답 타입
 interface AuthResponse {
   data: any
-  error: TempError | null
+  error: AuthError | null
 }
 
-// Vercel 배포 호환을 위해 Supabase 의존성 제거한 임시 훅
 export function useAuth() {
-  const [user, setUser] = useState<TempUser | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 임시로 로딩만 처리 (인증 없음)
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 100)
+    // 현재 세션 확인
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+      } catch (error) {
+        console.error('Error getting session:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
+    getSession()
+
+    // 인증 상태 변경 리스너
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const signIn = async (email: string, password: string): Promise<AuthResponse> => {
-    // 임시 더미 함수 - 항상 성공으로 처리
-    console.log('SignIn attempt:', email, password)
-    return { data: null, error: null }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      return { data, error }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error as AuthError
+      }
+    }
   }
 
-  const signUp = async (email: string, password: string, name: string): Promise<AuthResponse> => {
-    // 임시 더미 함수 - 항상 성공으로 처리
-    console.log('SignUp attempt:', email, password, name)
-    return { data: null, error: null }
+  const signUp = async (email: string, password: string, name?: string): Promise<AuthResponse> => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name
+          }
+        }
+      })
+      return { data, error }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error as AuthError
+      }
+    }
   }
 
-  const signOut = async (): Promise<{ error: TempError | null }> => {
-    // 임시 더미 함수
-    setUser(null)
-    return { error: null }
+  const signOut = async (): Promise<{ error: AuthError | null }> => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      return { error }
+    } catch (error) {
+      return { error: error as AuthError }
+    }
   }
 
   const resetPassword = async (email: string): Promise<AuthResponse> => {
-    // 임시 더미 함수 - 항상 성공으로 처리
-    console.log('Reset password attempt:', email)
-    return { data: null, error: null }
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email)
+      return { data, error }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error as AuthError
+      }
+    }
   }
 
   return {

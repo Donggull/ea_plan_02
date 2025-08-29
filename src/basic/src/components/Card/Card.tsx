@@ -1,7 +1,7 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
   variant?: 'default' | 'outlined' | 'elevated'
   className?: string
@@ -11,7 +11,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ children, variant = 'default', className, ...props }, ref) => {
     const variantClasses = {
       default: 'bg-white',
-      outlined: 'bg-white border border-[hsl(var(--color-secondary-300))]',
+      outlined: 'bg-white border border-gray-300',
       elevated: 'bg-white shadow-lg'
     }
 
