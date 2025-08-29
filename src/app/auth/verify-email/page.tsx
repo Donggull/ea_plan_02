@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import { supabase } from '@/lib/supabase/client'
 import Card from '@/basic/src/components/Card/Card'
 import Button from '@/basic/src/components/Button/Button'
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { initialize } = useAuthStore()
@@ -79,68 +79,85 @@ export default function VerifyEmailPage() {
   }, [searchParams, initialize, router])
 
   return (
+    <Card className="w-full max-w-md mx-auto text-center">
+      <div className="space-y-6">
+        {status === 'loading' && (
+          <>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <h1 className="text-xl font-semibold text-gray-900">
+              이메일 인증 중...
+            </h1>
+            <p className="text-gray-600">
+              잠시만 기다려주세요.
+            </p>
+          </>
+        )}
+
+        {status === 'success' && (
+          <>
+            <div className="text-green-600">
+              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900">
+              인증 완료
+            </h1>
+            <p className="text-gray-600">{message}</p>
+            <p className="text-sm text-gray-500">
+              자동으로 리디렉션됩니다...
+            </p>
+          </>
+        )}
+
+        {status === 'error' && (
+          <>
+            <div className="text-red-600">
+              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900">
+              인증 실패
+            </h1>
+            <p className="text-gray-600">{message}</p>
+            <div className="space-y-2">
+              <Button
+                onClick={() => router.push('/auth/login')}
+                className="w-full"
+              >
+                로그인 페이지로 이동
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/auth/signup')}
+                className="w-full"
+              >
+                다시 회원가입
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md mx-auto text-center">
-        <div className="space-y-6">
-          {status === 'loading' && (
-            <>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                이메일 인증 중...
-              </h1>
-              <p className="text-gray-600">
-                잠시만 기다려주세요.
-              </p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <div className="text-green-600">
-                <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                인증 완료
-              </h1>
-              <p className="text-gray-600">{message}</p>
-              <p className="text-sm text-gray-500">
-                자동으로 리디렉션됩니다...
-              </p>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="text-red-600">
-                <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                인증 실패
-              </h1>
-              <p className="text-gray-600">{message}</p>
-              <div className="space-y-2">
-                <Button
-                  onClick={() => router.push('/auth/login')}
-                  className="w-full"
-                >
-                  로그인 페이지로 이동
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/auth/signup')}
-                  className="w-full"
-                >
-                  다시 회원가입
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Card>
+      <Suspense fallback={
+        <Card className="w-full max-w-md mx-auto text-center">
+          <div className="space-y-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <h1 className="text-xl font-semibold text-gray-900">
+              로딩 중...
+            </h1>
+          </div>
+        </Card>
+      }>
+        <VerifyEmailContent />
+      </Suspense>
     </div>
   )
 }
