@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-key'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('SUPABASE_SERVICE_ROLE_KEY is not set. Admin operations may not work.')
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase admin environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.')
 }
 
 // Admin client with service role key for server-side operations
