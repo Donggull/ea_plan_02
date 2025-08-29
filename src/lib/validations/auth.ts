@@ -96,11 +96,9 @@ export const organizationSchema = z.object({
     .optional()
     .or(z.literal('')),
   timezone: z
-    .string()
-    .default('Asia/Seoul'),
+    .string(),
   subscription_tier: z
-    .enum(['free', 'starter', 'pro', 'enterprise'])
-    .default('free'),
+    .enum(['free', 'starter', 'pro', 'enterprise']),
 })
 
 // 팀원 초대 스키마

@@ -44,8 +44,8 @@ export default function OrganizationSetup({ onComplete }: OrganizationSetupProps
     resolver: zodResolver(organizationSchema),
     mode: 'onChange',
     defaultValues: {
-      timezone: 'Asia/Seoul',
-      subscription_tier: 'free'
+      timezone: 'Asia/Seoul' as const,
+      subscription_tier: 'free' as const
     }
   })
 
