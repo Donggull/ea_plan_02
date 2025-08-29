@@ -44,7 +44,7 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     checkAuth()
   }, [isInitialized, isLoading, initialize])
 
-  // 별도 useEffect로 리다이렉트 처리 (user 상태 변화에 즉시 반응)
+  // 로그인 페이지에서 이미 로그인된 사용자만 리다이렉트 (미들웨어가 보호된 페이지 처리)
   useEffect(() => {
     // 초기화가 완료된 후에만 리다이렉트 로직 실행
     if (!isInitialized || isChecking) return
@@ -53,17 +53,10 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     if (pathname === '/auth/login' && user) {
       const urlParams = new URLSearchParams(window.location.search)
       const redirectTo = urlParams.get('redirect') || '/dashboard'
-      console.log(`User already logged in, redirecting to ${redirectTo}`)
+      console.log(`User already logged in, redirecting from login page to ${redirectTo}`)
       router.replace(redirectTo)
-      return
     }
-
-    // 보호된 페이지인데 로그인하지 않았으면 로그인 페이지로 리다이렉트
-    if (!isPublicPath && !user) {
-      console.log(`Redirecting from protected route ${pathname} to login`)
-      router.replace(`/auth/login?redirect=${encodeURIComponent(pathname)}`)
-    }
-  }, [user, isInitialized, isChecking, pathname, isPublicPath, router])
+  }, [user, isInitialized, isChecking, pathname, router])
 
   // 로딩 중이거나 인증 확인 중이면 로딩 화면 표시
   if (isChecking || isLoading || (!isInitialized && !isPublicPath)) {
@@ -75,11 +68,6 @@ export default function RouteGuard({ children }: RouteGuardProps) {
         </div>
       </div>
     )
-  }
-
-  // 보호된 페이지인데 로그인하지 않았으면 아무것도 렌더링하지 않음 (리다이렉트 대기)
-  if (!isPublicPath && !user) {
-    return null
   }
 
   return <>{children}</>

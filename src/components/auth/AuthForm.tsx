@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuthStore } from '@/stores/auth-store'
@@ -30,7 +29,6 @@ export default function AuthForm({
   onModeChange,
   redirectTo = '/dashboard'
 }: AuthFormProps) {
-  const router = useRouter()
   const { signIn, signUp, resetPassword, isLoading } = useAuthStore()
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
@@ -55,9 +53,12 @@ export default function AuthForm({
       setError('')
       await signIn(data.email, data.password)
       
-      // 로그인 성공 후 즉시 리다이렉트 (router.replace 사용으로 히스토리 남기지 않음)
-      console.log(`Login successful, redirecting to ${redirectTo}`)
-      router.replace(redirectTo)
+      // 로그인 성공 후 상태 안정화를 위해 잠시 대기 후 리다이렉트
+      console.log(`Login successful, waiting for auth state to stabilize...`)
+      setTimeout(() => {
+        console.log(`Redirecting to ${redirectTo}`)
+        window.location.href = redirectTo // 새로고침 효과로 확실한 페이지 전환
+      }, 200)
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     }
