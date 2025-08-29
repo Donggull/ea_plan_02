@@ -1,13 +1,12 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Providers } from '@/components/providers/Providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '엘루오 - 통합 관리 플랫폼',
-  description: 'AI 기반 웹/앱 서비스 통합 관리 플랫폼',
+  title: 'EA Plan - 웹·앱 서비스 기획 플랫폼',
+  description: 'AI 기반 웹·앱 서비스 기획의 새로운 경험',
 }
 
 export default function RootLayout({
@@ -18,9 +17,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={inter.className}>
-        <Providers>
-          {children}
-        </Providers>
+        {children}
       </body>
     </html>
   )
