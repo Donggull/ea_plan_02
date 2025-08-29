@@ -112,17 +112,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('로그인에 실패했습니다.')
       }
 
-      console.log('Auth successful, fetching user profile for ID:', data.user.id)
+      console.log('Auth successful, user ID from auth:', data.user.id)
+      console.log('Auth successful, user email:', data.user.email)
 
       // 잠시 대기 후 사용자 정보 가져오기 (RLS 정책 적용 시간 확보)
       await new Promise(resolve => setTimeout(resolve, 100))
 
-      // 사용자 정보 가져오기 (없으면 생성)
-      const { data: initialUserData, error: userError } = await supabase
+      // 이메일을 기준으로 올바른 사용자 찾기 (ID 불일치 문제 해결)
+      let { data: initialUserData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', data.user.id)
+        .eq('email', data.user.email!)
         .single()
+      
+      // 이메일로도 찾을 수 없으면 ID로 시도
+      if (userError?.code === 'PGRST116' || !initialUserData) {
+        console.log('User not found by email, trying by ID...')
+        const result = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single()
+        
+        initialUserData = result.data
+        userError = result.error
+      }
       
       console.log('User profile query result:', { initialUserData, userError })
       
@@ -181,19 +195,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             
             if (existingUserError || !existingUserData) {
               console.error('Failed to fetch existing user profile after multiple attempts:', existingUserError)
-              // 사용자는 이미 인증되었으므로, 기본값으로 로그인 성공 처리
-              console.log('Using fallback approach - login successful but profile data unavailable')
-              userData = {
-                id: data.user.id,
-                email: data.user.email!,
-                name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
-                user_role: 'user',
-                subscription_tier: 'free',
-                organization_id: null,
-                role: null,
-                avatar_url: null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+              
+              // 마지막으로 이메일을 기준으로 실제 사용자 데이터 확인
+              console.log('Attempting to find user by email as final fallback...')
+              const { data: emailUserData, error: emailUserError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', data.user.email!)
+                .single()
+              
+              if (!emailUserError && emailUserData) {
+                console.log('Found existing user by email:', emailUserData.id)
+                userData = emailUserData
+              } else {
+                // 완전히 실패한 경우, 기본값으로 처리하되 실제 존재하는 사용자 ID 사용
+                console.log('Using fallback approach - login successful but profile data unavailable')
+                userData = {
+                  id: data.user.id,
+                  email: data.user.email!,
+                  name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User',
+                  user_role: 'user',
+                  subscription_tier: 'free',
+                  organization_id: null,
+                  role: null,
+                  avatar_url: null,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
               }
             } else {
               userData = existingUserData
@@ -341,15 +369,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     
     try {
-      const { error } = await supabase.auth.signOut()
+      console.log('Starting signOut process...')
+      
+      // 1. Supabase 세션 완전히 제거
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
       if (error) throw error
 
+      // 2. 로컬 상태 초기화
       set({ 
         user: null, 
         organization: null, 
-        isLoading: false 
+        isLoading: false,
+        isInitialized: false
       })
+      
+      // 3. 브라우저 세션 저장소 클리어
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+      }
+      
+      console.log('SignOut completed successfully')
     } catch (error) {
+      console.error('SignOut error:', error)
       set({ isLoading: false })
       throw error
     }
