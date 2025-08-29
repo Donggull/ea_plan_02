@@ -1,128 +1,23 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { IconRenderer } from '@/components/icons/IconRenderer'
-import Button from '@/basic/src/components/Button/Button'
-import { cn } from '@/lib/utils'
-
-const categories = [
-  {
-    id: 'proposal',
-    title: '제안 진행',
-    description: 'RFP 분석부터 제안서 작성까지',
-    icon: 'FileText',
-    color: 'from-orange-400 to-orange-600',
-    action: '제안 시작하기'
-  },
-  {
-    id: 'development', 
-    title: '구축 관리',
-    description: '요구사항 정리부터 QA까지',
-    icon: 'Settings',
-    color: 'from-pink-400 to-pink-600',
-    action: '구축 관리하기'
-  },
-  {
-    id: 'operation',
-    title: '운영 관리', 
-    description: '업무 분배와 일정 관리',
-    icon: 'Headphones',
-    color: 'from-green-400 to-green-600',
-    action: '운영 시작하기'
-  },
-  {
-    id: 'ai-chat',
-    title: 'AI 챗봇',
-    description: 'AI 모델로 스마트한 업무 지원',
-    icon: 'Bot',
-    color: 'from-blue-400 to-blue-600',
-    action: 'AI와 대화하기'
-  }
-]
-
 export default function HomePage() {
-  const router = useRouter()
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const handleGetStarted = () => {
-    router.push('/dashboard')
-  }
-
-  const handleCardClick = (_categoryId: string) => {
-    router.push('/dashboard')
-  }
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-center">
-          <div className="text-2xl font-bold mb-2 text-white">EA Plan</div>
-          <div className="text-gray-400">로딩 중...</div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between p-6">
-        <div className="flex items-center space-x-8">
-          {/* Logo */}
+      <header className="p-6">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
               <span className="text-gray-900 font-bold text-xl">E</span>
             </div>
+            <span className="text-xl font-bold">EA Plan</span>
           </div>
-          
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <button className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
-              <IconRenderer icon="FileText" size={18} />
-              <span>제안진행</span>
-            </button>
-            <button className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
-              <IconRenderer icon="Settings" size={18} />
-              <span>구축관리</span>
-            </button>
-            <button className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
-              <IconRenderer icon="Headphones" size={18} />
-              <span>운영관리</span>
-            </button>
-          </nav>
-        </div>
-        
-        {/* Auth Buttons */}
-        <div className="flex items-center space-x-3">
-          <Button
-            variant="ghost"
-            onClick={handleGetStarted}
-            className="text-white bg-blue-600 hover:bg-blue-700 px-6 py-2"
-          >
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
             대시보드
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={handleGetStarted}
-            className="text-white bg-purple-600 hover:bg-purple-700 px-6 py-2"
-          >
-            프로젝트
-          </Button>
-          <button className="text-gray-300 hover:text-white p-2">
-            <IconRenderer icon="Settings" size={20} />
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 container mx-auto px-6 py-16">
-        {/* Hero Section */}
+      <main className="container mx-auto px-6 py-16">
         <div className="text-center mb-20">
           <p className="text-gray-400 text-lg mb-4">기획자를 위한 AI 통합 플랫폼</p>
           <h1 className="text-5xl md:text-7xl font-bold mb-6">
@@ -134,83 +29,80 @@ export default function HomePage() {
           </h1>
         </div>
 
-        {/* Categories Grid */}
+        {/* Categories */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {categories.map((category, index) => (
-            <div
-              key={category.id}
-              className={cn(
-                'relative group cursor-pointer transform transition-all duration-300 hover:scale-105',
-                hoveredCard === category.id ? 'z-20' : 'z-10'
-              )}
-              onMouseEnter={() => setHoveredCard(category.id)}
-              onMouseLeave={() => setHoveredCard(null)}
-              onClick={() => handleCardClick(category.id)}
-              style={{
-                animationDelay: `${index * 150}ms`
-              }}
-            >
-              {/* Background Glow Effect */}
-              <div className={cn(
-                'absolute -inset-1 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl',
-                `bg-gradient-to-r ${category.color}`
-              )} />
-              
-              {/* Card */}
-              <div className={cn(
-                'relative bg-gradient-to-br rounded-2xl p-8 h-80 flex flex-col justify-between',
-                `${category.color}`,
-                'shadow-2xl group-hover:shadow-3xl transition-shadow duration-300'
-              )}>
-                {/* Icon */}
-                <div className="flex-shrink-0">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                    <IconRenderer 
-                      icon={category.icon as any} 
-                      size={32} 
-                      className="text-white" 
-                    />
-                  </div>
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 flex flex-col justify-center">
-                  <h3 className="text-2xl font-bold text-white mb-3">
-                    {category.title}
-                  </h3>
-                  <p className="text-white/80 text-sm mb-6 leading-relaxed">
-                    {category.description}
-                  </p>
-                </div>
-                
-                {/* Action Button */}
-                <div className="flex-shrink-0">
-                  <button className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-xl backdrop-blur-sm transition-all duration-200 group-hover:bg-white/30 flex items-center justify-center space-x-2">
-                    <span>{category.action}</span>
-                    <IconRenderer icon="ChevronRight" size={16} />
-                  </button>
-                </div>
-                
-                {/* Decorative Elements */}
-                <div className="absolute top-4 right-4 opacity-20">
-                  <div className="w-20 h-20 rounded-full bg-white/10 blur-xl" />
-                </div>
-                <div className="absolute bottom-4 left-4 opacity-10">
-                  <div className="w-16 h-16 rounded-full bg-white/20 blur-lg" />
-                </div>
-              </div>
+          <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl p-8 h-80 flex flex-col justify-between shadow-2xl">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+              </svg>
             </div>
-          ))}
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-3">제안 진행</h3>
+              <p className="text-white/80 text-sm mb-6">RFP 분석부터 제안서 작성까지</p>
+              <button className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-xl transition-all">
+                제안 시작하기
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-pink-400 to-pink-600 rounded-2xl p-8 h-80 flex flex-col justify-between shadow-2xl">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-3">구축 관리</h3>
+              <p className="text-white/80 text-sm mb-6">요구사항 정리부터 QA까지</p>
+              <button className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-xl transition-all">
+                구축 관리하기
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-2xl p-8 h-80 flex flex-col justify-between shadow-2xl">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-3">운영 관리</h3>
+              <p className="text-white/80 text-sm mb-6">업무 분배와 일정 관리</p>
+              <button className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-xl transition-all">
+                운영 시작하기
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl p-8 h-80 flex flex-col justify-between shadow-2xl">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                <path d="M13 8H8"/>
+                <path d="M16 12H8"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-3">AI 챗봇</h3>
+              <p className="text-white/80 text-sm mb-6">AI 모델로 스마트한 업무 지원</p>
+              <button className="w-full bg-white/10 hover:bg-white/20 text-white font-medium py-3 px-4 rounded-xl transition-all">
+                AI와 대화하기
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* CTA Section */}
+        {/* CTA */}
         <div className="text-center mt-20">
-          <Button
-            onClick={handleGetStarted}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-full text-lg shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
-          >
+          <button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-full text-lg shadow-2xl transition-all">
             지금 시작하기
-          </Button>
+          </button>
         </div>
       </main>
 
@@ -218,7 +110,6 @@ export default function HomePage() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-pink-400 to-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" />
       </div>
     </div>
   )
