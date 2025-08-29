@@ -147,13 +147,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     
     try {
-      // 1. 사용자 회원가입
+      // 사용자 회원가입 - 데이터베이스 트리거가 자동으로 조직과 프로필을 생성
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name: orgData.user.name,
+            full_name: orgData.user.name,
           },
         },
       })
@@ -161,42 +161,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (authError) throw authError
       if (!authData.user) throw new Error('회원가입에 실패했습니다.')
 
-      // 2. 조직 생성
-      const { data: organizationData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: orgData.name,
-          slug: orgData.slug,
-          description: orgData.description,
-          website_url: orgData.website_url,
-          contact_email: orgData.contact_email,
-          contact_phone: orgData.contact_phone,
-          timezone: orgData.timezone,
-          subscription_tier: orgData.subscription_tier,
-          created_by: authData.user.id,
-        })
-        .select()
-        .single()
+      // 트리거가 생성한 데이터를 잠시 후 가져오기 (트리거 실행 시간 고려)
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
-      if (orgError || !organizationData) {
-        throw new Error('조직 생성에 실패했습니다.')
-      }
-
-      // 3. 사용자 정보 업데이트 (조직 연결)
+      // 생성된 사용자 정보 가져오기
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .upsert({
-          id: authData.user.id,
-          email: email,
-          name: orgData.user.name,
-          organization_id: organizationData.id,
-          role: 'owner',
-        })
-        .select()
+        .select('*')
+        .eq('id', authData.user.id)
         .single()
 
       if (userError || !userData) {
-        throw new Error('사용자 정보 업데이트에 실패했습니다.')
+        console.error('User data fetch error:', userError)
+        // 에러가 있어도 회원가입은 성공했으므로 진행
+        set({ isLoading: false })
+        return
+      }
+
+      // 생성된 조직 정보 가져오기
+      let organizationData: Organization | null = null
+      if (userData.organization_id) {
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', userData.organization_id)
+          .single()
+
+        if (!orgError && orgData) {
+          organizationData = orgData
+        }
       }
 
       set({ 

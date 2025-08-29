@@ -56,73 +56,28 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string, name?: string): Promise<AuthResponse> => {
     try {
+      // Supabase Auth 회원가입 - 데이터베이스 트리거가 자동으로 조직과 프로필을 생성
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: name
+            full_name: name || email.split('@')[0]
           }
         }
       })
 
-      // 회원가입 성공 시 조직과 사용자 프로필 생성
-      if (data.user && data.user.email && !error) {
-        try {
-          // 1. 개인 조직 생성
-          const displayName = name || 'User'
-          const timestamp = Date.now().toString().slice(-6) // 마지막 6자리
-          const organizationSlug = `${displayName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${data.user.id.slice(0, 8)}-${timestamp}`
-          
-          const { data: orgData, error: orgError } = await supabase
-            .from('organizations')
-            .insert({
-              name: `${displayName}의 조직`,
-              slug: organizationSlug,
-              description: '개인 워크스페이스',
-              created_by: data.user.id
-            })
-            .select()
-            .single()
-
-          if (orgError) {
-            console.error('Organization creation error:', orgError)
-            throw new Error(`조직 생성에 실패했습니다: ${orgError.message || orgError.details || 'Unknown error'}`)
-          }
-
-          // 2. 사용자 프로필 생성 (조직 연결)
-          const { error: userError } = await supabase
-            .from('users')
-            .insert({
-              id: data.user.id,
-              email: data.user.email,
-              name: displayName,
-              organization_id: orgData.id,
-              role: 'owner'
-            })
-
-          if (userError) {
-            console.error('User profile creation error:', userError)
-            // 조직은 생성했지만 사용자 프로필 생성 실패 시 조직 삭제
-            await supabase.from('organizations').delete().eq('id', orgData.id)
-            throw new Error(`사용자 프로필 생성에 실패했습니다: ${userError.message || userError.details || 'Unknown error'}`)
-          }
-
-        } catch (setupError) {
-          console.error('Post-signup setup error:', setupError)
-          return {
-            data: null,
-            error: {
-              message: setupError instanceof Error ? setupError.message : '회원가입 초기 설정에 실패했습니다.',
-              name: 'SetupError',
-              status: 500
-            } as AuthError
-          }
-        }
+      if (error) {
+        console.error('Signup error:', error)
+        return { data, error }
       }
 
+      // 회원가입 성공 - 트리거가 자동으로 조직과 프로필을 생성하므로 추가 처리 불필요
+      console.log('Signup successful, database trigger will create organization and profile')
+      
       return { data, error }
     } catch (error) {
+      console.error('Unexpected signup error:', error)
       return { 
         data: null, 
         error: error as AuthError
