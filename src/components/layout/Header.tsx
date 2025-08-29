@@ -49,7 +49,7 @@ export function Header() {
       setUserMenuOpen(false)
       await signOut()
       console.log('Sign out successful, redirecting to main page...')
-      router.push('/')
+      router.replace('/')
     } catch (error) {
       console.error('Sign out error:', error)
     }

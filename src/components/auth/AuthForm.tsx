@@ -54,7 +54,10 @@ export default function AuthForm({
     try {
       setError('')
       await signIn(data.email, data.password)
-      router.push(redirectTo)
+      
+      // 로그인 성공 후 즉시 리다이렉트 (router.replace 사용으로 히스토리 남기지 않음)
+      console.log(`Login successful, redirecting to ${redirectTo}`)
+      router.replace(redirectTo)
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     }

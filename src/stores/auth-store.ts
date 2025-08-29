@@ -142,7 +142,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ 
             user: userData, 
             organization: organizationData, 
-            isLoading: false 
+            isLoading: false,
+            isInitialized: true
           })
           
           return
@@ -251,7 +252,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ 
         user: userData, 
         organization: organizationData, 
-        isLoading: false 
+        isLoading: false,
+        isInitialized: true
       })
     } catch (error) {
       console.error('SignIn error:', error)
@@ -434,15 +436,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // Auth 상태 변경을 감지하는 리스너 설정
 supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log('Auth state change:', event, session ? 'session exists' : 'no session')
   const { initialize } = useAuthStore.getState()
   
   if (event === 'SIGNED_OUT' || !session) {
     useAuthStore.setState({ 
       user: null, 
       organization: null, 
-      isLoading: false 
+      isLoading: false,
+      isInitialized: true
     })
   } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-    await initialize()
+    // 약간의 딜레이 후 초기화 (상태 안정화)
+    setTimeout(async () => {
+      await initialize()
+    }, 100)
   }
 })
