@@ -1,12 +1,5 @@
 {
-  "buildCommand": "next build",
-  "outputDirectory": ".next",
   "framework": "nextjs",
-  "functions": {
-    "app/**/*.tsx": {
-      "runtime": "@vercel/node"
-    }
-  },
   "cleanUrls": true,
   "trailingSlash": false
 }
