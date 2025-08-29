@@ -8,36 +8,52 @@ import Card from '@/basic/src/components/Card/Card'
 
 const services = [
   {
-    id: 'proposal',
-    title: '제안 진행',
-    description: 'RFP 분석부터 제안서 작성까지',
+    id: 'planning',
+    title: '기획',
+    description: 'RFP 분석부터 제안서 작성, 구축 및 운영 관리까지',
     route: '/dashboard/planning',
     gradient: 'from-orange-500 to-red-600',
     icon: '📋'
   },
   {
-    id: 'development',
-    title: '구축 관리',
-    description: '요구사항 정리부터 QA까지',
-    route: '/dashboard/development',
+    id: 'design',
+    title: '디자인',
+    description: '디자인 워크플로우와 리소스 관리',
+    route: '/dashboard/design',
     gradient: 'from-pink-500 to-rose-600',
-    icon: '🔧'
+    icon: '🎨'
   },
   {
-    id: 'operation',
-    title: '운영 관리',
-    description: '업무 분배와 일정 관리',
-    route: '/dashboard',
+    id: 'publishing',
+    title: '퍼블리싱',
+    description: '코드 캔버스와 실시간 미리보기',
+    route: '/dashboard/publishing',
     gradient: 'from-emerald-500 to-green-600',
+    icon: '💻'
+  },
+  {
+    id: 'development',
+    title: '개발',
+    description: '개발 환경과 배포 관리',
+    route: '/dashboard/development',
+    gradient: 'from-purple-500 to-indigo-600',
     icon: '⚙️'
   },
   {
     id: 'chatbot',
-    title: 'AI 챗봇',
-    description: 'AI 모델로 스마트한 업무 지원',
+    title: '전용챗봇',
+    description: 'AI 통합, 커스텀 챗봇, RAG',
     route: '/dashboard/chatbot',
-    gradient: 'from-blue-500 to-indigo-600',
+    gradient: 'from-blue-500 to-cyan-600',
     icon: '🤖'
+  },
+  {
+    id: 'image',
+    title: '이미지 생성',
+    description: 'AI 기반 이미지 생성 도구',
+    route: '/dashboard/image',
+    gradient: 'from-violet-500 to-purple-600',
+    icon: '🖼️'
   }
 ]
 
@@ -125,12 +141,15 @@ export default function HomePage() {
           EA Plan
         </h1>
         
-        <p className="text-2xl text-slate-300 mb-12 max-w-2xl">
-          웹·앱 서비스 기획의 새로운 경험
+        <p className="text-2xl text-slate-300 mb-4 max-w-3xl">
+          AI 기반 통합 프로젝트 관리 플랫폼
+        </p>
+        <p className="text-lg text-slate-400 mb-12 max-w-3xl">
+          웹·앱 서비스 개발의 모든 과정을 하나의 플랫폼에서 완성
         </p>
 
         {/* Service Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl w-full mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl w-full mb-16">
           {services.map((service) => (
             <Card
               key={service.id}
@@ -156,6 +175,26 @@ export default function HomePage() {
               </Button>
             </Card>
           ))}
+        </div>
+
+        {/* Core Values */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl w-full mb-16">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+            <h3 className="text-xl font-bold mb-2">🎯 통합성</h3>
+            <p className="text-sm text-slate-300">기획-디자인-퍼블-개발-챗봇-이미지생성을 하나의 플랫폼에서</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+            <h3 className="text-xl font-bold mb-2">🚀 자동화</h3>
+            <p className="text-sm text-slate-300">AI 기반 문서 생성, 코드 생성, 이미지 생성 자동화</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+            <h3 className="text-xl font-bold mb-2">🔗 연동성</h3>
+            <p className="text-sm text-slate-300">단계별 데이터 연동으로 일관성 있는 프로젝트 관리</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+            <h3 className="text-xl font-bold mb-2">⚡ 효율성</h3>
+            <p className="text-sm text-slate-300">RFP 분석부터 최종 배포까지 원스톱 솔루션</p>
+          </div>
         </div>
 
         {/* CTA Button */}
