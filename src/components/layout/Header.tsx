@@ -17,6 +17,8 @@ export function Header() {
   console.log('Header render - user:', user)
   console.log('Header render - isLoading:', isLoading)
   console.log('Header render - isInitialized:', isInitialized)
+  console.log('Header render - Should show user menu:', !!(isInitialized && user))
+  console.log('Header render - User details:', user ? { name: user.name, email: user.email, role: user.user_role } : 'No user')
   const { 
     toggleSidebar, 
     toggleDarkMode, 
@@ -181,7 +183,7 @@ export function Header() {
           </div>
 
           {/* User Menu Loading State */}
-          {isInitialized && !user && isLoading && (
+          {!user && isLoading && (
             <div className="flex items-center space-x-2 px-3 py-2">
               <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center animate-pulse">
                 <span className="text-white text-sm font-medium">...</span>
@@ -192,34 +194,39 @@ export function Header() {
             </div>
           )}
 
+          {/* Debug info - 임시로 추가 */}
+          <div className="text-xs bg-red-100 p-1 rounded">
+            {isInitialized ? 'Init✓' : 'Init✗'} | {user ? 'User✓' : 'User✗'} | {isLoading ? 'Loading' : 'Ready'}
+          </div>
+
           {/* User Menu - 로그인된 사용자만 표시 */}
-          {(isInitialized && user) && (
+          {user ? (
             <div className="relative" ref={userMenuRef}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
-              </div>
-              <div className="hidden md:block text-left">
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user.name || user.email?.split('@')[0] || 'Anonymous'}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {user.user_role || user.role || 'Member'}
+                <div className="hidden md:block text-left">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user.name || user.email?.split('@')[0] || 'Anonymous'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {user.user_role || user.role || 'Member'}
+                  </div>
                 </div>
-              </div>
-              <IconRenderer 
-                icon="ChevronDown" 
-                size={14} 
-                className="text-gray-500 dark:text-gray-400 ml-1"
-              />
-            </Button>
+                <IconRenderer 
+                  icon="ChevronDown" 
+                  size={14} 
+                  className="text-gray-500 dark:text-gray-400 ml-1"
+                />
+              </Button>
 
             {userMenuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
@@ -246,6 +253,17 @@ export function Header() {
               </div>
             )}
             </div>
+          ) : (
+            /* Login Button for non-authenticated users */
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/auth/login')}
+              className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <IconRenderer icon="User" size={18} />
+              <span className="hidden md:block">로그인</span>
+            </Button>
           )}
         </div>
       </div>
