@@ -110,8 +110,7 @@ export const inviteMemberSchema = z.object({
     .min(1, '이메일을 입력해주세요')
     .email('올바른 이메일 형식이 아닙니다'),
   role: z
-    .enum(['owner', 'admin', 'member', 'viewer'])
-    .default('member'),
+    .enum(['owner', 'admin', 'member', 'viewer']),
   message: z
     .string()
     .max(500, '메시지는 최대 500자까지 입력할 수 있습니다')

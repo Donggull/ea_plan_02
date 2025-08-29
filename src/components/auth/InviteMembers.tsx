@@ -36,7 +36,7 @@ export default function InviteMembers({ onComplete, onSkip }: InviteMembersProps
     resolver: zodResolver(inviteMultipleSchema),
     mode: 'onChange',
     defaultValues: {
-      members: [{ email: '', role: 'member', message: '' }]
+      members: [{ email: '', role: 'member' as const, message: '' }]
     }
   })
 
@@ -85,7 +85,7 @@ export default function InviteMembers({ onComplete, onSkip }: InviteMembersProps
       
       // 폼 초기화
       form.reset({
-        members: [{ email: '', role: 'member', message: '' }]
+        members: [{ email: '', role: 'member' as const, message: '' }]
       })
 
       setTimeout(() => {
@@ -102,7 +102,7 @@ export default function InviteMembers({ onComplete, onSkip }: InviteMembersProps
   }
 
   const addMember = () => {
-    append({ email: '', role: 'member', message: '' })
+    append({ email: '', role: 'member' as const, message: '' })
   }
 
   const removeMember = (index: number) => {
