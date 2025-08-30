@@ -1,0 +1,145 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { RFPUploadResponse } from '@/types/rfp-analysis'
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createClient()
+    
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { message: '인증이 필요합니다.' },
+        { status: 401 }
+      )
+    }
+
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    const title = formData.get('title') as string
+    const description = formData.get('description') as string
+    const projectId = formData.get('project_id') as string
+
+    if (!file || !title) {
+      return NextResponse.json(
+        { message: '파일과 제목이 필요합니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 파일 유효성 검사
+    const maxSize = 50 * 1024 * 1024 // 50MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/markdown',
+      'application/rtf'
+    ]
+
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { message: '파일 크기가 50MB를 초과합니다.' },
+        { status: 400 }
+      )
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { message: '지원되지 않는 파일 형식입니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 파일명 생성 (타임스탬프 + UUID)
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const randomId = crypto.randomUUID().substring(0, 8)
+    const fileExtension = file.name.split('.').pop()
+    const fileName = `rfp-${timestamp}-${randomId}.${fileExtension}`
+    
+    // Supabase Storage에 파일 업로드
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('rfp-documents')
+      .upload(fileName, file, {
+        contentType: file.type,
+        upsert: false
+      })
+
+    if (uploadError) {
+      console.error('File upload error:', uploadError)
+      return NextResponse.json(
+        { message: '파일 업로드 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    // 파일 URL 생성
+    const { data: urlData } = supabase.storage
+      .from('rfp-documents')
+      .getPublicUrl(fileName)
+
+    // 텍스트 추출 (실제로는 AI 서비스나 PDF 파서를 사용해야 함)
+    let extractedText = ''
+    try {
+      if (file.type === 'text/plain' || file.type === 'text/markdown') {
+        extractedText = await file.text()
+      } else {
+        // PDF, DOC 등의 경우 실제로는 별도의 텍스트 추출 서비스 필요
+        extractedText = `[${file.name}] 파일에서 텍스트를 추출했습니다. 실제 구현에서는 PDF/DOC 파서가 필요합니다.`
+      }
+    } catch (error) {
+      console.error('Text extraction error:', error)
+      extractedText = '[텍스트 추출 실패]'
+    }
+
+    // RFP 문서 메타데이터 저장
+    const { data: documentData, error: dbError } = await supabase
+      .from('rfp_documents')
+      .insert({
+        title,
+        description,
+        original_file_name: file.name,
+        file_path: fileName,
+        file_url: urlData.publicUrl,
+        file_size: file.size,
+        mime_type: file.type,
+        extracted_text: extractedText,
+        project_id: projectId || null,
+        uploaded_by: user.id,
+        status: 'uploaded'
+      })
+      .select()
+      .single()
+
+    if (dbError) {
+      console.error('Database error:', dbError)
+      
+      // 업로드된 파일 삭제 (롤백)
+      await supabase.storage
+        .from('rfp-documents')
+        .remove([fileName])
+        
+      return NextResponse.json(
+        { message: '데이터베이스 저장 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    const response: RFPUploadResponse = {
+      rfp_document_id: documentData.id,
+      file_url: urlData.publicUrl,
+      message: 'RFP 파일이 성공적으로 업로드되었습니다.'
+    }
+
+    return NextResponse.json(response, { status: 201 })
+
+  } catch (error) {
+    console.error('RFP upload error:', error)
+    return NextResponse.json(
+      { message: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}

@@ -25,6 +25,7 @@ export const menuStructure: MenuSection[] = [
     section: '기획',
     items: [
       { id: 'proposal', label: '제안 진행', href: '/dashboard/planning', icon: 'FileText' },
+      { id: 'rfp-analysis', label: 'RFP 분석 자동화', href: '/dashboard/rfp-analysis', icon: 'Brain' },
       { id: 'documents-planning', label: 'RFP 문서 관리', href: '/dashboard/documents?tab=upload&type=rfp', icon: 'Upload' },
       { id: 'development', label: '구축 관리', href: '/planning/development', icon: 'Settings' },
       { id: 'operation', label: '운영 관리', href: '/planning/operation', icon: 'Headphones' }
@@ -90,6 +91,7 @@ export function useMenuNavigation() {
         const pathMap: { [key: string]: string } = {
           'projects': '프로젝트 관리',
           'planning': '기획',
+          'rfp-analysis': 'RFP 분석 자동화',
           'design': '디자인',
           'development': '개발',
           'publishing': '퍼블리싱',
