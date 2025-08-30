@@ -336,7 +336,7 @@ export function useProject(projectId: string | null) {
       
       // 1. 현재 사용자 확인
       const _user = await getCurrentUser()
-      console.log('✅ 인증된 사용자:', user.id)
+      console.log('✅ 인증된 사용자:', _user.id)
       
       try {
         // 2. 사용자의 해당 프로젝트 멤버십 확인
@@ -439,7 +439,7 @@ export function useCreateProject() {
       
       // 1. 현재 사용자 확인
       const _user = await getCurrentUser()
-      console.log('✅ 인증된 사용자:', user.id)
+      console.log('✅ 인증된 사용자:', _user.id)
       
       try {
         // 2. 프로젝트 데이터 준비
@@ -455,8 +455,8 @@ export function useCreateProject() {
           tags: data.tags || null,
           client_name: data.client_name || null,
           client_email: data.client_email || null,
-          owner_id: user.id,
-          user_id: user.id,
+          owner_id: _user.id,
+          user_id: _user.id,
           organization_id: null,
           metadata: {
             category: data.category || 'general'
@@ -486,7 +486,7 @@ export function useCreateProject() {
           .from('project_members')
           .insert({
             project_id: project.id,
-            user_id: user.id,
+            user_id: _user.id,
             role: 'owner',
             permissions: { all: true, admin: true, read: true, write: true }
           })
@@ -529,7 +529,7 @@ export function useUpdateProject(projectId: string) {
       
       // 1. 현재 사용자 확인
       const _user = await getCurrentUser()
-      console.log('✅ 인증된 사용자:', user.id)
+      console.log('✅ 인증된 사용자:', _user.id)
       
       try {
         // 2. 사용자의 해당 프로젝트 권한 확인
@@ -636,7 +636,7 @@ export function useDeleteProject() {
       
       // 1. 현재 사용자 확인
       const _user = await getCurrentUser()
-      console.log('✅ 인증된 사용자:', user.id)
+      console.log('✅ 인증된 사용자:', _user.id)
       
       try {
         // 2. 사용자의 해당 프로젝트 권한 확인
@@ -775,7 +775,7 @@ export function useCreateRfpDocument() {
         .from('rfp_documents')
         .insert({
           ...data,
-          uploaded_by: user.id
+          uploaded_by: _user.id
         })
         .select()
         .single()
@@ -848,7 +848,7 @@ export function useCreateProposalTask() {
         .from('proposal_tasks')
         .insert({
           ...data,
-          assigned_to: data.assigned_to || user.id
+          assigned_to: data.assigned_to || _user.id
         })
         .select()
         .single()
@@ -921,7 +921,7 @@ export function useCreateConstructionTask() {
         .from('construction_tasks')
         .insert({
           ...data,
-          assigned_to: data.assigned_to || user.id
+          assigned_to: data.assigned_to || _user.id
         })
         .select()
         .single()
@@ -994,7 +994,7 @@ export function useCreateOperationRequest() {
         .from('operation_requests')
         .insert({
           ...data,
-          user_id: user.id
+          user_id: _user.id
         })
         .select()
         .single()
