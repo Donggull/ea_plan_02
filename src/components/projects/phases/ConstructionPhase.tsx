@@ -14,15 +14,15 @@ import {
   Plus, 
   Search, 
   Settings, 
-  Layers, 
+  Layers as _Layers, 
   Monitor, 
   Calendar,
   CheckSquare,
   Lightbulb,
   Clock,
-  CheckCircle,
+  CheckCircle as _CheckCircle,
   AlertCircle,
-  Users,
+  Users as _Users,
   Zap,
   Target
 } from 'lucide-react'

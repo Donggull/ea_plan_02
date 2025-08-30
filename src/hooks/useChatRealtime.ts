@@ -112,7 +112,7 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
       cleanupConnection()
       setupRealtimeConnection()
     }, 5000) // 5초 후 재연결
-  }, [cleanupConnection])
+  }, [cleanupConnection, setupRealtimeConnection])
 
   // 실시간 연결 설정
   const setupRealtimeConnection = useCallback(() => {
@@ -205,7 +205,7 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
       setError('실시간 연결 설정에 실패했습니다.')
       scheduleReconnect()
     }
-  }, [sessionId])
+  }, [sessionId, scheduleReconnect, startHeartbeat])
 
   // 수동 재연결
   const retryConnection = useCallback(() => {

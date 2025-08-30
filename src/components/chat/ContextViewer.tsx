@@ -268,6 +268,7 @@ export default function ContextViewer({
                             icon="Check" 
                             size={12} 
                             className="text-white"
+                            {...({} as any)}
                           />
                         )}
                       </button>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams as _useParams } from 'next/navigation'
 import { 
   useRfpDocuments, 
   useCreateRfpDocument,
@@ -13,15 +13,15 @@ import Input from '@/basic/src/components/Input/Input'
 import { 
   FileText, 
   Plus, 
-  Search, 
+  Search as _Search, 
   TrendingUp, 
   Users, 
   PenTool, 
   DollarSign,
-  Upload,
+  Upload as _Upload,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle as _AlertCircle
 } from 'lucide-react'
 
 interface ProposalPhaseProps {

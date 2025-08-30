@@ -205,7 +205,7 @@ export function useProjects(filters?: ProjectFilters) {
       console.log('🔍 프로젝트 목록 조회 시작...')
       
       // 1. 현재 사용자 확인
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       console.log('✅ 인증된 사용자:', user.id)
       
       try {
@@ -335,7 +335,7 @@ export function useProject(projectId: string | null) {
       console.log('🔍 특정 프로젝트 조회 시작:', projectId)
       
       // 1. 현재 사용자 확인
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       console.log('✅ 인증된 사용자:', user.id)
       
       try {
@@ -438,7 +438,7 @@ export function useCreateProject() {
       console.log('🔨 프로젝트 생성 시작:', data.name)
       
       // 1. 현재 사용자 확인
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       console.log('✅ 인증된 사용자:', user.id)
       
       try {
@@ -528,7 +528,7 @@ export function useUpdateProject(projectId: string) {
       console.log('🔄 프로젝트 업데이트 시작:', projectId)
       
       // 1. 현재 사용자 확인
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       console.log('✅ 인증된 사용자:', user.id)
       
       try {
@@ -635,7 +635,7 @@ export function useDeleteProject() {
       console.log('🗑️ 프로젝트 삭제 시작:', projectId)
       
       // 1. 현재 사용자 확인
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       console.log('✅ 인증된 사용자:', user.id)
       
       try {
@@ -717,7 +717,7 @@ export function useRfpDocuments(projectId: string, phaseType?: string) {
     queryFn: async (): Promise<RfpDocument[]> => {
       console.log('🔍 RFP 문서 목록 조회 시작:', projectId, phaseType)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       let query = (supabase as any)
         .from('rfp_documents')
@@ -769,7 +769,7 @@ export function useCreateRfpDocument() {
     mutationFn: async (data: Omit<RfpDocument, 'id' | 'created_at' | 'updated_at'>): Promise<RfpDocument> => {
       console.log('🔨 RFP 문서 생성 시작:', data.title)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       const { data: rfpDoc, error } = await (supabase as any)
         .from('rfp_documents')
@@ -807,7 +807,7 @@ export function useProposalTasks(projectId: string, taskType?: string) {
     queryFn: async (): Promise<ProposalTask[]> => {
       console.log('🔍 제안 작업 목록 조회 시작:', projectId, taskType)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       let query = (supabase as any)
         .from('proposal_tasks')
@@ -842,7 +842,7 @@ export function useCreateProposalTask() {
     mutationFn: async (data: Omit<ProposalTask, 'id' | 'created_at' | 'updated_at'>): Promise<ProposalTask> => {
       console.log('🔨 제안 작업 생성 시작:', data.title)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       const { data: task, error } = await (supabase as any)
         .from('proposal_tasks')
@@ -880,7 +880,7 @@ export function useConstructionTasks(projectId: string, taskType?: string) {
     queryFn: async (): Promise<ConstructionTask[]> => {
       console.log('🔍 구축 작업 목록 조회 시작:', projectId, taskType)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       let query = (supabase as any)
         .from('construction_tasks')
@@ -915,7 +915,7 @@ export function useCreateConstructionTask() {
     mutationFn: async (data: Omit<ConstructionTask, 'id' | 'created_at' | 'updated_at'>): Promise<ConstructionTask> => {
       console.log('🔨 구축 작업 생성 시작:', data.title)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       const { data: task, error } = await (supabase as any)
         .from('construction_tasks')
@@ -953,7 +953,7 @@ export function useOperationRequests(projectId: string, workCategory?: string) {
     queryFn: async (): Promise<OperationRequest[]> => {
       console.log('🔍 운영 요청 목록 조회 시작:', projectId, workCategory)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       let query = supabase
         .from('operation_requests')
@@ -988,7 +988,7 @@ export function useCreateOperationRequest() {
     mutationFn: async (data: Omit<OperationRequest, 'id' | 'created_at' | 'updated_at'>): Promise<OperationRequest> => {
       console.log('🔨 운영 요청 생성 시작:', data.title)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       const { data: request, error } = await supabase
         .from('operation_requests')
@@ -1031,7 +1031,7 @@ export function useUpdateProjectPhase() {
     }): Promise<Project> => {
       console.log('🔄 프로젝트 단계 전환 시작:', projectId, phase)
       
-      const user = await getCurrentUser()
+      const _user = await getCurrentUser()
       
       const { data: updatedProject, error } = await (supabase as any)
         .from('projects')

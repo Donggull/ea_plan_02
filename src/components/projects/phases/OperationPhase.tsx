@@ -18,11 +18,11 @@ import {
   Code, 
   Layout,
   Clock,
-  CheckCircle,
-  AlertCircle,
+  CheckCircle as _CheckCircle,
+  AlertCircle as _AlertCircle,
   Users,
   Calendar,
-  ArrowRight,
+  ArrowRight as _ArrowRight,
   Target,
   Filter
 } from 'lucide-react'
