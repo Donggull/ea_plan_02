@@ -94,7 +94,7 @@ export default function HomePage() {
           <div className="bg-white rounded-xl p-2">
             <span className="text-slate-900 text-2xl font-bold">E</span>
           </div>
-          <span className="text-xl font-bold">EA Plan</span>
+          <span className="text-xl font-bold">엘루오</span>
         </div>
         <div className="flex items-center space-x-4">
           {user ? (
@@ -138,14 +138,14 @@ export default function HomePage() {
         </div>
         
         <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          EA Plan
+          엘루오 AI 플랫폼
         </h1>
         
         <p className="text-2xl text-slate-300 mb-4 max-w-3xl">
-          AI 기반 통합 프로젝트 관리 플랫폼
+          웹/앱 서비스 종합 관리 플랫폼
         </p>
         <p className="text-lg text-slate-400 mb-12 max-w-3xl">
-          웹·앱 서비스 개발의 모든 과정을 하나의 플랫폼에서 완성
+          AI 기반으로 기획부터 디자인, 개발, 운영까지 모든 과정을 통합 관리
         </p>
 
         {/* Service Cards */}
@@ -209,7 +209,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="text-center py-8 text-slate-400 border-t border-slate-700">
-        <p>&copy; 2024 EA Plan. All rights reserved.</p>
+        <p>&copy; 2024 엘루오 AI 플랫폼. All rights reserved.</p>
       </footer>
     </div>
   )

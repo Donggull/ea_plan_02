@@ -26,7 +26,7 @@ export function ChatPanel() {
     {
       id: '1',
       type: 'assistant',
-      content: '안녕하세요! EA Plan 전용 챗봇입니다. 무엇을 도와드릴까요?',
+      content: '안녕하세요! 엘루오 AI 플랫폼 전용 챗봇입니다. 무엇을 도와드릴까요?',
       timestamp: new Date()
     }
   ])
@@ -123,7 +123,7 @@ export function ChatPanel() {
                 'font-medium text-sm',
                 darkMode ? 'text-white' : 'text-gray-900'
               )}>
-                EA Plan 챗봇
+                엘루오 AI 챗봇
               </h3>
               <p className={cn(
                 'text-xs',
