@@ -122,7 +122,7 @@ export default function ChatInterface({ sessionId, projectId, className }: ChatI
                 showContext && 'bg-blue-50 text-blue-600'
               )}
             >
-              <IconRenderer icon="FileText" size={16} />
+              <IconRenderer icon="FileText" size={16} {...({} as any)} />
               <span>컨텍스트</span>
             </Button>
           </div>
@@ -138,7 +138,7 @@ export default function ChatInterface({ sessionId, projectId, className }: ChatI
               onClick={handleExportChat}
               className="flex items-center space-x-2"
             >
-              <IconRenderer icon="Download" size={16} />
+              <IconRenderer icon="Download" size={16} {...({} as any)} />
               <span>내보내기</span>
             </Button>
           </div>

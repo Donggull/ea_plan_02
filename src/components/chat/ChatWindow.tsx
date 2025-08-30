@@ -86,7 +86,6 @@ export default function ChatWindow({
     >
       <MessageList
         messages={messages}
-        isLoading={isLoading}
         onEditMessage={onEditMessage}
         onDeleteMessage={onDeleteMessage}
         onToggleFavorite={onToggleFavorite}

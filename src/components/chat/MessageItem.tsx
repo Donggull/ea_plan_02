@@ -7,7 +7,6 @@ import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 import { ChatMessage } from '@/types/chat'
 import Card from '@/basic/src/components/Card/Card'
 import Button from '@/basic/src/components/Button/Button'
-import Input from '@/basic/src/components/Input/Input'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import { cn } from '@/lib/utils'
 
@@ -66,7 +65,7 @@ export default function MessageItem({
 
   // 마크다운 렌더링 컴포넌트
   const MarkdownComponents = {
-    code({ node, inline, className, children, ...props }: any) {
+    code({ inline, className, children, ...props }: any) {
       const match = /language-(\w+)/.exec(className || '')
       return !inline && match ? (
         <SyntaxHighlighter
@@ -271,7 +270,7 @@ export default function MessageItem({
               className="p-1.5 hover:bg-gray-100"
               title="복사"
             >
-              <IconRenderer icon="Copy" size={14} />
+              <IconRenderer icon="Copy" size={14} {...({} as any)} />
             </Button>
             
             {message.role === 'user' && onEdit && (
@@ -282,7 +281,7 @@ export default function MessageItem({
                 className="p-1.5 hover:bg-gray-100"
                 title="편집"
               >
-                <IconRenderer icon="Edit" size={14} />
+                <IconRenderer icon="Edit" size={14} {...({} as any)} />
               </Button>
             )}
             
@@ -313,7 +312,7 @@ export default function MessageItem({
                 className="p-1.5 hover:bg-red-100 hover:text-red-600"
                 title="삭제"
               >
-                <IconRenderer icon="Trash2" size={14} />
+                <IconRenderer icon="Trash2" size={14} {...({} as any)} />
               </Button>
             )}
           </div>

@@ -8,7 +8,6 @@ import Button from '@/basic/src/components/Button/Button'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { ChatSession } from '@/types/chat'
 import { cn } from '@/lib/utils'
 
 interface ChatPageProps {}
@@ -141,7 +140,7 @@ export default function ChatPage({}: ChatPageProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
-      if (currentSessionId && chatSessions?.find(s => s.conversation_id === currentSessionId)) {
+      if (currentSessionId && chatSessions?.find((s: any) => s.conversation_id === currentSessionId)) {
         setCurrentSessionId(null)
         router.push('/dashboard/chat')
       }
@@ -153,7 +152,7 @@ export default function ChatPage({}: ChatPageProps) {
     createSession.mutate({
       projectId: selectedProjectId || undefined,
       title: selectedProjectId 
-        ? `${projects?.find(p => p.id === selectedProjectId)?.name} Chat`
+        ? `${projects?.find((p: any) => p.id === selectedProjectId)?.name} Chat`
         : 'New Chat'
     })
   }
@@ -210,7 +209,7 @@ export default function ChatPage({}: ChatPageProps) {
               onClick={() => setShowSidebar(false)}
               className="p-2"
             >
-              <IconRenderer icon="X" size={16} />
+              <IconRenderer icon="X" size={16} {...({} as any)} />
             </Button>
           </div>
 
@@ -226,7 +225,7 @@ export default function ChatPage({}: ChatPageProps) {
               disabled={projectsLoading}
             >
               <option value="">전체 프로젝트</option>
-              {projects?.map((project) => (
+              {projects?.map((project: any) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
@@ -240,7 +239,7 @@ export default function ChatPage({}: ChatPageProps) {
             disabled={createSession.isPending}
             className="w-full mt-3 bg-blue-600 text-white hover:bg-blue-700"
           >
-            <IconRenderer icon="Plus" size={16} className="mr-2" />
+            <IconRenderer icon="Plus" size={16} className="mr-2" {...({} as any)} />
             새 채팅 시작
           </Button>
         </div>
@@ -255,7 +254,7 @@ export default function ChatPage({}: ChatPageProps) {
             </div>
           ) : chatSessions && chatSessions.length > 0 ? (
             <div className="space-y-2">
-              {chatSessions.map((session) => (
+              {chatSessions.map((session: any) => (
                 <Card
                   key={session.id}
                   className={cn(
@@ -269,7 +268,7 @@ export default function ChatPage({}: ChatPageProps) {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <IconRenderer icon="MessageCircle" size={14} className="text-white" />
+                        <IconRenderer icon="MessageCircle" size={14} className="text-white" {...({} as any)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-medium text-gray-900 truncate">
@@ -283,7 +282,7 @@ export default function ChatPage({}: ChatPageProps) {
                     
                     <div className="flex items-center space-x-1">
                       {session.is_favorite && (
-                        <IconRenderer icon="Star" size={12} className="text-yellow-400 fill-current" />
+                        <IconRenderer icon="Star" size={12} className="text-yellow-400 fill-current" {...({} as any)} />
                       )}
                       <Button
                         variant="ghost"
@@ -294,7 +293,7 @@ export default function ChatPage({}: ChatPageProps) {
                         }}
                         className="p-1 hover:bg-red-100 hover:text-red-600"
                       >
-                        <IconRenderer icon="Trash2" size={12} />
+                        <IconRenderer icon="Trash2" size={12} {...({} as any)} />
                       </Button>
                     </div>
                   </div>
@@ -307,7 +306,7 @@ export default function ChatPage({}: ChatPageProps) {
             </div>
           ) : (
             <div className="text-center py-8">
-              <IconRenderer icon="MessageCircle" size={48} className="mx-auto mb-3 text-gray-300" />
+              <IconRenderer icon="MessageCircle" size={48} className="mx-auto mb-3 text-gray-300" {...({} as any)} />
               <p className="text-sm text-gray-500 mb-3">
                 {selectedProjectId ? '해당 프로젝트의 채팅이 없습니다.' : '채팅 세션이 없습니다.'}
               </p>
@@ -337,20 +336,20 @@ export default function ChatPage({}: ChatPageProps) {
                   onClick={() => setShowSidebar(true)}
                   className="p-2"
                 >
-                  <IconRenderer icon="Menu" size={16} />
+                  <IconRenderer icon="Menu" size={16} {...({} as any)} />
                 </Button>
               )}
               
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">
                   {currentSessionId 
-                    ? chatSessions?.find(s => s.conversation_id === currentSessionId)?.title || 'AI 채팅'
+                    ? chatSessions?.find((s: any) => s.conversation_id === currentSessionId)?.title || 'AI 채팅'
                     : 'AI 채팅'
                   }
                 </h1>
                 {selectedProjectId && (
                   <p className="text-sm text-gray-600">
-                    프로젝트: {projects?.find(p => p.id === selectedProjectId)?.name}
+                    프로젝트: {projects?.find((p: any) => p.id === selectedProjectId)?.name}
                   </p>
                 )}
               </div>
@@ -365,7 +364,7 @@ export default function ChatPage({}: ChatPageProps) {
                   console.log('채팅 히스토리')
                 }}
               >
-                <IconRenderer icon="History" size={16} className="mr-2" />
+                <IconRenderer icon="History" size={16} className="mr-2" {...({} as any)} />
                 히스토리
               </Button>
               
@@ -377,7 +376,7 @@ export default function ChatPage({}: ChatPageProps) {
                   console.log('채팅 설정')
                 }}
               >
-                <IconRenderer icon="Settings" size={16} className="mr-2" />
+                <IconRenderer icon="Settings" size={16} className="mr-2" {...({} as any)} />
                 설정
               </Button>
             </div>
@@ -396,7 +395,7 @@ export default function ChatPage({}: ChatPageProps) {
             <div className="flex items-center justify-center h-full bg-gray-50">
               <Card className="p-8 max-w-md text-center">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <IconRenderer icon="MessageCircle" size={32} className="text-blue-600" />
+                  <IconRenderer icon="MessageCircle" size={32} className="text-blue-600" {...({} as any)} />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   새로운 대화를 시작하세요
@@ -409,14 +408,14 @@ export default function ChatPage({}: ChatPageProps) {
                   disabled={createSession.isPending}
                   className="bg-blue-600 text-white hover:bg-blue-700"
                 >
-                  <IconRenderer icon="Plus" size={16} className="mr-2" />
+                  <IconRenderer icon="Plus" size={16} className="mr-2" {...({} as any)} />
                   새 채팅 시작
                 </Button>
                 
                 {selectedProjectId && (
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      💡 현재 <strong>{projects?.find(p => p.id === selectedProjectId)?.name}</strong> 프로젝트의 
+                      💡 현재 <strong>{projects?.find((p: any) => p.id === selectedProjectId)?.name}</strong> 프로젝트의 
                       컨텍스트가 자동으로 포함됩니다.
                     </p>
                   </div>

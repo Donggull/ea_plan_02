@@ -52,7 +52,7 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
 
         if (messagesError) throw messagesError
 
-        setMessages(messagesData || [])
+        setMessages((messagesData || []) as ChatMessage[])
       }
     } catch (err) {
       console.error('메시지 로드 실패:', err)
@@ -61,6 +61,58 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
       setIsLoading(false)
     }
   }, [sessionId])
+
+  // 연결 정리
+  const cleanupConnection = useCallback(() => {
+    if (channelRef.current) {
+      channelRef.current.unsubscribe()
+      channelRef.current = null
+    }
+    
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+    
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current)
+      heartbeatIntervalRef.current = null
+    }
+    
+    setIsConnected(false)
+    setConnectionStatus('disconnected')
+  }, [])
+
+  // 하트비트 시작
+  const startHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current)
+    }
+
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (channelRef.current && isConnected) {
+        // 간단한 하트비트 핑
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'heartbeat',
+          payload: { timestamp: new Date().toISOString() }
+        })
+      }
+    }, 30000) // 30초마다 하트비트
+  }, [isConnected])
+
+  // 재연결 스케줄
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+    }
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      console.log('실시간 연결 재시도 중...')
+      cleanupConnection()
+      setupRealtimeConnection()
+    }, 5000) // 5초 후 재연결
+  }, [cleanupConnection])
 
   // 실시간 연결 설정
   const setupRealtimeConnection = useCallback(() => {
@@ -155,58 +207,6 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     }
   }, [sessionId])
 
-  // 하트비트 시작
-  const startHeartbeat = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current)
-    }
-
-    heartbeatIntervalRef.current = setInterval(() => {
-      if (channelRef.current && isConnected) {
-        // 간단한 하트비트 핑
-        channelRef.current.send({
-          type: 'broadcast',
-          event: 'heartbeat',
-          payload: { timestamp: new Date().toISOString() }
-        })
-      }
-    }, 30000) // 30초마다 하트비트
-  }, [isConnected])
-
-  // 재연결 스케줄
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
-    }
-
-    reconnectTimeoutRef.current = setTimeout(() => {
-      console.log('실시간 연결 재시도 중...')
-      cleanupConnection()
-      setupRealtimeConnection()
-    }, 5000) // 5초 후 재연결
-  }, [setupRealtimeConnection])
-
-  // 연결 정리
-  const cleanupConnection = useCallback(() => {
-    if (channelRef.current) {
-      channelRef.current.unsubscribe()
-      channelRef.current = null
-    }
-    
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
-      reconnectTimeoutRef.current = null
-    }
-    
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current)
-      heartbeatIntervalRef.current = null
-    }
-    
-    setIsConnected(false)
-    setConnectionStatus('disconnected')
-  }, [])
-
   // 수동 재연결
   const retryConnection = useCallback(() => {
     cleanupConnection()
@@ -233,7 +233,7 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
         }
       }
 
-      const { data: userMessageData, error: userError } = await supabase
+      const { error: userError } = await supabase
         .from('messages')
         .insert(userMessage)
         .select()

@@ -121,7 +121,7 @@ export default function ContextViewer({
   }
 
   // 아이템 활성화/비활성화
-  const toggleItemEnabled = (itemId: string) => {
+  const toggleItemEnabled = (_itemId: string) => {
     const updatedContext = { ...context }
     // 실제로는 더 복잡한 로직이 필요할 수 있음
     onContextChange?.(updatedContext)
@@ -181,7 +181,7 @@ export default function ContextViewer({
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
-            <IconRenderer icon="Database" size={18} className="text-gray-600" />
+            <IconRenderer icon="Database" size={18} className="text-gray-600" {...({} as any)} />
             <h3 className="font-semibold text-gray-900">프로젝트 컨텍스트</h3>
             <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
               {filteredItems.length}개 항목
@@ -216,7 +216,7 @@ export default function ContextViewer({
       <div className="max-h-96 overflow-y-auto">
         {filteredItems.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <IconRenderer icon="Inbox" size={48} className="mx-auto mb-3 text-gray-300" />
+            <IconRenderer icon="Inbox" size={48} className="mx-auto mb-3 text-gray-300" {...({} as any)} />
             <p>표시할 컨텍스트가 없습니다.</p>
           </div>
         ) : (
@@ -322,7 +322,7 @@ export default function ContextViewer({
               console.log('컨텍스트 새로고침')
             }}
           >
-            <IconRenderer icon="RefreshCw" size={12} className="mr-1" />
+            <IconRenderer icon="RefreshCw" size={12} className="mr-1" {...({} as any)} />
             새로고침
           </Button>
         </div>

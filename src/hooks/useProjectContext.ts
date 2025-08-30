@@ -302,7 +302,6 @@ export const useProjectContext = (
       project, 
       workflows = [], 
       documents = [], 
-      knowledge = [], 
       rfp_documents = [], 
       proposal_tasks = [], 
       construction_tasks = [], 

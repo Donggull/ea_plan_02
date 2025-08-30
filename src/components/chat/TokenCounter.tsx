@@ -24,7 +24,7 @@ export default function TokenCounter({
   className
 }: TokenCounterProps) {
   const [showDetails, setShowDetails] = useState(false)
-  const [usageHistory, setUsageHistory] = useState<UsageBreakdown[]>([])
+  const [_usageHistory, _setUsageHistory] = useState<UsageBreakdown[]>([])
   const [animatedTokens, setAnimatedTokens] = useState(tokens)
 
   // 토큰 수 애니메이션

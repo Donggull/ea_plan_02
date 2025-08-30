@@ -179,7 +179,7 @@ export default function MessageInput({
                   onClick={() => removeAttachment(index)}
                   className="text-blue-400 hover:text-red-600 transition-colors"
                 >
-                  <IconRenderer icon="X" size={14} />
+                  <IconRenderer icon="X" size={14} {...({} as any)} />
                 </button>
               </div>
             ))}
@@ -200,7 +200,7 @@ export default function MessageInput({
               className="p-2 text-gray-500 hover:text-gray-700"
               title="파일 첨부"
             >
-              <IconRenderer icon="Paperclip" size={18} />
+              <IconRenderer icon="Paperclip" size={18} {...({} as any)} />
             </Button>
             
             {/* 음성 녹음 버튼 */}
@@ -263,7 +263,7 @@ export default function MessageInput({
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             ) : (
-              <IconRenderer icon="Send" size={18} />
+              <IconRenderer icon="Send" size={18} {...({} as any)} />
             )}
           </Button>
         </div>

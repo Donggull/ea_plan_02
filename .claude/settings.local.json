@@ -47,7 +47,14 @@
       "Bash(timeout 180 npm run build)",
       "Read(\\d/**)",
       "Read(\\d/**)",
-      "Read(\\d/**)"
+      "Read(\\d/**)",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(sed:*)",
+      "Bash(done)",
+      "Bash(if [ -f \"$file\" ])",
+      "Bash(then)",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []

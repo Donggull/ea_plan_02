@@ -173,7 +173,7 @@ export default function ModelSelector({
               </div>
             </div>
             {value === model.id && (
-              <IconRenderer icon="Check" size={16} className="text-blue-600" />
+              <IconRenderer icon="Check" size={16} className="text-blue-600" {...({} as any)} />
             )}
           </button>
         ))}
