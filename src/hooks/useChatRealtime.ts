@@ -101,19 +101,6 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     }, 30000) // 30초마다 하트비트
   }, [isConnected])
 
-  // 재연결 스케줄
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
-    }
-
-    reconnectTimeoutRef.current = setTimeout(() => {
-      console.log('실시간 연결 재시도 중...')
-      cleanupConnection()
-      setupRealtimeConnection()
-    }, 5000) // 5초 후 재연결
-  }, [cleanupConnection, setupRealtimeConnection])
-
   // 실시간 연결 설정
   const setupRealtimeConnection = useCallback(() => {
     if (!sessionId || channelRef.current) return
@@ -189,7 +176,12 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
               setIsConnected(false)
               setConnectionStatus('error')
               setError('실시간 연결에 문제가 발생했습니다.')
-              scheduleReconnect()
+              // scheduleReconnect 함수를 여기서 직접 호출하지 말고 setTimeout 사용
+              setTimeout(() => {
+                console.log('실시간 연결 재시도 중...')
+                cleanupConnection()
+                setupRealtimeConnection()
+              }, 5000)
               break
             case 'CLOSED':
               setIsConnected(false)
@@ -203,9 +195,27 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
       console.error('실시간 연결 설정 실패:', err)
       setConnectionStatus('error')
       setError('실시간 연결 설정에 실패했습니다.')
-      scheduleReconnect()
+      // scheduleReconnect 함수를 여기서 직접 호출하지 말고 setTimeout 사용
+      setTimeout(() => {
+        console.log('실시간 연결 재시도 중...')
+        cleanupConnection()
+        setupRealtimeConnection()
+      }, 5000)
     }
-  }, [sessionId, scheduleReconnect, startHeartbeat])
+  }, [sessionId, startHeartbeat, cleanupConnection])
+
+  // 재연결 스케줄
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+    }
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      console.log('실시간 연결 재시도 중...')
+      cleanupConnection()
+      setupRealtimeConnection()
+    }, 5000) // 5초 후 재연결
+  }, [cleanupConnection, setupRealtimeConnection])
 
   // 수동 재연결
   const retryConnection = useCallback(() => {
