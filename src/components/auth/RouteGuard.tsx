@@ -47,7 +47,7 @@ export default function RouteGuard({ children }: RouteGuardProps) {
       // 이미 초기화되었으면 체킹 상태만 업데이트
       setIsChecking(false)
     }
-  }, [isInitialized, isLoading]) // initialize 의존성 제거
+  }, [isInitialized, isLoading, initialize, isChecking]) // 모든 의존성 포함
 
 
   // 로딩 중이거나 인증 확인 중이면 로딩 화면 표시

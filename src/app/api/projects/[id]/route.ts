@@ -231,8 +231,8 @@ export async function PUT(
       client_email,
       budget,
       tags,
-      visibility_level,
-      is_public,
+      _visibility_level,
+      _is_public,
       settings
     } = body
 

@@ -27,7 +27,7 @@ interface ProjectFormProps {
 
 export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
   const router = useRouter()
-  const { user, organization } = useAuthStore()
+  const { user, organization: _organization } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: project?.name || '',

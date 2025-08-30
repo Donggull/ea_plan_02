@@ -316,7 +316,7 @@ export default function ProjectDetailPage() {
 
       {activeTab === 'settings' && canManageProject && (
         <ProjectSettings
-          project={project}
+          project={project as any}
           onUpdate={() => {
             // 업데이트 후 프로젝트 목록으로 이동하거나 새로고침
             // React Query가 자동으로 처리함

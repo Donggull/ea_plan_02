@@ -43,16 +43,25 @@ interface Project {
   id: string
   name: string
   description?: string | null
-  category: string
+  category?: string | null
   status?: string | null
-  owner_id: string
-  user_id: string
+  priority?: string | null
+  progress?: number | null
+  start_date?: string | null
+  end_date?: string | null
+  budget?: number | null
+  tags?: string[] | null
+  client_name?: string | null
+  client_email?: string | null
+  owner_id?: string | null
+  user_id?: string | null
   metadata?: any
   settings?: any
   visibility_level?: string | null
   is_public?: boolean | null
-  created_at: string
-  updated_at: string
+  organization_id?: string | null
+  created_at?: string | null
+  updated_at?: string | null
   userRole?: string
   userPermissions?: any
   members?: any[]
@@ -292,7 +301,7 @@ export function useProject(projectId: string | null) {
         // 4. 멤버십 정보와 프로젝트 데이터 결합
         const project: Project = {
           ...projectData,
-          userRole: memberData.role,
+          userRole: memberData.role || undefined,
           userPermissions: memberData.permissions
         }
 
@@ -437,9 +446,10 @@ export function useUpdateProject(projectId: string) {
         }
 
         // 3. 권한 체크 (owner, admin, write 권한 필요)
+        const permissions = memberData.permissions as any
         const hasWritePermission = memberData.role === 'owner' || 
                                    memberData.role === 'admin' || 
-                                   memberData.permissions?.write === true
+                                   (permissions && permissions.write === true)
 
         if (!hasWritePermission) {
           console.error('❌ 프로젝트 수정 권한 없음')
@@ -487,7 +497,7 @@ export function useUpdateProject(projectId: string) {
         // 5. 결과 반환
         const result: Project = {
           ...updatedProject,
-          userRole: memberData.role,
+          userRole: memberData.role || undefined,
           userPermissions: memberData.permissions
         }
 
