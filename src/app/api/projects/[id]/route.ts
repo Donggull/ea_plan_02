@@ -1,29 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+
+// Service role client for privileged operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables for service client')
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    console.log('🔍 Project Detail API: Starting request...')
     
     let user = null
+    let supabaseClient = null
     
     // Authorization 헤더에서 토큰 확인
     const authorization = request.headers.get('authorization')
     if (authorization) {
+      console.log('🔑 Project Detail API: Using token-based authentication')
       const token = authorization.replace('Bearer ', '')
-      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
       
       if (tokenError || !tokenUser) {
+        console.error('❌ Project Detail API: Token validation failed:', tokenError)
         return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
       }
       
       user = tokenUser
+      supabaseClient = supabaseAdmin
+      console.log('✅ Project Detail API: Token authentication successful for user:', user.id)
     } else {
       // 쿠키 기반 세션 확인
+      console.log('🍪 Project Detail API: Using cookie-based authentication')
       try {
         const supabase = createRouteHandlerClient({ 
           cookies 
@@ -31,11 +57,15 @@ export async function GET(
         const { data: { session }, error: authError } = await supabase.auth.getSession()
         
         if (authError || !session?.user) {
+          console.error('❌ Project Detail API: Cookie session failed:', authError)
           return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
         }
         
         user = session.user
-      } catch (_cookieError) {
+        supabaseClient = supabase
+        console.log('✅ Project Detail API: Cookie authentication successful for user:', user.id)
+      } catch (cookieError) {
+        console.error('❌ Project Detail API: Cookie access failed:', cookieError)
         return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
     }
@@ -44,8 +74,10 @@ export async function GET(
     const userId = user.id
     const projectId = resolvedParams.id
 
+    console.log('🔄 Step 1: Checking project membership for user:', userId, 'project:', projectId)
+    
     // 프로젝트 정보와 사용자의 권한 확인
-    const { data: memberData, error: memberError } = await supabase
+    const { data: memberData, error: memberError } = await supabaseClient
       .from('project_members')
       .select(`
         role,
@@ -77,11 +109,15 @@ export async function GET(
       .single()
 
     if (memberError || !memberData) {
+      console.error('❌ Project Detail API: No membership found:', memberError)
       return NextResponse.json({ error: '프로젝트에 접근할 권한이 없습니다' }, { status: 403 })
     }
 
+    console.log('✅ Project Detail API: User has access, role:', memberData.role)
+    console.log('🔄 Step 2: Fetching project members...')
+
     // 프로젝트 멤버 목록 조회
-    const { data: members, error: membersError } = await supabase
+    const { data: members, error: membersError } = await supabaseClient
       .from('project_members')
       .select(`
         id,
@@ -100,9 +136,12 @@ export async function GET(
       .order('created_at', { ascending: true })
 
     if (membersError) {
-      console.error('Members fetch error:', membersError)
+      console.error('❌ Project Detail API: Members fetch error:', membersError)
+    } else {
+      console.log('✅ Project Detail API: Found', members?.length || 0, 'members')
     }
 
+    console.log('📤 Project Detail API: Returning project data')
     return NextResponse.json({
       project: {
         ...memberData.project,
@@ -122,21 +161,21 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    
     let user = null
+    let supabaseClient = null
     
     // Authorization 헤더에서 토큰 확인
     const authorization = request.headers.get('authorization')
     if (authorization) {
       const token = authorization.replace('Bearer ', '')
-      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
       
       if (tokenError || !tokenUser) {
         return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
       }
       
       user = tokenUser
+      supabaseClient = supabaseAdmin
     } else {
       // 쿠키 기반 세션 확인
       try {
@@ -150,6 +189,7 @@ export async function PUT(
         }
         
         user = session.user
+        supabaseClient = supabase
       } catch (_cookieError) {
         return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
@@ -161,7 +201,7 @@ export async function PUT(
     const body = await request.json()
 
     // 사용자의 권한 확인
-    const { data: memberData, error: memberError } = await supabase
+    const { data: memberData, error: memberError } = await supabaseClient
       .from('project_members')
       .select('role, permissions')
       .eq('project_id', projectId)
@@ -220,7 +260,7 @@ export async function PUT(
 
     if (Object.keys(metadataUpdates).length > 0) {
       // 기존 metadata 조회 후 업데이트
-      const { data: currentProject } = await supabase
+      const { data: currentProject } = await supabaseClient
         .from('projects')
         .select('metadata')
         .eq('id', projectId)
@@ -232,7 +272,7 @@ export async function PUT(
       }
     }
 
-    const { data: project, error: updateError } = await supabase
+    const { data: project, error: updateError } = await supabaseClient
       .from('projects')
       .update(updateData)
       .eq('id', projectId)

@@ -1,44 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+
+// Service role client for privileged operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables for service client')
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    console.log('🔍 Project Members API: Starting request...')
     
     let user = null
+    let supabaseClient = null
     
     // Authorization 헤더에서 토큰 확인
     const authorization = request.headers.get('authorization')
     if (authorization) {
+      console.log('🔑 Project Members API: Using token-based authentication')
       const token = authorization.replace('Bearer ', '')
-      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
       
       if (tokenError || !tokenUser) {
+        console.error('❌ Project Members API: Token validation failed:', tokenError)
         return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
       }
       
       user = tokenUser
+      supabaseClient = supabaseAdmin
+      console.log('✅ Project Members API: Token authentication successful for user:', user.id)
     } else {
       // 쿠키 기반 세션 확인
-      const { data: { session }, error: authError } = await supabase.auth.getSession()
+      console.log('🍪 Project Members API: Using cookie-based authentication')
+      supabaseClient = createRouteHandlerClient({ cookies })
+      const { data: { session }, error: authError } = await supabaseClient.auth.getSession()
       
       if (authError || !session?.user) {
+        console.error('❌ Project Members API: Cookie session failed:', authError)
         return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
       }
       
       user = session.user
+      console.log('✅ Project Members API: Cookie authentication successful for user:', user.id)
     }
 
     const resolvedParams = await params
     const userId = user.id
     const projectId = resolvedParams.id
 
+    console.log('🔄 Checking project membership for user:', userId, 'project:', projectId)
+    
     // 사용자가 이 프로젝트에 접근할 권한이 있는지 확인
-    const { data: userMember, error: memberError } = await supabase
+    const { data: userMember, error: memberError } = await supabaseClient
       .from('project_members')
       .select('role, permissions')
       .eq('project_id', projectId)
@@ -46,11 +77,15 @@ export async function GET(
       .single()
 
     if (memberError || !userMember) {
+      console.error('❌ Project Members API: No membership found:', memberError)
       return NextResponse.json({ error: '프로젝트에 접근할 권한이 없습니다' }, { status: 403 })
     }
 
+    console.log('✅ Project Members API: User has access, role:', userMember.role)
+    console.log('🔄 Fetching all project members...')
+
     // 프로젝트 멤버 목록 조회
-    const { data: members, error: membersError } = await supabase
+    const { data: members, error: membersError } = await supabaseClient
       .from('project_members')
       .select(`
         id,
@@ -69,9 +104,12 @@ export async function GET(
       .order('created_at', { ascending: true })
 
     if (membersError) {
-      console.error('Members fetch error:', membersError)
+      console.error('❌ Project Members API: Members fetch error:', membersError)
       return NextResponse.json({ error: '멤버 목록을 불러올 수 없습니다' }, { status: 500 })
     }
+
+    console.log('✅ Project Members API: Found', members?.length || 0, 'members')
+    console.log('📤 Project Members API: Returning members data')
 
     return NextResponse.json({ members: members || [] })
   } catch (error) {
