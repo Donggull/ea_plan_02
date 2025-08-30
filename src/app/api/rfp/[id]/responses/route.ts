@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-interface RouteParams {
-  params: {
-    id: string
-  }
+type RouteParams = {
+  params: Promise<{ id: string }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -77,9 +76,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -194,9 +194,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -298,9 +299,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     const { searchParams } = new URL(request.url)
     const questionId = searchParams.get('question_id')
     

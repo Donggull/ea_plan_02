@@ -34,7 +34,7 @@ export function RFPAnalyzer({
     if (autoStart && rfpDocumentId) {
       handleStartAnalysis()
     }
-  }, [autoStart, rfpDocumentId])
+  }, [autoStart, rfpDocumentId, handleStartAnalysis])
 
   const handleStartAnalysis = async () => {
     if (!rfpDocumentId) {

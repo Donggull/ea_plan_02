@@ -576,6 +576,174 @@ export type Database = {
           },
         ]
       }
+      generated_images: {
+        Row: {
+          conversation_id: string | null
+          cost: number | null
+          created_at: string | null
+          dimensions: string | null
+          file_size: number | null
+          generation_time_ms: number | null
+          id: string
+          image_url: string
+          is_favorite: boolean | null
+          is_public: boolean | null
+          metadata: Json | null
+          model_name: string
+          negative_prompt: string | null
+          parameters: Json | null
+          project_id: string | null
+          prompt: string
+          provider: string
+          quality: string | null
+          storage_path: string | null
+          style: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          cost?: number | null
+          created_at?: string | null
+          dimensions?: string | null
+          file_size?: number | null
+          generation_time_ms?: number | null
+          id?: string
+          image_url: string
+          is_favorite?: boolean | null
+          is_public?: boolean | null
+          metadata?: Json | null
+          model_name: string
+          negative_prompt?: string | null
+          parameters?: Json | null
+          project_id?: string | null
+          prompt: string
+          provider: string
+          quality?: string | null
+          storage_path?: string | null
+          style?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          cost?: number | null
+          created_at?: string | null
+          dimensions?: string | null
+          file_size?: number | null
+          generation_time_ms?: number | null
+          id?: string
+          image_url?: string
+          is_favorite?: boolean | null
+          is_public?: boolean | null
+          metadata?: Json | null
+          model_name?: string
+          negative_prompt?: string | null
+          parameters?: Json | null
+          project_id?: string | null
+          prompt?: string
+          provider?: string
+          quality?: string | null
+          storage_path?: string | null
+          style?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_images_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_images_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_base: {
+        Row: {
+          chunk_index: number | null
+          content: string
+          content_type: string | null
+          created_at: string | null
+          document_id: string | null
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          project_id: string | null
+          source_reference: string | null
+          source_url: string | null
+          tags: string[] | null
+          title: string
+          total_chunks: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          chunk_index?: number | null
+          content: string
+          content_type?: string | null
+          created_at?: string | null
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string | null
+          source_reference?: string | null
+          source_url?: string | null
+          tags?: string[] | null
+          title: string
+          total_chunks?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          chunk_index?: number | null
+          content?: string
+          content_type?: string | null
+          created_at?: string | null
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string | null
+          source_reference?: string | null
+          source_url?: string | null
+          tags?: string[] | null
+          title?: string
+          total_chunks?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_base_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_research_guidance: {
         Row: {
           created_at: string | null

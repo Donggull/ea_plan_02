@@ -167,7 +167,7 @@ export function RFPSummary({
         </h3>
         {analysis.functional_requirements.length > 0 ? (
           <div className="space-y-3">
-            {analysis.functional_requirements.map((req, index) => (
+            {analysis.functional_requirements.map((req, _index) => (
               <div key={req.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="font-medium text-gray-900 dark:text-white">{req.title}</h4>
@@ -207,7 +207,7 @@ export function RFPSummary({
         </h3>
         {analysis.non_functional_requirements.length > 0 ? (
           <div className="space-y-3">
-            {analysis.non_functional_requirements.map((req, index) => (
+            {analysis.non_functional_requirements.map((req, _index) => (
               <div key={req.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="font-medium text-gray-900 dark:text-white">{req.title}</h4>

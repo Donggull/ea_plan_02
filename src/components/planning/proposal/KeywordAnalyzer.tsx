@@ -109,7 +109,7 @@ export function KeywordAnalyzer({
     } else if (autoAnalyze && analysisId) {
       handleAnalyzeKeywords()
     }
-  }, [autoAnalyze, analysisId, analysis])
+  }, [autoAnalyze, analysisId, analysis, handleAnalyzeKeywords])
 
   const handleAnalyzeKeywords = async () => {
     if (!analysisId) {

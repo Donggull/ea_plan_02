@@ -2,16 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { NextStepGuidanceRequest, NextStepGuidanceResponse } from '@/types/rfp-analysis'
 
-interface RouteParams {
-  params: {
-    id: string
-  }
+type RouteParams = {
+  params: Promise<{ id: string }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -64,9 +63,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -166,12 +166,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 }
 
 // AI 기반 다음 단계 가이던스 생성
-async function generateNextStepGuidance(analysis: any, questionsWithResponses: any[], responses: any[]) {
+async function generateNextStepGuidance(analysis: any, questionsWithResponses: any[], _responses: any[]) {
   // 실제로는 OpenAI API를 사용하여 맞춤형 가이던스 생성
   // 여기서는 분석 결과와 응답을 바탕으로 한 샘플 가이던스를 반환
 
   // 응답 분석을 통한 인사이트 추출
-  const insights = analyzeResponses(questionsWithResponses)
+  const _insights = analyzeResponses(questionsWithResponses)
 
   return {
     research_scope: "시장 조사 및 경쟁 분석을 통한 제안서 최적화",

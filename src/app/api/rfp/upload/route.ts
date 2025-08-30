@@ -4,7 +4,7 @@ import { RFPUploadResponse } from '@/types/rfp-analysis'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const fileName = `rfp-${timestamp}-${randomId}.${fileExtension}`
     
     // Supabase Storage에 파일 업로드
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: _uploadData, error: uploadError } = await supabase.storage
       .from('rfp-documents')
       .upload(fileName, file, {
         contentType: file.type,

@@ -39,7 +39,7 @@ export function RequirementExtractor({
     if (autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length) {
       handleExtractRequirements()
     }
-  }, [autoExtract, analysisId])
+  }, [autoExtract, analysisId, extractedRequirements.functional.length, extractedRequirements.nonFunctional.length, handleExtractRequirements])
 
   const handleExtractRequirements = async () => {
     if (!analysisId) {

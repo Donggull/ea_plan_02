@@ -4,7 +4,7 @@ import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 }
 
 // AI 분석 수행 함수 (실제로는 OpenAI API 등을 사용)
-async function performRFPAnalysis(extractedText: string, options: any) {
+async function performRFPAnalysis(_extractedText: string, _options: any) {
   // 실제로는 OpenAI GPT-4 등을 사용하여 텍스트 분석을 수행
   // 여기서는 모의 분석 결과를 반환
   
@@ -212,7 +212,7 @@ async function performRFPAnalysis(extractedText: string, options: any) {
 }
 
 // 분석 질문 생성 함수
-async function generateAnalysisQuestions(analysisId: string, options: any) {
+async function generateAnalysisQuestions(analysisId: string, _options: any) {
   // 실제로는 AI를 사용하여 맞춤형 질문 생성
   // 여기서는 기본 질문들을 반환
   

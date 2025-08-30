@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { 
   AnalysisQuestion, 
   QuestionResponse, 
-  QuestionType, 
+  // QuestionType, 
   QuestionCategory,
   NextStepGuidanceResponse
 } from '@/types/rfp-analysis'
@@ -51,13 +51,7 @@ export function AnalysisQuestionnaire({
     { key: 'success_definition', label: '성공 정의', description: '목표 및 성과 지표' }
   ]
 
-  useEffect(() => {
-    if (autoGenerate && analysisId && questions.length === 0) {
-      handleGenerateQuestions()
-    }
-  }, [autoGenerate, analysisId])
-
-  const handleGenerateQuestions = async () => {
+  const handleGenerateQuestions = useCallback(async () => {
     if (!analysisId) {
       onError?.('분석 ID가 필요합니다.')
       return
@@ -72,9 +66,10 @@ export function AnalysisQuestionnaire({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          rfp_analysis_id: analysisId,
-          focus_categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-          max_questions: maxQuestions
+          focus_categories: Object.keys(categoryFilters).filter(key => 
+            categoryFilters[key as QuestionCategory]
+          ) as QuestionCategory[],
+          max_questions: 10
         })
       })
 
@@ -84,10 +79,8 @@ export function AnalysisQuestionnaire({
       }
 
       const result = await response.json()
-      const generatedQuestions: AnalysisQuestion[] = result.questions || []
-      
-      setQuestions(generatedQuestions)
-      onQuestionsGenerated?.(generatedQuestions)
+      setQuestions(result.questions)
+      onQuestionsGenerated?.(result.questions)
       
     } catch (error) {
       console.error('Question generation error:', error)
@@ -96,7 +89,14 @@ export function AnalysisQuestionnaire({
     } finally {
       setIsGenerating(false)
     }
-  }
+  }, [analysisId, categoryFilters, onQuestionsGenerated, onError])
+
+  useEffect(() => {
+    if (autoGenerate && analysisId && questions.length === 0) {
+      handleGenerateQuestions()
+    }
+  }, [autoGenerate, analysisId, questions.length, handleGenerateQuestions])
+
 
   const handleResponseChange = (questionId: string, value: any) => {
     setResponses(prev => ({

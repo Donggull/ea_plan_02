@@ -7,7 +7,7 @@ import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import Input from '@/basic/src/components/Input/Input'
 import { cn } from '@/lib/utils'
-import { RFPUploadRequest, RFPUploadResponse } from '@/types/rfp-analysis'
+import { /* RFPUploadRequest, */ RFPUploadResponse } from '@/types/rfp-analysis'
 
 interface RFPUploaderProps {
   projectId?: string
@@ -51,7 +51,7 @@ export function RFPUploader({
     }
 
     return null
-  }, [])
+  }, [acceptedFileTypes])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (disabled || acceptedFiles.length === 0) return
@@ -68,7 +68,7 @@ export function RFPUploader({
     if (!title) {
       setTitle(file.name.replace(/\.[^/.]+$/, ''))
     }
-  }, [disabled, validateFile, onUploadError, title])
+  }, [disabled, validateFile, onUploadError, title, acceptedFileTypes])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

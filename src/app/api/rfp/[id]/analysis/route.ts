@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-interface RouteParams {
-  params: {
-    id: string
-  }
+type RouteParams = {
+  params: Promise<{ id: string }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -71,8 +70,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       metadata: {
         total_questions: questions?.length || 0,
         answered_questions: responses?.length || 0,
-        completion_rate: questions?.length > 0 ? 
-          Math.round((responses?.length || 0) / questions.length * 100) : 0
+        completion_rate: (questions?.length || 0) > 0 ? 
+          Math.round((responses?.length || 0) / (questions?.length || 1) * 100) : 0
       }
     }
 
@@ -88,9 +87,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -163,9 +163,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const resolvedParams = await params
   try {
-    const supabase = createClient()
-    const { id } = params
+    const supabase = await createClient()
+    const { id } = resolvedParams
     
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
