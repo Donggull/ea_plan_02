@@ -45,50 +45,56 @@ export async function GET(request: NextRequest) {
     } else {
       // 쿠키 기반 세션 확인
       console.log('API: Using cookie-based authentication')
-      const cookieStore = await cookies()
-      const allCookies = cookieStore.getAll()
-      console.log('API: Available cookies:', allCookies.map(c => c.name))
       
-      const supabase = createServerClient(
-        supabaseUrl!,
-        supabaseAnonKey!,
-        {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll()
+      try {
+        const cookieStore = await cookies()
+        const allCookies = cookieStore.getAll()
+        console.log('API: Available cookies:', allCookies.map(c => c.name))
+        
+        const supabase = createServerClient(
+          supabaseUrl!,
+          supabaseAnonKey!,
+          {
+            cookies: {
+              getAll() {
+                return cookieStore.getAll()
+              },
+              setAll(cookiesToSet: any) {
+                try {
+                  cookiesToSet.forEach(({ name, value, options }: any) => {
+                    // 브라우저 종료 시 쿠키가 삭제되도록 세션 쿠키로 설정
+                    const sessionOptions = {
+                      ...options,
+                      maxAge: undefined, // maxAge 제거하여 세션 쿠키로 설정
+                      expires: undefined, // expires 제거하여 세션 쿠키로 설정
+                    }
+                    cookieStore.set(name, value, sessionOptions)
+                  })
+                } catch (error) {
+                  console.log('API: Cannot set cookies in SSR:', error)
+                }
+              },
             },
-            setAll(cookiesToSet: any) {
-              try {
-                cookiesToSet.forEach(({ name, value, options }: any) => {
-                  // 브라우저 종료 시 쿠키가 삭제되도록 세션 쿠키로 설정
-                  const sessionOptions = {
-                    ...options,
-                    maxAge: undefined, // maxAge 제거하여 세션 쿠키로 설정
-                    expires: undefined, // expires 제거하여 세션 쿠키로 설정
-                  }
-                  cookieStore.set(name, value, sessionOptions)
-                })
-              } catch (error) {
-                console.log('API: Cannot set cookies in SSR:', error)
-              }
-            },
-          },
-        }
-      )
-      
-      // Get the current user from the session
-      console.log('API: Getting user from session...')
-      const { data: { user: sessionUser }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError) {
-        console.error('API: User session error:', userError)
-        return NextResponse.json(
-          { error: 'Session error', details: userError.message },
-          { status: 401 }
+          }
         )
+        
+        // Get the current user from the session
+        console.log('API: Getting user from session...')
+        const { data: { user: sessionUser }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError) {
+          console.error('API: User session error:', userError)
+          return NextResponse.json(
+            { error: 'Session error', details: userError.message },
+            { status: 401 }
+          )
+        }
+        
+        user = sessionUser
+      } catch (cookieError) {
+        console.error('API: Cookie access failed:', cookieError)
+        return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
-      
-      user = sessionUser
     }
     
     if (!user) {

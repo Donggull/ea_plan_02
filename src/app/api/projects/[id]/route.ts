@@ -24,13 +24,21 @@ export async function GET(
       user = tokenUser
     } else {
       // 쿠키 기반 세션 확인
-      const { data: { session }, error: authError } = await supabase.auth.getSession()
-      
-      if (authError || !session?.user) {
-        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      try {
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ 
+          cookies: () => cookieStore 
+        })
+        const { data: { session }, error: authError } = await supabase.auth.getSession()
+        
+        if (authError || !session?.user) {
+          return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+        }
+        
+        user = session.user
+      } catch (cookieError) {
+        return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
-      
-      user = session.user
     }
 
     const resolvedParams = await params
@@ -126,13 +134,21 @@ export async function PUT(
       user = tokenUser
     } else {
       // 쿠키 기반 세션 확인
-      const { data: { session }, error: authError } = await supabase.auth.getSession()
-      
-      if (authError || !session?.user) {
-        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      try {
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ 
+          cookies: () => cookieStore 
+        })
+        const { data: { session }, error: authError } = await supabase.auth.getSession()
+        
+        if (authError || !session?.user) {
+          return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+        }
+        
+        user = session.user
+      } catch (cookieError) {
+        return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
-      
-      user = session.user
     }
 
     const resolvedParams = await params
@@ -261,13 +277,21 @@ export async function DELETE(
       user = tokenUser
     } else {
       // 쿠키 기반 세션 확인
-      const { data: { session }, error: authError } = await supabase.auth.getSession()
-      
-      if (authError || !session?.user) {
-        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      try {
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ 
+          cookies: () => cookieStore 
+        })
+        const { data: { session }, error: authError } = await supabase.auth.getSession()
+        
+        if (authError || !session?.user) {
+          return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+        }
+        
+        user = session.user
+      } catch (cookieError) {
+        return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
-      
-      user = session.user
     }
 
     const resolvedParams = await params

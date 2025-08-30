@@ -47,17 +47,26 @@ export async function GET(request: NextRequest) {
     } else {
       // 쿠키 기반 세션 확인
       console.log('🍪 Projects API: Using cookie-based authentication')
-      const supabase = createRouteHandlerClient({ cookies })
-      const { data: { session }, error: authError } = await supabase.auth.getSession()
       
-      if (authError || !session?.user) {
-        console.error('❌ Projects API: Cookie session failed:', authError)
-        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      try {
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ 
+          cookies: () => cookieStore 
+        })
+        const { data: { session }, error: authError } = await supabase.auth.getSession()
+        
+        if (authError || !session?.user) {
+          console.error('❌ Projects API: Cookie session failed:', authError)
+          return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+        }
+        
+        user = session.user
+        supabaseClient = supabase  // Use cookie client for session-based requests
+        console.log('✅ Projects API: Cookie authentication successful for user:', user.id)
+      } catch (cookieError) {
+        console.error('❌ Projects API: Cookie access failed:', cookieError)
+        return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
-      
-      user = session.user
-      supabaseClient = supabase  // Use cookie client for session-based requests
-      console.log('✅ Projects API: Cookie authentication successful for user:', user.id)
     }
     
     return await getProjectsForUser(supabaseClient, user.id, request)
@@ -169,7 +178,10 @@ async function getProjectsForUser(supabase: any, userId: string, request: NextRe
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ 
+      cookies: () => cookieStore 
+    })
     
     // 현재 사용자 확인
     const { data: { session }, error: authError } = await supabase.auth.getSession()
