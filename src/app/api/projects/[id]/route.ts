@@ -54,14 +54,20 @@ export async function GET(
           id,
           name,
           description,
-          category,
           status,
+          progress,
+          priority,
+          start_date,
+          end_date,
+          budget,
+          tags,
+          client_name,
+          client_email,
           owner_id,
           user_id,
+          organization_id,
           metadata,
           settings,
-          visibility_level,
-          is_public,
           created_at,
           updated_at
         )
@@ -197,22 +203,20 @@ export async function PUT(
 
     if (name !== undefined) updateData.name = name
     if (description !== undefined) updateData.description = description
-    if (category !== undefined) updateData.category = category
     if (status !== undefined) updateData.status = status
-    if (visibility_level !== undefined) updateData.visibility_level = visibility_level
-    if (is_public !== undefined) updateData.is_public = is_public
+    if (priority !== undefined) updateData.priority = priority
+    if (progress !== undefined) updateData.progress = progress
+    if (start_date !== undefined) updateData.start_date = start_date
+    if (end_date !== undefined) updateData.end_date = end_date
+    if (client_name !== undefined) updateData.client_name = client_name
+    if (client_email !== undefined) updateData.client_email = client_email
+    if (budget !== undefined) updateData.budget = budget
+    if (tags !== undefined) updateData.tags = tags
     if (settings !== undefined) updateData.settings = settings
 
-    // metadata 업데이트
+    // metadata 업데이트 (category만)
     const metadataUpdates: any = {}
-    if (priority !== undefined) metadataUpdates.priority = priority
-    if (progress !== undefined) metadataUpdates.progress = progress
-    if (start_date !== undefined) metadataUpdates.start_date = start_date
-    if (end_date !== undefined) metadataUpdates.end_date = end_date
-    if (client_name !== undefined) metadataUpdates.client_name = client_name
-    if (client_email !== undefined) metadataUpdates.client_email = client_email
-    if (budget !== undefined) metadataUpdates.budget = budget
-    if (tags !== undefined) metadataUpdates.tags = tags
+    if (category !== undefined) metadataUpdates.category = category
 
     if (Object.keys(metadataUpdates).length > 0) {
       // 기존 metadata 조회 후 업데이트

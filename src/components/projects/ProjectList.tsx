@@ -53,21 +53,11 @@ export function ProjectList({ projects, onCreateNew, onEdit, onDelete }: Project
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">프로젝트</h1>
-          <Badge className="bg-gray-100 text-gray-800">
-            총 {projects.length}개
-          </Badge>
-        </div>
-        
-        <Button
-          onClick={onCreateNew}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          새 프로젝트
-        </Button>
+      <div className="flex items-center gap-4">
+        <h1 className="text-2xl font-bold">프로젝트</h1>
+        <Badge className="bg-gray-100 text-gray-800">
+          총 {projects.length}개
+        </Badge>
       </div>
 
       {/* Filters and Search */}
