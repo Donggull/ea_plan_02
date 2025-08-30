@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Input from '@/basic/src/components/Input/Input'
 import Button from '@/basic/src/components/Button/Button'
 import { useAuthStore } from '@/stores/auth-store'
+import { useCreateProject, useUpdateProject } from '@/hooks/useProjects'
 
 interface ProjectFormProps {
   project?: {
@@ -29,6 +30,8 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
   const router = useRouter()
   const { user, organization: _organization } = useAuthStore()
   const [loading, setLoading] = useState(false)
+  const createProjectMutation = useCreateProject()
+  const updateProjectMutation = useUpdateProject(project?.id || '')
   const [formData, setFormData] = useState({
     name: project?.name || '',
     description: project?.description || '',
@@ -43,19 +46,6 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
     tags: project?.tags?.join(', ') || ''
   })
 
-  // API를 통한 인증된 요청 함수
-  const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...((options.headers as Record<string, string>) || {})
-    }
-
-    return fetch(url, {
-      ...options,
-      headers,
-      credentials: 'include' // 쿠키 포함
-    })
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,53 +60,40 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
     try {
       const projectData = {
         name: formData.name,
-        description: formData.description || null,
+        description: formData.description || undefined,
         status: formData.status,
         priority: formData.priority,
         progress: parseInt(formData.progress.toString()) || 0,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-        client_name: formData.client_name || null,
-        client_email: formData.client_email || null,
-        budget: formData.budget ? parseFloat(formData.budget.toString()) : null,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : null
+        start_date: formData.start_date || undefined,
+        end_date: formData.end_date || undefined,
+        client_name: formData.client_name || undefined,
+        client_email: formData.client_email || undefined,
+        budget: formData.budget ? parseFloat(formData.budget.toString()) : undefined,
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : undefined
       }
 
       if (project?.id) {
-        // Update existing project via API
-        const response = await authenticatedFetch(`/api/projects/${project.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(projectData)
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || '프로젝트 수정 중 오류가 발생했습니다.')
-        }
-
-        const result = await response.json()
+        // Update existing project using React Query mutation
+        console.log('🔄 프로젝트 업데이트 시작:', project.id)
+        const result = await updateProjectMutation.mutateAsync(projectData)
         
         if (onSubmit) {
-          onSubmit(result.project)
+          onSubmit(result)
         } else {
           router.push('/dashboard/projects')
         }
       } else {
-        // Create new project via API
-        const response = await authenticatedFetch('/api/projects', {
-          method: 'POST',
-          body: JSON.stringify(projectData)
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || '프로젝트 생성 중 오류가 발생했습니다.')
+        // Create new project using React Query mutation
+        console.log('🔄 새 프로젝트 생성 시작')
+        const projectDataWithCategory = {
+          ...projectData,
+          category: 'general' // 기본 카테고리 설정
         }
-
-        const result = await response.json()
+        
+        const result = await createProjectMutation.mutateAsync(projectDataWithCategory)
         
         if (onSubmit) {
-          onSubmit(result.project)
+          onSubmit(result)
         } else {
           router.push('/dashboard/projects')
         }
