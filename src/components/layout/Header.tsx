@@ -12,13 +12,6 @@ import { cn } from '@/lib/utils'
 export function Header() {
   const router = useRouter()
   const { user, signOut, isLoading, isInitialized } = useAuthStore()
-  
-  // 디버깅용 로그
-  console.log('Header render - user:', user)
-  console.log('Header render - isLoading:', isLoading)
-  console.log('Header render - isInitialized:', isInitialized)
-  console.log('Header render - Should show user menu:', !!(isInitialized && user))
-  console.log('Header render - User details:', user ? { name: user.name, email: user.email, role: user.user_role } : 'No user')
   const { 
     toggleSidebar, 
     toggleDarkMode, 
@@ -193,11 +186,6 @@ export function Header() {
               </div>
             </div>
           )}
-
-          {/* Debug info - 임시로 추가 */}
-          <div className="text-xs bg-red-100 p-1 rounded">
-            {isInitialized ? 'Init✓' : 'Init✗'} | {user ? 'User✓' : 'User✗'} | {isLoading ? 'Loading' : 'Ready'}
-          </div>
 
           {/* User Menu - 로그인된 사용자만 표시 */}
           {user ? (

@@ -21,24 +21,24 @@ console.log('Supabase client initializing with URL:', supabaseUrl)
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: false, // 브라우저 종료 시 세션 자동 해제
+    persistSession: true, // 세션 유지
     detectSessionInUrl: true,
     storage: {
-      // 세션 스토리지 사용 (브라우저 종료 시 자동 삭제)
+      // localStorage 사용하여 세션 유지
       getItem: (key: string) => {
         if (typeof window !== 'undefined') {
-          return window.sessionStorage.getItem(key)
+          return window.localStorage.getItem(key)
         }
         return null
       },
       setItem: (key: string, value: string) => {
         if (typeof window !== 'undefined') {
-          window.sessionStorage.setItem(key, value)
+          window.localStorage.setItem(key, value)
         }
       },
       removeItem: (key: string) => {
         if (typeof window !== 'undefined') {
-          window.sessionStorage.removeItem(key)
+          window.localStorage.removeItem(key)
         }
       }
     }

@@ -13,9 +13,6 @@ export default function RouteGuard({ children }: RouteGuardProps) {
   const pathname = usePathname()
   const [isChecking, setIsChecking] = useState(true)
 
-  // 디버깅용 로그
-  console.log('RouteGuard render - isInitialized:', isInitialized, 'isLoading:', isLoading, 'user:', !!user)
-
   // 공개 페이지 목록 (로그인 없이 접근 가능)
   const publicPaths = [
     '/',

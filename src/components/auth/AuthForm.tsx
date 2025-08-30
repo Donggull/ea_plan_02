@@ -53,11 +53,14 @@ export default function AuthForm({
       setError('')
       await signIn(data.email, data.password)
       
-      // 로그인 성공 후 명시적으로 리다이렉트
+      // 로그인 성공 후 약간의 딜레이를 주고 리다이렉트
       console.log(`Login successful, redirecting to ${redirectTo}`)
       
-      // 페이지 새로고침으로 미들웨어가 새로운 세션을 인식하도록 함
-      window.location.href = redirectTo
+      // 상태가 완전히 업데이트되도록 잠시 대기
+      setTimeout(() => {
+        // router.push 대신 window.location.href 사용하여 완전히 새로고침
+        window.location.href = redirectTo
+      }, 500)
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     }

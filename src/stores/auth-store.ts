@@ -36,7 +36,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
 
   initialize: async () => {
+    // 이미 초기화 중이거나 초기화됐으면 스킵
+    const state = get()
+    if (state.isLoading || state.isInitialized) {
+      console.log('Already initializing or initialized, skipping...')
+      return
+    }
+    
     set({ isLoading: true })
+    console.log('Initializing auth state...')
     
     try {
       // 현재 세션 확인
@@ -49,33 +57,80 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (!session?.user) {
+        console.log('No session found')
         set({ user: null, organization: null, isLoading: false, isInitialized: true })
         return
       }
 
-      // 사용자 정보 가져오기
+      console.log('Session found, fetching user data for:', session.user.email)
+
+      // API를 통해 사용자 정보 가져오기 (RLS 우회)
+      try {
+        const response = await fetch('/api/auth/user', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        })
+
+        if (response.ok) {
+          const { user: userData, organization: organizationData } = await response.json()
+          console.log('User data fetched successfully:', userData?.name || userData?.email)
+          
+          set({ 
+            user: userData, 
+            organization: organizationData, 
+            isLoading: false, 
+            isInitialized: true 
+          })
+          return
+        }
+      } catch (apiError) {
+        console.error('API error:', apiError)
+      }
+
+      // API 실패 시 직접 데이터베이스 조회
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('email', session.user.email!)
         .single()
 
       if (userError || !userData) {
         console.error('User fetch error:', userError)
-        set({ user: null, organization: null, isLoading: false, isInitialized: true })
+        // 사용자 정보가 없으면 기본 정보로 생성
+        const fallbackUser: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          user_role: 'user',
+          subscription_tier: 'free',
+          organization_id: null,
+          role: null,
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        set({ 
+          user: fallbackUser, 
+          organization: null, 
+          isLoading: false, 
+          isInitialized: true 
+        })
         return
       }
 
       // 조직 정보 가져오기
       let organizationData: Organization | null = null
       if (userData.organization_id) {
-        const { data: orgData, error: orgError } = await supabase
+        const { data: orgData } = await supabase
           .from('organizations')
           .select('*')
           .eq('id', userData.organization_id)
           .single()
 
-        if (!orgError && orgData) {
+        if (orgData) {
           organizationData = orgData
         }
       }
@@ -441,18 +496,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // Auth 상태 변경을 감지하는 리스너 설정
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state change:', event, session ? 'session exists' : 'no session')
-  const { initialize } = useAuthStore.getState()
   
   if (event === 'SIGNED_OUT' || !session) {
+    console.log('User signed out, clearing auth state')
     useAuthStore.setState({ 
       user: null, 
       organization: null, 
       isLoading: false,
       isInitialized: true
     })
-  } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+  } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+    console.log('Auth event:', event)
+    // 상태 리셋 후 재초기화
+    useAuthStore.setState({ 
+      isInitialized: false,
+      isLoading: false
+    })
+    
     // 약간의 딜레이 후 초기화 (상태 안정화)
     setTimeout(async () => {
+      const { initialize } = useAuthStore.getState()
       await initialize()
     }, 100)
   }
