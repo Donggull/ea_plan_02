@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '프로젝트를 불러올 수 없습니다' }, { status: 500 })
     }
 
-    let projects = memberData?.map(item => ({
+    let projects: any[] = memberData?.map(item => ({
       ...item.project,
       userRole: item.role,
       userPermissions: item.permissions

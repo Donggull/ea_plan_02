@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -16,8 +16,9 @@ export async function GET(
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const userId = session.user.id
-    const projectId = params.id
+    const projectId = resolvedParams.id
 
     // 사용자가 이 프로젝트에 접근할 권한이 있는지 확인
     const { data: userMember, error: memberError } = await supabase
@@ -64,7 +65,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -76,8 +77,9 @@ export async function POST(
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const userId = session.user.id
-    const projectId = params.id
+    const projectId = resolvedParams.id
     const body = await request.json()
 
     const { email, role = 'member' } = body

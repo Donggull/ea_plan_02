@@ -145,9 +145,9 @@ export default function ProjectDetailPage() {
               <Badge className={getStatusColor(project.status || 'draft')}>
                 {project.status || 'draft'}
               </Badge>
-              {project.priority && (
-                <span className={`text-sm font-medium ${getPriorityColor(project.priority)}`}>
-                  {project.priority} 우선순위
+              {project.metadata?.priority && (
+                <span className={`text-sm font-medium ${getPriorityColor(project.metadata.priority)}`}>
+                  {project.metadata.priority} 우선순위
                 </span>
               )}
             </div>
@@ -206,11 +206,11 @@ export default function ProjectDetailPage() {
                 {project.description || '설명이 없습니다.'}
               </p>
 
-              {project.tags && project.tags.length > 0 && (
+              {project.metadata?.tags && project.metadata.tags.length > 0 && (
                 <div className="mt-4">
                   <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">태그</h3>
                   <div className="flex flex-wrap gap-2">
-                    {project.tags.map((tag: string, index: number) => (
+                    {project.metadata.tags.map((tag: string, index: number) => (
                       <Badge key={index} className="bg-gray-100 text-gray-700">
                         {tag}
                       </Badge>
@@ -221,18 +221,18 @@ export default function ProjectDetailPage() {
             </Card>
 
             {/* 진행률 */}
-            {project.progress !== null && (
+            {project.metadata?.progress !== null && project.metadata?.progress !== undefined && (
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-lg font-semibold">진행률</h2>
                   <span className="text-2xl font-bold text-blue-600">
-                    {project.progress}%
+                    {project.metadata.progress}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div
                     className="bg-blue-500 h-3 rounded-full transition-all"
-                    style={{ width: `${project.progress}%` }}
+                    style={{ width: `${project.metadata.progress}%` }}
                   />
                 </div>
               </Card>
@@ -246,32 +246,32 @@ export default function ProjectDetailPage() {
               <h2 className="text-lg font-semibold mb-4">프로젝트 정보</h2>
               
               <div className="space-y-4">
-                {project.start_date && (
+                {project.metadata?.start_date && (
                   <div className="flex items-center gap-3">
                     <Calendar className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-500">시작일</p>
-                      <p className="font-medium">{formatDate(project.start_date)}</p>
+                      <p className="font-medium">{formatDate(project.metadata.start_date)}</p>
                     </div>
                   </div>
                 )}
 
-                {project.end_date && (
+                {project.metadata?.end_date && (
                   <div className="flex items-center gap-3">
                     <Calendar className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-500">종료일</p>
-                      <p className="font-medium">{formatDate(project.end_date)}</p>
+                      <p className="font-medium">{formatDate(project.metadata.end_date)}</p>
                     </div>
                   </div>
                 )}
 
-                {project.budget && (
+                {project.metadata?.budget && (
                   <div className="flex items-center gap-3">
                     <DollarSign className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-500">예산</p>
-                      <p className="font-medium">{formatCurrency(project.budget)}</p>
+                      <p className="font-medium">{formatCurrency(project.metadata.budget)}</p>
                     </div>
                   </div>
                 )}
@@ -287,14 +287,14 @@ export default function ProjectDetailPage() {
             </Card>
 
             {/* 클라이언트 정보 */}
-            {project.client_name && (
+            {project.metadata?.client_name && (
               <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-4">클라이언트</h2>
                 <div>
-                  <p className="font-medium">{project.client_name}</p>
-                  {project.client_email && (
+                  <p className="font-medium">{project.metadata.client_name}</p>
+                  {project.metadata?.client_email && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {project.client_email}
+                      {project.metadata.client_email}
                     </p>
                   )}
                 </div>

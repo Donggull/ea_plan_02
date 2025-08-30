@@ -36,12 +36,6 @@ export function ProjectSelector({
 
   const selectedProject = projects.find(p => p.id === selectedProjectId)
 
-  useEffect(() => {
-    if (user) {
-      loadProjects()
-    }
-  }, [user, loadProjects])
-
   const loadProjects = useCallback(async () => {
     if (!user) return
 
@@ -73,6 +67,12 @@ export function ProjectSelector({
       setLoading(false)
     }
   }, [user])
+
+  useEffect(() => {
+    if (user) {
+      loadProjects()
+    }
+  }, [user, loadProjects])
 
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

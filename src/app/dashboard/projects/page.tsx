@@ -146,7 +146,6 @@ export default function ProjectsPage() {
           title="새 프로젝트 생성"
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
-          size="lg"
         >
           <ProjectForm
             onSubmit={handleCreateProject}

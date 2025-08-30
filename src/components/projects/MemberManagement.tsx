@@ -35,10 +35,6 @@ export function MemberManagement({ projectId, onMemberChange }: MemberManagement
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('member')
 
-  useEffect(() => {
-    loadMembers()
-  }, [projectId, loadMembers])
-
   const loadMembers = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -55,11 +51,15 @@ export function MemberManagement({ projectId, onMemberChange }: MemberManagement
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      setMembers(data || [])
+      setMembers((data as any) || [])
     } catch (error) {
       console.error('Error loading members:', error)
     }
   }, [projectId])
+
+  useEffect(() => {
+    loadMembers()
+  }, [projectId, loadMembers])
 
   const handleInvite = async () => {
     if (!user || !inviteEmail) return
@@ -332,7 +332,7 @@ export function MemberManagement({ projectId, onMemberChange }: MemberManagement
 
                 {canManageMembers && member.role !== 'owner' && member.user_id !== user?.id && (
                   <Button
-                    onClick={() => handleRemoveMember(member.id, member.user?.name || member.user?.email)}
+                    onClick={() => handleRemoveMember(member.id, member.user?.name || member.user?.email || '')}
                     variant="ghost"
                     size="sm"
                     className="text-red-600 hover:bg-red-50"

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -16,9 +16,10 @@ export async function PUT(
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const userId = session.user.id
-    const projectId = params.id
-    const memberId = params.memberId
+    const projectId = resolvedParams.id
+    const memberId = resolvedParams.memberId
     const body = await request.json()
 
     const { role } = body
@@ -105,7 +106,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -117,9 +118,10 @@ export async function DELETE(
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
+    const resolvedParams = await params
     const userId = session.user.id
-    const projectId = params.id
-    const memberId = params.memberId
+    const projectId = resolvedParams.id
+    const memberId = resolvedParams.memberId
 
     // 사용자의 권한 확인 (관리자 또는 소유자만 멤버 제거 가능)
     const { data: userMember, error: memberError } = await supabase
