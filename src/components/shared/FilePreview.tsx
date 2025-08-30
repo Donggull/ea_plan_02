@@ -26,7 +26,7 @@ export function FilePreview({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fullScreenOpen, setFullScreenOpen] = useState(false)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const _canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     if (!file) return

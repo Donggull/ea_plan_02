@@ -116,7 +116,7 @@ export abstract class BaseDocumentProcessor implements DocumentProcessor {
 
     const { error } = await supabase
       .from('knowledge_base')
-      .insert(knowledgeBaseEntries)
+      .insert(knowledgeBaseEntries as any)
 
     if (error) {
       throw new Error(`벡터 DB 저장 실패: ${error.message}`)

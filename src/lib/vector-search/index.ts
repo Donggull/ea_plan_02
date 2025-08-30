@@ -63,8 +63,8 @@ export class VectorSearchEngine {
       // Vector 검색 함수 호출
       const { data: searchResults, error } = await supabase
         .rpc('search_documents', {
-          query_embedding: queryEmbedding,
-          project_id_param: options.projectId || null,
+          query_embedding: queryEmbedding as any,
+          project_id_param: options.projectId || undefined,
           match_threshold: options.matchThreshold || 0.7,
           match_count: options.matchCount || 10
         })
@@ -145,7 +145,7 @@ export class VectorSearchEngine {
       })
       
       // 키워드 검색 결과 추가 (낮은 가중치)
-      keywordResults.forEach((result, index) => {
+      keywordResults.forEach((result, _index) => {
         const key = `${result.documentId}-${result.chunkIndex}`
         if (combinedResults.has(key)) {
           const existing = combinedResults.get(key)!
@@ -249,7 +249,7 @@ export class VectorSearchEngine {
         const { data: similarChunks, error: searchError } = await supabase
           .rpc('search_documents', {
             query_embedding: chunk.embedding,
-            project_id_param: chunk.project_id,
+            project_id_param: chunk.project_id || undefined,
             match_threshold: options.matchThreshold || 0.8,
             match_count: 5
           })
@@ -276,7 +276,7 @@ export class VectorSearchEngine {
       const uniqueResults = new Map<string, DocumentSearchResult>()
       allResults.forEach(result => {
         const key = result.documentId
-        if (!uniqueResults.has(key) || uniqueResults.get(key)!.similarity < result.similarity) {
+        if (key && (!uniqueResults.has(key) || uniqueResults.get(key)!.similarity < result.similarity)) {
           uniqueResults.set(key, result)
         }
       })
@@ -315,9 +315,9 @@ export class VectorSearchEngine {
       }
 
       const uniqueDocuments = new Set(data?.map(item => item.document_id).filter(Boolean)).size
-      const lastUpdate = data && data.length > 0 
+      const lastUpdate = data && data.length > 0 && data[0].created_at
         ? data.reduce((latest, item) => 
-            item.created_at > latest ? item.created_at : latest, data[0].created_at)
+            (item.created_at && item.created_at > latest) ? item.created_at : latest, data[0].created_at)
         : null
 
       return {

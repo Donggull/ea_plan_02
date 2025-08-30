@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           ? `projects/${projectId}/documents/${fileName}`
           : `documents/${fileName}`
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('documents')
           .upload(filePath, file)
 

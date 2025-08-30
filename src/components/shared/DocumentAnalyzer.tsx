@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -28,13 +28,7 @@ export function DocumentAnalyzer({
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'summary' | 'entities' | 'structure' | 'keywords'>('summary')
 
-  useEffect(() => {
-    if (autoAnalyze && (documentId || documentContent)) {
-      handleAnalyze()
-    }
-  }, [documentId, documentContent, autoAnalyze])
-
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async () => {
     if (!documentId && !documentContent) {
       setError('분석할 문서가 없습니다.')
       return
@@ -56,22 +50,28 @@ export function DocumentAnalyzer({
       })
 
       if (!response.ok) {
-        throw new Error('문서 분석에 실패했습니다.')
+        throw new Error('분석 요청이 실패했습니다.')
       }
 
-      const analysisResult = await response.json()
-      setAnalysis(analysisResult)
-
+      const result: DocumentAnalysisResult = await response.json()
+      setAnalysis(result)
+      
       if (onAnalysisComplete) {
-        onAnalysisComplete(analysisResult)
+        onAnalysisComplete(result)
       }
     } catch (err) {
-      console.error('Analysis error:', err)
+      console.error('Document analysis error:', err)
       setError(err instanceof Error ? err.message : '분석 중 오류가 발생했습니다.')
     } finally {
       setIsAnalyzing(false)
     }
-  }
+  }, [documentId, documentContent, onAnalysisComplete])
+
+  useEffect(() => {
+    if (autoAnalyze && (documentId || documentContent)) {
+      handleAnalyze()
+    }
+  }, [documentId, documentContent, autoAnalyze, handleAnalyze])
 
   const getSentimentVariant = (sentiment: string) => {
     switch (sentiment) {

@@ -972,7 +972,7 @@ export function useOperationRequests(projectId: string, workCategory?: string) {
       }
 
       console.log('✅ 운영 요청 조회 완료:', data?.length || 0, '개')
-      return data || []
+      return (data || []) as OperationRequest[]
     },
     enabled: shouldEnableQueries && !!projectId,
     staleTime: 1 * 60 * 1000, // 1분간 fresh
@@ -1005,7 +1005,7 @@ export function useCreateOperationRequest() {
       }
 
       console.log('✅ 운영 요청 생성 완료:', request.id)
-      return request
+      return request as OperationRequest
     },
     onSuccess: (_, variables) => {
       if (variables.project_id) {

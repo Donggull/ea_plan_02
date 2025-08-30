@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 
 export default function DocumentsPage() {
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user: _user } = useAuth()
   
   const [activeTab, setActiveTab] = useState<'upload' | 'list' | 'search' | 'analyze'>('list')
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(

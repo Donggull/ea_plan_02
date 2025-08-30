@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState, useRef } from 'react'
+import React, { useCallback, useState, useRef, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
@@ -23,19 +23,19 @@ export function FileUploader({
   onFilesUpload,
   onFileRemove,
   uploadedFiles = [],
-  projectId,
+  projectId: _projectId,
   multiple = true,
   accept,
   className,
   disabled = false
 }: FileUploaderProps) {
-  const [dragActive, setDragActive] = useState(false)
+  const [dragActive, _setDragActive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const acceptedTypes = accept || [
+  const acceptedTypes = useMemo(() => accept || [
     ...Object.keys(SUPPORTED_FILE_TYPES.documents),
     ...Object.keys(SUPPORTED_FILE_TYPES.images)
-  ]
+  ], [accept])
 
   const validateFile = useCallback((file: File): string | null => {
     if (file.size > MAX_FILE_SIZE) {
@@ -49,7 +49,7 @@ export function FileUploader({
     return null
   }, [acceptedTypes])
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: File[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     if (disabled) return
 
     const validFiles: File[] = []
