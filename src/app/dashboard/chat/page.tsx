@@ -64,10 +64,17 @@ export default function ChatPage({}: ChatPageProps) {
   // 새 채팅 세션 생성
   const createSession = useMutation({
     mutationFn: async ({ projectId, title }: { projectId?: string; title?: string }) => {
-      // 먼저 conversation 생성
+      // 현재 로그인된 사용자 ID 가져오기
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('로그인이 필요합니다.')
+      }
+
+      // conversation 생성 - user_id 필수 포함
       const conversationData = {
         title: title || 'New Chat',
         model_name: 'claude',
+        user_id: user.id,
         project_id: projectId,
         context_data: {},
         total_tokens: 0,
@@ -84,9 +91,10 @@ export default function ChatPage({}: ChatPageProps) {
 
       if (convError) throw convError
 
-      // 채팅 세션 생성
+      // 채팅 세션 생성 - user_id 포함
       const sessionData = {
         conversation_id: conversation.id,
+        user_id: user.id,
         project_id: projectId,
         title: title || 'New Chat',
         model_name: 'claude',
