@@ -12,6 +12,8 @@ interface ProjectFormProps {
     id?: string
     name: string
     description?: string | null
+    category?: string | null
+    current_phase?: string | null
     status?: string | null
     priority?: string | null
     progress?: number | null
@@ -36,6 +38,8 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
   const [formData, setFormData] = useState({
     name: project?.name || '',
     description: project?.description || '',
+    category: project?.category || 'general',
+    current_phase: project?.current_phase || 'proposal',
     status: project?.status || 'draft',
     priority: project?.priority || 'medium',
     progress: project?.progress || 0,
@@ -69,6 +73,8 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
       const projectData = {
         name: formData.name,
         description: formData.description || undefined,
+        category: formData.category,
+        current_phase: formData.current_phase as 'proposal' | 'construction' | 'operation' | undefined,
         status: formData.status,
         priority: formData.priority,
         progress: parseInt(formData.progress.toString()) || 0,
@@ -93,12 +99,14 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
       } else {
         // Create new project using React Query mutation
         console.log('🔄 새 프로젝트 생성 시작')
-        const projectDataWithCategory = {
+        // 새 프로젝트는 기본적으로 제안 진행 단계로 시작
+        const projectDataWithDefaults = {
           ...projectData,
-          category: 'general' // 기본 카테고리 설정
+          current_phase: 'proposal' as 'proposal' | 'construction' | 'operation', // 기본 단계 설정
+          category: projectData.category || 'general' // 기본 카테고리 설정
         }
         
-        const result = await createProjectMutation.mutateAsync(projectDataWithCategory)
+        const result = await createProjectMutation.mutateAsync(projectDataWithDefaults)
         
         if (onSubmit) {
           onSubmit(result)
@@ -149,8 +157,40 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
             />
           </div>
 
-          {/* Status */}
+          {/* Category */}
           <div>
+            <label className="block text-sm font-medium mb-2">카테고리</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="general">일반</option>
+              <option value="web">웹 개발</option>
+              <option value="mobile">모바일 앱</option>
+              <option value="system">시스템 개발</option>
+              <option value="consulting">컨설팅</option>
+            </select>
+          </div>
+
+          {/* Current Phase - 수정 모드일 때만 표시 */}
+          {project?.id && (
+            <div>
+              <label className="block text-sm font-medium mb-2">현재 단계</label>
+              <select
+                value={formData.current_phase}
+                onChange={(e) => setFormData({ ...formData, current_phase: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="proposal">제안 진행</option>
+                <option value="construction">구축 관리</option>
+                <option value="operation">운영 관리</option>
+              </select>
+            </div>
+          )}
+
+          {/* Status */}
+          <div className={project?.id ? '' : 'md:col-start-1'}>
             <label className="block text-sm font-medium mb-2">상태</label>
             <select
               value={formData.status}

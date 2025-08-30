@@ -44,6 +44,8 @@ interface Project {
   name: string
   description?: string | null
   category?: string | null
+  current_phase?: string | null
+  phase_data?: any
   status?: string | null
   priority?: string | null
   progress?: number | null
@@ -67,10 +69,106 @@ interface Project {
   members?: any[]
 }
 
+// RFP 문서 인터페이스
+interface RfpDocument {
+  id: string
+  project_id: string
+  phase_type: 'proposal' | 'construction' | 'operation'
+  title: string
+  description?: string | null
+  content?: string | null
+  file_path?: string | null
+  file_size?: number | null
+  mime_type?: string | null
+  analysis_data?: any
+  status?: 'draft' | 'analyzing' | 'completed' | 'archived'
+  uploaded_by?: string | null
+  tags?: string[] | null
+  metadata?: any
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+// 제안 진행 작업 인터페이스
+interface ProposalTask {
+  id: string
+  project_id: string
+  rfp_document_id?: string | null
+  task_type: 'rfp_analysis' | 'market_research' | 'persona_analysis' | 'proposal_writing' | 'cost_estimation'
+  title: string
+  description?: string | null
+  status?: 'pending' | 'in_progress' | 'completed' | 'blocked'
+  progress_percentage?: number
+  assigned_to?: string | null
+  result_data?: any
+  estimated_hours?: number | null
+  actual_hours?: number | null
+  priority?: 'low' | 'medium' | 'high' | 'urgent'
+  due_date?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  metadata?: any
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+// 구축 관리 작업 인터페이스
+interface ConstructionTask {
+  id: string
+  project_id: string
+  rfp_document_id?: string | null
+  task_type: 'current_analysis' | 'requirement_definition' | 'function_definition' | 'screen_design' | 'wbs_scheduling' | 'qa_management' | 'comprehensive_insights'
+  title: string
+  description?: string | null
+  status?: 'pending' | 'in_progress' | 'completed' | 'blocked'
+  progress_percentage?: number
+  assigned_to?: string | null
+  result_data?: any
+  estimated_hours?: number | null
+  actual_hours?: number | null
+  priority?: 'low' | 'medium' | 'high' | 'urgent'
+  due_date?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  dependencies?: string[] | null
+  blockers?: string | null
+  metadata?: any
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+// 운영 관리 요청 확장 인터페이스
+interface OperationRequest {
+  id: string
+  project_id?: string | null
+  organization_id?: string | null
+  user_id: string
+  request_type: string
+  work_category?: 'planning' | 'design' | 'publishing' | 'development'
+  category?: string | null
+  title: string
+  description: string
+  priority?: string | null
+  severity?: string | null
+  status?: string | null
+  client_requirements?: string | null
+  schedule_data?: any
+  assigned_to?: string | null
+  estimated_hours?: number | null
+  actual_hours?: number | null
+  due_date?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  metadata?: any
+  created_at?: string | null
+  updated_at?: string | null
+}
+
 interface CreateProjectData {
   name: string
   description?: string
   category?: string
+  current_phase?: 'proposal' | 'construction' | 'operation'
   status?: string
   priority?: string
   start_date?: string
@@ -79,6 +177,7 @@ interface CreateProjectData {
   client_email?: string
   budget?: number
   tags?: string[]
+  phase_data?: any
 }
 
 interface UpdateProjectData extends Partial<CreateProjectData> {
@@ -86,12 +185,14 @@ interface UpdateProjectData extends Partial<CreateProjectData> {
   visibility_level?: string
   is_public?: boolean
   settings?: any
+  phase_data?: any
 }
 
 interface ProjectFilters {
   status?: string
   priority?: string
   category?: string
+  current_phase?: string
 }
 
 // 프로젝트 목록 조회 (직접 Supabase 호출)
@@ -460,7 +561,7 @@ export function useUpdateProject(projectId: string) {
 
         // 4. 프로젝트 업데이트
         console.log('🔄 프로젝트 업데이트 중...')
-        const { data: updatedProject, error: updateError } = await supabase
+        const { data: updatedProject, error: updateError } = await (supabase as any)
           .from('projects')
           .update(data)
           .eq('id', projectId)
@@ -468,6 +569,9 @@ export function useUpdateProject(projectId: string) {
             id,
             name,
             description,
+            category,
+            current_phase,
+            phase_data,
             status,
             progress,
             priority,
@@ -595,6 +699,384 @@ export function useDeleteProject() {
       })
       
       queryClient.removeQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    }
+  })
+}
+
+// ====================================
+// RFP 문서 관리 훅들
+// ====================================
+
+// RFP 문서 목록 조회
+export function useRfpDocuments(projectId: string, phaseType?: string) {
+  const { shouldEnableQueries } = useAuthCheck()
+  
+  return useQuery({
+    queryKey: ['rfp-documents', projectId, phaseType],
+    queryFn: async (): Promise<RfpDocument[]> => {
+      console.log('🔍 RFP 문서 목록 조회 시작:', projectId, phaseType)
+      
+      const user = await getCurrentUser()
+      
+      let query = (supabase as any)
+        .from('rfp_documents')
+        .select(`
+          id,
+          project_id,
+          phase_type,
+          title,
+          description,
+          content,
+          file_path,
+          file_size,
+          mime_type,
+          analysis_data,
+          status,
+          uploaded_by,
+          tags,
+          metadata,
+          created_at,
+          updated_at
+        `)
+        .eq('project_id', projectId)
+
+      if (phaseType && phaseType !== 'all') {
+        query = query.eq('phase_type', phaseType)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('❌ RFP 문서 조회 오류:', error)
+        throw new Error('RFP 문서를 불러올 수 없습니다')
+      }
+
+      console.log('✅ RFP 문서 조회 완료:', data?.length || 0, '개')
+      return data || []
+    },
+    enabled: shouldEnableQueries && !!projectId,
+    staleTime: 5 * 60 * 1000, // 5분간 fresh
+    refetchOnWindowFocus: false,
+  })
+}
+
+// RFP 문서 생성
+export function useCreateRfpDocument() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: Omit<RfpDocument, 'id' | 'created_at' | 'updated_at'>): Promise<RfpDocument> => {
+      console.log('🔨 RFP 문서 생성 시작:', data.title)
+      
+      const user = await getCurrentUser()
+      
+      const { data: rfpDoc, error } = await (supabase as any)
+        .from('rfp_documents')
+        .insert({
+          ...data,
+          uploaded_by: user.id
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ RFP 문서 생성 오류:', error)
+        throw new Error('RFP 문서 생성 중 오류가 발생했습니다')
+      }
+
+      console.log('✅ RFP 문서 생성 완료:', rfpDoc.id)
+      return rfpDoc
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['rfp-documents', variables.project_id] })
+    }
+  })
+}
+
+// ====================================
+// 제안 진행 작업 관리 훅들
+// ====================================
+
+// 제안 작업 목록 조회
+export function useProposalTasks(projectId: string, taskType?: string) {
+  const { shouldEnableQueries } = useAuthCheck()
+  
+  return useQuery({
+    queryKey: ['proposal-tasks', projectId, taskType],
+    queryFn: async (): Promise<ProposalTask[]> => {
+      console.log('🔍 제안 작업 목록 조회 시작:', projectId, taskType)
+      
+      const user = await getCurrentUser()
+      
+      let query = (supabase as any)
+        .from('proposal_tasks')
+        .select('*')
+        .eq('project_id', projectId)
+
+      if (taskType && taskType !== 'all') {
+        query = query.eq('task_type', taskType)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('❌ 제안 작업 조회 오류:', error)
+        throw new Error('제안 작업을 불러올 수 없습니다')
+      }
+
+      console.log('✅ 제안 작업 조회 완료:', data?.length || 0, '개')
+      return data || []
+    },
+    enabled: shouldEnableQueries && !!projectId,
+    staleTime: 2 * 60 * 1000, // 2분간 fresh
+    refetchOnWindowFocus: false,
+  })
+}
+
+// 제안 작업 생성
+export function useCreateProposalTask() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: Omit<ProposalTask, 'id' | 'created_at' | 'updated_at'>): Promise<ProposalTask> => {
+      console.log('🔨 제안 작업 생성 시작:', data.title)
+      
+      const user = await getCurrentUser()
+      
+      const { data: task, error } = await (supabase as any)
+        .from('proposal_tasks')
+        .insert({
+          ...data,
+          assigned_to: data.assigned_to || user.id
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ 제안 작업 생성 오류:', error)
+        throw new Error('제안 작업 생성 중 오류가 발생했습니다')
+      }
+
+      console.log('✅ 제안 작업 생성 완료:', task.id)
+      return task
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['proposal-tasks', variables.project_id] })
+    }
+  })
+}
+
+// ====================================
+// 구축 관리 작업 훅들
+// ====================================
+
+// 구축 작업 목록 조회
+export function useConstructionTasks(projectId: string, taskType?: string) {
+  const { shouldEnableQueries } = useAuthCheck()
+  
+  return useQuery({
+    queryKey: ['construction-tasks', projectId, taskType],
+    queryFn: async (): Promise<ConstructionTask[]> => {
+      console.log('🔍 구축 작업 목록 조회 시작:', projectId, taskType)
+      
+      const user = await getCurrentUser()
+      
+      let query = (supabase as any)
+        .from('construction_tasks')
+        .select('*')
+        .eq('project_id', projectId)
+
+      if (taskType && taskType !== 'all') {
+        query = query.eq('task_type', taskType)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('❌ 구축 작업 조회 오류:', error)
+        throw new Error('구축 작업을 불러올 수 없습니다')
+      }
+
+      console.log('✅ 구축 작업 조회 완료:', data?.length || 0, '개')
+      return data || []
+    },
+    enabled: shouldEnableQueries && !!projectId,
+    staleTime: 2 * 60 * 1000, // 2분간 fresh
+    refetchOnWindowFocus: false,
+  })
+}
+
+// 구축 작업 생성
+export function useCreateConstructionTask() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: Omit<ConstructionTask, 'id' | 'created_at' | 'updated_at'>): Promise<ConstructionTask> => {
+      console.log('🔨 구축 작업 생성 시작:', data.title)
+      
+      const user = await getCurrentUser()
+      
+      const { data: task, error } = await (supabase as any)
+        .from('construction_tasks')
+        .insert({
+          ...data,
+          assigned_to: data.assigned_to || user.id
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ 구축 작업 생성 오류:', error)
+        throw new Error('구축 작업 생성 중 오류가 발생했습니다')
+      }
+
+      console.log('✅ 구축 작업 생성 완료:', task.id)
+      return task
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['construction-tasks', variables.project_id] })
+    }
+  })
+}
+
+// ====================================
+// 운영 관리 요청 훅들
+// ====================================
+
+// 운영 요청 목록 조회
+export function useOperationRequests(projectId: string, workCategory?: string) {
+  const { shouldEnableQueries } = useAuthCheck()
+  
+  return useQuery({
+    queryKey: ['operation-requests', projectId, workCategory],
+    queryFn: async (): Promise<OperationRequest[]> => {
+      console.log('🔍 운영 요청 목록 조회 시작:', projectId, workCategory)
+      
+      const user = await getCurrentUser()
+      
+      let query = supabase
+        .from('operation_requests')
+        .select('*')
+        .eq('project_id', projectId)
+
+      if (workCategory && workCategory !== 'all') {
+        query = query.eq('work_category', workCategory)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('❌ 운영 요청 조회 오류:', error)
+        throw new Error('운영 요청을 불러올 수 없습니다')
+      }
+
+      console.log('✅ 운영 요청 조회 완료:', data?.length || 0, '개')
+      return data || []
+    },
+    enabled: shouldEnableQueries && !!projectId,
+    staleTime: 1 * 60 * 1000, // 1분간 fresh
+    refetchOnWindowFocus: false,
+  })
+}
+
+// 운영 요청 생성
+export function useCreateOperationRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: Omit<OperationRequest, 'id' | 'created_at' | 'updated_at'>): Promise<OperationRequest> => {
+      console.log('🔨 운영 요청 생성 시작:', data.title)
+      
+      const user = await getCurrentUser()
+      
+      const { data: request, error } = await supabase
+        .from('operation_requests')
+        .insert({
+          ...data,
+          user_id: user.id
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('❌ 운영 요청 생성 오류:', error)
+        throw new Error('운영 요청 생성 중 오류가 발생했습니다')
+      }
+
+      console.log('✅ 운영 요청 생성 완료:', request.id)
+      return request
+    },
+    onSuccess: (_, variables) => {
+      if (variables.project_id) {
+        queryClient.invalidateQueries({ queryKey: ['operation-requests', variables.project_id] })
+      }
+    }
+  })
+}
+
+// ====================================
+// 프로젝트 단계 전환 훅
+// ====================================
+
+// 프로젝트 단계 전환
+export function useUpdateProjectPhase() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ projectId, phase, phaseData }: { 
+      projectId: string, 
+      phase: 'proposal' | 'construction' | 'operation', 
+      phaseData?: any 
+    }): Promise<Project> => {
+      console.log('🔄 프로젝트 단계 전환 시작:', projectId, phase)
+      
+      const user = await getCurrentUser()
+      
+      const { data: updatedProject, error } = await (supabase as any)
+        .from('projects')
+        .update({ 
+          current_phase: phase,
+          phase_data: phaseData || {},
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId)
+        .select(`
+          id,
+          name,
+          description,
+          category,
+          current_phase,
+          phase_data,
+          status,
+          progress,
+          priority,
+          start_date,
+          end_date,
+          budget,
+          tags,
+          client_name,
+          client_email,
+          metadata,
+          settings,
+          created_at,
+          updated_at,
+          owner_id,
+          user_id,
+          organization_id
+        `)
+        .single()
+
+      if (error) {
+        console.error('❌ 프로젝트 단계 전환 오류:', error)
+        throw new Error('프로젝트 단계 전환 중 오류가 발생했습니다')
+      }
+
+      console.log('✅ 프로젝트 단계 전환 완료:', updatedProject.current_phase)
+      return updatedProject as Project
+    },
+    onSuccess: (updatedProject) => {
+      queryClient.setQueryData(['project', updatedProject.id], updatedProject)
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     }
   })

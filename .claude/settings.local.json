@@ -43,7 +43,8 @@
       "Bash(npm run lint:*)",
       "mcp__supabase__get_advisors",
       "Bash(curl:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(timeout 180 npm run build)"
     ],
     "deny": [],
     "ask": []
