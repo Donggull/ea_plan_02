@@ -30,6 +30,7 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
   const router = useRouter()
   const { user, organization: _organization } = useAuthStore()
   const [loading, setLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // 중복 제출 방지
   const createProjectMutation = useCreateProject()
   const updateProjectMutation = useUpdateProject(project?.id || '')
   const [formData, setFormData] = useState({
@@ -50,12 +51,19 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // 중복 제출 방지
+    if (isSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending) {
+      console.log('이미 제출 중입니다. 중복 제출을 방지합니다.')
+      return
+    }
+    
     if (!user) {
       alert('로그인이 필요합니다.')
       return
     }
 
     setLoading(true)
+    setIsSubmitting(true)
 
     try {
       const projectData = {
@@ -103,6 +111,7 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
       alert(error instanceof Error ? error.message : '프로젝트 저장 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -267,7 +276,7 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
           <Button
             type="submit"
             variant="primary"
-            disabled={loading || !formData.name}
+            disabled={loading || isSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending || !formData.name}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             {loading ? '저장 중...' : project?.id ? '수정' : '생성'}
