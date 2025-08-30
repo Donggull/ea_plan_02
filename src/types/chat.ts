@@ -61,6 +61,8 @@ export interface SendMessageOptions {
   attachments?: File[]
   temperature?: number
   maxTokens?: number
+  mcpEnabled?: boolean
+  availableTools?: string[]
 }
 
 // AI 모델 타입
