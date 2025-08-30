@@ -44,7 +44,10 @@
       "mcp__supabase__get_advisors",
       "Bash(curl:*)",
       "Bash(npm run:*)",
-      "Bash(timeout 180 npm run build)"
+      "Bash(timeout 180 npm run build)",
+      "Read(\\d/**)",
+      "Read(\\d/**)",
+      "Read(\\d/**)"
     ],
     "deny": [],
     "ask": []

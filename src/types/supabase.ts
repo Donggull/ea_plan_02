@@ -117,6 +117,93 @@ export type Database = {
           },
         ]
       }
+      chat_sessions: {
+        Row: {
+          context_data: Json | null
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_favorite: boolean | null
+          is_shared: boolean | null
+          last_message_at: string | null
+          metadata: Json | null
+          model_name: string
+          project_id: string | null
+          settings: Json | null
+          shared_with: string[] | null
+          status: string | null
+          tags: string[] | null
+          title: string
+          total_cost: number | null
+          total_messages: number | null
+          total_tokens: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context_data?: Json | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_favorite?: boolean | null
+          is_shared?: boolean | null
+          last_message_at?: string | null
+          metadata?: Json | null
+          model_name?: string
+          project_id?: string | null
+          settings?: Json | null
+          shared_with?: string[] | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string
+          total_cost?: number | null
+          total_messages?: number | null
+          total_tokens?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context_data?: Json | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_favorite?: boolean | null
+          is_shared?: boolean | null
+          last_message_at?: string | null
+          metadata?: Json | null
+          model_name?: string
+          project_id?: string | null
+          settings?: Json | null
+          shared_with?: string[] | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string
+          total_cost?: number | null
+          total_messages?: number | null
+          total_tokens?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       construction_tasks: {
         Row: {
           actual_hours: number | null
