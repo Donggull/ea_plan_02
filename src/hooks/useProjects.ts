@@ -1,6 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
+// 공통 함수: 인증 헤더를 포함한 fetch 요청
+async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  // Supabase 세션에서 액세스 토큰 가져오기
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...((options.headers as Record<string, string>) || {})
+  }
+  
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`
+  }
+
+  return fetch(url, {
+    ...options,
+    headers
+  })
+}
+
 interface Project {
   id: string
   name: string
@@ -58,7 +78,7 @@ export function useProjects(filters?: ProjectFilters) {
       if (filters?.priority) params.append('priority', filters.priority)
       if (filters?.category) params.append('category', filters.category)
 
-      const response = await fetch(`/api/projects?${params.toString()}`)
+      const response = await authenticatedFetch(`/api/projects?${params.toString()}`)
       
       if (!response.ok) {
         const error = await response.json()
@@ -67,7 +87,11 @@ export function useProjects(filters?: ProjectFilters) {
 
       const data = await response.json()
       return data.projects || []
-    }
+    },
+    staleTime: 5 * 60 * 1000, // 5분간 데이터를 fresh로 간주
+    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지
+    refetchOnWindowFocus: false, // 창 포커스 시 재요청 방지
+    refetchOnMount: false // 마운트 시 재요청 방지 (stale 데이터가 있으면)
   })
 }
 
@@ -78,7 +102,7 @@ export function useProject(projectId: string | null) {
     queryFn: async (): Promise<Project | null> => {
       if (!projectId) return null
 
-      const response = await fetch(`/api/projects/${projectId}`)
+      const response = await authenticatedFetch(`/api/projects/${projectId}`)
       
       if (!response.ok) {
         const error = await response.json()
@@ -88,7 +112,11 @@ export function useProject(projectId: string | null) {
       const data = await response.json()
       return data.project
     },
-    enabled: !!projectId
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000, // 5분간 데이터를 fresh로 간주
+    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지
+    refetchOnWindowFocus: false, // 창 포커스 시 재요청 방지
+    refetchOnMount: false // 마운트 시 재요청 방지 (stale 데이터가 있으면)
   })
 }
 
@@ -98,11 +126,8 @@ export function useCreateProject() {
 
   return useMutation({
     mutationFn: async (data: CreateProjectData): Promise<Project> => {
-      const response = await fetch('/api/projects', {
+      const response = await authenticatedFetch('/api/projects', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(data)
       })
 
@@ -126,11 +151,8 @@ export function useUpdateProject(projectId: string) {
 
   return useMutation({
     mutationFn: async (data: UpdateProjectData): Promise<Project> => {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await authenticatedFetch(`/api/projects/${projectId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(data)
       })
 
@@ -161,7 +183,7 @@ export function useDeleteProject() {
 
   return useMutation({
     mutationFn: async (projectId: string): Promise<void> => {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await authenticatedFetch(`/api/projects/${projectId}`, {
         method: 'DELETE'
       })
 
