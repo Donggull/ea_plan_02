@@ -9,7 +9,7 @@ interface RouteGuardProps {
 }
 
 export default function RouteGuard({ children }: RouteGuardProps) {
-  const { isInitialized, isLoading, initialize, user } = useAuthStore()
+  const { isInitialized, isLoading, initialize } = useAuthStore()
   const pathname = usePathname()
   const [isChecking, setIsChecking] = useState(true)
 

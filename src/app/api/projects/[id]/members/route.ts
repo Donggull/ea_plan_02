@@ -103,9 +103,8 @@ export async function POST(
     } else {
       // 쿠키 기반 세션 확인
       try {
-        const cookieStore = await cookies()
         const supabase = createRouteHandlerClient({ 
-          cookies: () => cookieStore 
+          cookies 
         })
         const { data: { session }, error: authError } = await supabase.auth.getSession()
         
@@ -114,7 +113,7 @@ export async function POST(
         }
         
         user = session.user
-      } catch (cookieError) {
+      } catch (_cookieError) {
         return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
       }
     }

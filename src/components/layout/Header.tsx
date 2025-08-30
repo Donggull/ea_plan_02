@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 export function Header() {
   const router = useRouter()
-  const { user, signOut, isLoading, isInitialized } = useAuthStore()
+  const { user, signOut, isLoading } = useAuthStore()
   const { 
     toggleSidebar, 
     toggleDarkMode, 

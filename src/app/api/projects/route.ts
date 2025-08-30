@@ -49,9 +49,8 @@ export async function GET(request: NextRequest) {
       console.log('🍪 Projects API: Using cookie-based authentication')
       
       try {
-        const cookieStore = await cookies()
         const supabase = createRouteHandlerClient({ 
-          cookies: () => cookieStore 
+          cookies 
         })
         const { data: { session }, error: authError } = await supabase.auth.getSession()
         
@@ -178,9 +177,8 @@ async function getProjectsForUser(supabase: any, userId: string, request: NextRe
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({ 
-      cookies: () => cookieStore 
+      cookies 
     })
     
     // 현재 사용자 확인
