@@ -119,6 +119,7 @@ export default function TokenCounter({
           icon="Zap" 
           size={14} 
           className={cn('transition-colors', getStatusColor())}
+          {...({} as any)}
         />
         <div className="flex items-center space-x-1">
           <span className={cn('font-medium', getStatusColor())}>
@@ -139,6 +140,7 @@ export default function TokenCounter({
           icon={showDetails ? "ChevronUp" : "ChevronDown"} 
           size={12} 
           className="text-gray-400"
+          {...({} as any)}
         />
       </div>
 

@@ -176,6 +176,7 @@ export default function MessageItem({
                     'fill-current',
                     isUser ? 'text-white/80' : 'text-yellow-400'
                   )}
+                  {...({} as any)}
                 />
               )}
               <span
@@ -300,6 +301,7 @@ export default function MessageItem({
                   icon="Star" 
                   size={14}
                   className={message.is_favorite ? 'fill-current' : ''}
+                  {...({} as any)}
                 />
               </Button>
             )}

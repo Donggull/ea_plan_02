@@ -278,6 +278,7 @@ export default function ContextViewer({
                         icon={expandedItems.has(item.id) ? "ChevronUp" : "ChevronDown"} 
                         size={16}
                         className="text-gray-400"
+                        {...({} as any)}
                       />
                     </div>
                   </div>
