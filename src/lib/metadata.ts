@@ -8,7 +8,7 @@ export const SITE_CONFIG = {
   ogImage: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://eluo-ai.com'}/og-image.png`,
   keywords: '엘루오, ELUO, AI 플랫폼, 웹 서비스, 앱 서비스, 프로젝트 관리, 디자인, 개발, 운영, AI 챗봇, 이미지 생성',
   authors: [{ name: 'ELUO AI Platform Team' }],
-} as const
+}
 
 // 기본 메타데이터 생성 함수
 export function createMetadata({
@@ -131,4 +131,4 @@ export const PAGE_METADATA = {
       noIndex: true,
     }),
   },
-} as const
+}
