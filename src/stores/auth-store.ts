@@ -411,8 +411,18 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       isLoading: false,
       isInitialized: true
     })
-  } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+  } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+    // SIGNED_IN과 INITIAL_SESSION만 처리하고 TOKEN_REFRESHED는 제외
+    // 이렇게 하면 브라우저 포커스 시 발생하는 토큰 갱신으로 인한 재초기화를 방지
     console.log('Auth event:', event)
+    
+    // 이미 초기화된 상태라면 재초기화하지 않음 (토큰 갱신 시 데이터 재요청 방지)
+    const currentState = useAuthStore.getState()
+    if (currentState.isInitialized && currentState.user && event !== 'SIGNED_IN') {
+      console.log('Already initialized, skipping re-initialization to prevent unnecessary data refetch')
+      return
+    }
+    
     // 상태 리셋 후 재초기화
     useAuthStore.setState({ 
       isInitialized: false,
@@ -424,5 +434,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       const { initialize } = useAuthStore.getState()
       await initialize()
     }, 100)
+  } else if (event === 'TOKEN_REFRESHED') {
+    // 토큰 갱신은 로그만 남기고 재초기화하지 않음 (브라우저 포커스 시 데이터 재요청 방지)
+    console.log('Token refreshed, but skipping re-initialization to prevent data refetch')
   }
 })
