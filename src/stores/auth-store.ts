@@ -399,13 +399,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setLoading: (loading: boolean) => set({ isLoading: loading }),
 }))
 
-// Auth 상태 변경을 감지하는 리스너 설정 (최소한의 이벤트만 처리)
+// Auth 상태 변경을 감지하는 리스너 설정 (브라우저 포커스 재초기화 방지)
+let isInitializing = false
+
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state change:', event, session ? 'session exists' : 'no session')
   
-  // 로그아웃 처리만 수행
+  // 로그아웃 처리
   if (event === 'SIGNED_OUT' || !session) {
     console.log('User signed out, clearing auth state')
+    isInitializing = false
     useAuthStore.setState({ 
       user: null, 
       organization: null, 
@@ -415,9 +418,18 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     return
   }
   
-  // 최초 로그인 시에만 초기화 수행
-  if (event === 'SIGNED_IN') {
-    console.log('User signed in, initializing auth state')
+  // 최초 로그인과 초기 세션만 처리
+  if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+    const currentState = useAuthStore.getState()
+    
+    // 이미 초기화되었거나 초기화 중이면 스킵 (브라우저 포커스 재초기화 방지)
+    if (currentState.isInitialized || isInitializing) {
+      console.log(`Skipping ${event} - already initialized or initializing to prevent data refetch`)
+      return
+    }
+    
+    console.log(`Processing ${event}, initializing auth state`)
+    isInitializing = true
     
     // 상태 리셋 후 재초기화
     useAuthStore.setState({ 
@@ -429,10 +441,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     setTimeout(async () => {
       const { initialize } = useAuthStore.getState()
       await initialize()
+      isInitializing = false
     }, 100)
     return
   }
   
-  // 다른 모든 이벤트들은 무시 (INITIAL_SESSION, TOKEN_REFRESHED 등)
-  console.log(`Ignoring auth event: ${event} to prevent unnecessary data refetch`)
+  // TOKEN_REFRESHED 등 다른 모든 이벤트들은 완전히 무시
+  console.log(`Ignoring auth event: ${event} - token refreshed silently without data refetch`)
 })

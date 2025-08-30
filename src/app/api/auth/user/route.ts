@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
@@ -47,50 +47,31 @@ export async function GET(request: NextRequest) {
       console.log('API: Using cookie-based authentication')
       
       try {
-        const cookieStore = await cookies()
-        const allCookies = cookieStore.getAll()
-        console.log('API: Available cookies:', allCookies.map(c => c.name))
-        
-        const supabase = createServerClient(
-          supabaseUrl!,
-          supabaseAnonKey!,
-          {
-            cookies: {
-              getAll() {
-                return cookieStore.getAll()
-              },
-              setAll(cookiesToSet: any) {
-                try {
-                  cookiesToSet.forEach(({ name, value, options }: any) => {
-                    // 브라우저 종료 시 쿠키가 삭제되도록 세션 쿠키로 설정
-                    const sessionOptions = {
-                      ...options,
-                      maxAge: undefined, // maxAge 제거하여 세션 쿠키로 설정
-                      expires: undefined, // expires 제거하여 세션 쿠키로 설정
-                    }
-                    cookieStore.set(name, value, sessionOptions)
-                  })
-                } catch (error) {
-                  console.log('API: Cannot set cookies in SSR:', error)
-                }
-              },
-            },
-          }
-        )
+        const supabase = createRouteHandlerClient({ 
+          cookies 
+        })
         
         // Get the current user from the session
         console.log('API: Getting user from session...')
-        const { data: { user: sessionUser }, error: userError } = await supabase.auth.getUser()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
-        if (userError) {
-          console.error('API: User session error:', userError)
+        if (sessionError) {
+          console.error('API: Session error:', sessionError)
           return NextResponse.json(
-            { error: 'Session error', details: userError.message },
+            { error: 'Session error', details: sessionError.message },
             { status: 401 }
           )
         }
         
-        user = sessionUser
+        if (!session?.user) {
+          console.log('API: No session user found')
+          return NextResponse.json(
+            { error: 'No authenticated session' },
+            { status: 401 }
+          )
+        }
+        
+        user = session.user
       } catch (cookieError) {
         console.error('API: Cookie access failed:', cookieError)
         return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })

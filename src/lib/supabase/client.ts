@@ -20,7 +20,7 @@ console.log('Supabase client initializing with URL:', supabaseUrl)
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false, // 자동 토큰 갱신 비활성화 (브라우저 포커스 시 새로고침 방지)
+    autoRefreshToken: true, // 토큰 자동 갱신 활성화 (API 인증을 위해 필요)
     persistSession: true, // 세션 유지
     detectSessionInUrl: false, // URL에서 세션 감지 비활성화 (자동 새로고침 방지)
     storage: {

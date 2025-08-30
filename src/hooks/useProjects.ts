@@ -3,22 +3,43 @@ import { supabase } from '@/lib/supabase/client'
 
 // 공통 함수: 인증 헤더를 포함한 fetch 요청
 async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  // Supabase 세션에서 액세스 토큰 가져오기
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...((options.headers as Record<string, string>) || {})
-  }
-  
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`
-  }
+  try {
+    // Supabase 세션에서 액세스 토큰 가져오기
+    const { data: { session }, error } = await supabase.auth.getSession()
+    
+    if (error) {
+      console.error('Error getting session:', error)
+    }
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) || {})
+    }
+    
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+      console.log('Adding auth token to request:', url)
+    } else {
+      console.log('No session token available for request:', url)
+    }
 
-  return fetch(url, {
-    ...options,
-    headers
-  })
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include' // 쿠키도 함께 전송
+    })
+  } catch (error) {
+    console.error('Error in authenticatedFetch:', error)
+    // 에러가 발생해도 요청은 시도
+    return fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...((options.headers as Record<string, string>) || {})
+      },
+      credentials: 'include'
+    })
+  }
 }
 
 interface Project {
