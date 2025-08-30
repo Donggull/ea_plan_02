@@ -399,10 +399,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setLoading: (loading: boolean) => set({ isLoading: loading }),
 }))
 
-// Auth 상태 변경을 감지하는 리스너 설정
+// Auth 상태 변경을 감지하는 리스너 설정 (최소한의 이벤트만 처리)
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state change:', event, session ? 'session exists' : 'no session')
   
+  // 로그아웃 처리만 수행
   if (event === 'SIGNED_OUT' || !session) {
     console.log('User signed out, clearing auth state')
     useAuthStore.setState({ 
@@ -411,17 +412,12 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       isLoading: false,
       isInitialized: true
     })
-  } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-    // SIGNED_IN과 INITIAL_SESSION만 처리하고 TOKEN_REFRESHED는 제외
-    // 이렇게 하면 브라우저 포커스 시 발생하는 토큰 갱신으로 인한 재초기화를 방지
-    console.log('Auth event:', event)
-    
-    // 이미 초기화된 상태라면 재초기화하지 않음 (토큰 갱신 시 데이터 재요청 방지)
-    const currentState = useAuthStore.getState()
-    if (currentState.isInitialized && currentState.user && event !== 'SIGNED_IN') {
-      console.log('Already initialized, skipping re-initialization to prevent unnecessary data refetch')
-      return
-    }
+    return
+  }
+  
+  // 최초 로그인 시에만 초기화 수행
+  if (event === 'SIGNED_IN') {
+    console.log('User signed in, initializing auth state')
     
     // 상태 리셋 후 재초기화
     useAuthStore.setState({ 
@@ -434,8 +430,9 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       const { initialize } = useAuthStore.getState()
       await initialize()
     }, 100)
-  } else if (event === 'TOKEN_REFRESHED') {
-    // 토큰 갱신은 로그만 남기고 재초기화하지 않음 (브라우저 포커스 시 데이터 재요청 방지)
-    console.log('Token refreshed, but skipping re-initialization to prevent data refetch')
+    return
   }
+  
+  // 다른 모든 이벤트들은 무시 (INITIAL_SESSION, TOKEN_REFRESHED 등)
+  console.log(`Ignoring auth event: ${event} to prevent unnecessary data refetch`)
 })

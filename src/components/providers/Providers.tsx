@@ -35,6 +35,25 @@ export function Providers({ children }: ProvidersProps) {
   useEffect(() => {
     // Auth 초기화는 RouteGuard에서 처리됨
     console.log('Providers mounted')
+
+    // 브라우저 포커스/visibility 이벤트에 대한 React Query 무효화 방지
+    const preventRefreshOnFocus = (e: Event) => {
+      console.log('Browser focus/visibility event detected, but preventing automatic data refresh')
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    // 다양한 브라우저 포커스 이벤트 리스너 비활성화
+    const events = ['focus', 'visibilitychange', 'pageshow', 'resume']
+    events.forEach(eventType => {
+      window.addEventListener(eventType, preventRefreshOnFocus, { capture: true, passive: false })
+    })
+
+    return () => {
+      events.forEach(eventType => {
+        window.removeEventListener(eventType, preventRefreshOnFocus, { capture: true })
+      })
+    }
   }, [])
 
   return (

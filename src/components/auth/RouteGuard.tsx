@@ -40,8 +40,14 @@ export default function RouteGuard({ children }: RouteGuardProps) {
       setIsChecking(false)
     }
 
-    checkAuth()
-  }, [isInitialized, isLoading, initialize])
+    // 초기 마운트 시에만 실행하고, 이후에는 상태 변화로만 판단
+    if (!isInitialized && !isLoading && isChecking) {
+      checkAuth()
+    } else if (isInitialized && isChecking) {
+      // 이미 초기화되었으면 체킹 상태만 업데이트
+      setIsChecking(false)
+    }
+  }, [isInitialized, isLoading]) // initialize 의존성 제거
 
 
   // 로딩 중이거나 인증 확인 중이면 로딩 화면 표시

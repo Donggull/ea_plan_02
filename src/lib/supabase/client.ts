@@ -20,9 +20,9 @@ console.log('Supabase client initializing with URL:', supabaseUrl)
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
+    autoRefreshToken: false, // 자동 토큰 갱신 비활성화 (브라우저 포커스 시 새로고침 방지)
     persistSession: true, // 세션 유지
-    detectSessionInUrl: true,
+    detectSessionInUrl: false, // URL에서 세션 감지 비활성화 (자동 새로고침 방지)
     storage: {
       // localStorage 사용하여 세션 유지
       getItem: (key: string) => {
@@ -45,7 +45,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 1 // 실시간 이벤트 빈도 최소화
     }
   }
 })
