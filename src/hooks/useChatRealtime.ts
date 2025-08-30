@@ -29,7 +29,7 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
 
   // 기존 메시지 로드
   const loadMessages = useCallback(async () => {
-    if (!sessionId || sessionId === 'default') {
+    if (!sessionId) {
       setMessages([])
       setIsLoading(false)
       return
@@ -47,7 +47,8 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
         .single()
 
       if (convError || !conversation) {
-        console.warn('Conversation not found:', sessionId)
+        // 새로 생성된 세션이거나 아직 데이터가 없는 경우
+        console.log('Conversation not found yet, initializing empty messages for:', sessionId)
         setMessages([])
         return
       }
@@ -246,9 +247,12 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     try {
       // 사용자 메시지 추가
       const userMessage = {
+        id: crypto.randomUUID(),
         conversation_id: sessionId,
         role: 'user' as const,
         content: content.trim(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         metadata: {
           model: options.model,
           timestamp: new Date().toISOString(),
@@ -256,21 +260,29 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
         }
       }
 
-      const { error: userError } = await supabase
+      const { data: insertedMessage, error: userError } = await supabase
         .from('messages')
         .insert(userMessage)
         .select()
         .single()
 
       if (userError) throw userError
+      
+      // 로컬 상태에 즉시 추가
+      if (insertedMessage) {
+        setMessages(prev => [...prev, insertedMessage as ChatMessage])
+      }
 
       // AI 응답 시뮬레이션 (실제로는 외부 AI API 호출)
       setTimeout(async () => {
         try {
           const aiResponse = {
+            id: crypto.randomUUID(),
             conversation_id: sessionId,
             role: 'assistant' as const,
             content: `[${options.model}] "${content}"에 대한 응답입니다. 실제 구현에서는 AI API와 연동하여 실제 응답을 생성합니다.`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             tokens: content.length + 50,
             cost: (content.length + 50) * 0.002,
             metadata: {
@@ -281,11 +293,18 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
             }
           }
 
-          const { error: aiError } = await supabase
+          const { data: aiMsg, error: aiError } = await supabase
             .from('messages')
             .insert(aiResponse)
+            .select()
+            .single()
 
           if (aiError) throw aiError
+          
+          // 로컬 상태에 AI 응답 추가
+          if (aiMsg) {
+            setMessages(prev => [...prev, aiMsg as ChatMessage])
+          }
 
         } catch (aiErr) {
           console.error('AI 응답 생성 실패:', aiErr)
@@ -308,18 +327,27 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     setError(null)
   }, [])
 
-  // 초기 설정 및 정리
+  // 초기 설정 및 정리 - sessionId 변경 시 재연결
   useEffect(() => {
     if (sessionId) {
-      loadMessages()
-      setupRealtimeConnection()
+      // 이전 연결 정리 후 새로운 연결 설정
+      cleanupConnection()
+      
+      // 짧은 딜레이로 새 세션 생성 시간 확보
+      setTimeout(() => {
+        loadMessages()
+        setupRealtimeConnection()
+      }, 100)
+    } else {
+      cleanupConnection()
+      setMessages([])
     }
 
     return () => {
       cleanupConnection()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]) // 의존성 배열에서 함수들 제거하여 무한 리렌더링 방지
+  }, [sessionId]) // sessionId 변경시만 재실행
 
   // 언마운트 시 정리
   useEffect(() => {
