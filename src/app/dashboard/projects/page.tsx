@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ProjectList } from '@/components/projects/ProjectList'
 import { ProjectForm } from '@/components/projects/ProjectForm'
-import { useProjects, useCreateProject, useDeleteProject, useProjectsRealtime } from '@/hooks/useProjects'
+import { useProjects, useCreateProject, useDeleteProject } from '@/hooks/useProjects'
 import { useAuthStore } from '@/stores/auth-store'
 import Button from '@/basic/src/components/Button/Button'
 import Modal from '@/basic/src/components/Modal/Modal'
@@ -21,15 +21,15 @@ export default function ProjectsPage() {
   const createProjectMutation = useCreateProject()
   const deleteProjectMutation = useDeleteProject()
 
-  // 실시간 구독 설정
-  const { subscribeToProjects } = useProjectsRealtime()
+  // 실시간 구독 설정 (임시 비활성화)
+  // const { subscribeToProjects } = useProjectsRealtime()
 
-  useEffect(() => {
-    if (user) {
-      const unsubscribe = subscribeToProjects()
-      return unsubscribe
-    }
-  }, [user, subscribeToProjects])
+  // useEffect(() => {
+  //   if (user) {
+  //     const unsubscribe = subscribeToProjects()
+  //     return unsubscribe
+  //   }
+  // }, [user, subscribeToProjects])
 
   const handleCreateProject = async (projectData: any) => {
     try {

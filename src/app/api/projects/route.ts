@@ -1,51 +1,113 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+
+// Service role client for privileged operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables for service client')
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    console.log('🔍 Projects API: Starting request...')
+    
+    let user = null
+    let supabaseClient = null
     
     // Authorization 헤더에서 토큰 확인
     const authorization = request.headers.get('authorization')
     if (authorization) {
+      console.log('🔑 Projects API: Using token-based authentication')
       const token = authorization.replace('Bearer ', '')
-      const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
       
-      if (userError || !user) {
+      if (tokenError || !tokenUser) {
+        console.error('❌ Projects API: Token validation failed:', tokenError)
         return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
       }
       
-      // 토큰 기반 인증 성공
-      const userId = user.id
-      return await getProjectsForUser(supabase, userId, request)
+      user = tokenUser
+      supabaseClient = supabaseAdmin  // Use admin client for token-based requests
+      console.log('✅ Projects API: Token authentication successful for user:', user.id)
+    } else {
+      // 쿠키 기반 세션 확인
+      console.log('🍪 Projects API: Using cookie-based authentication')
+      const supabase = createRouteHandlerClient({ cookies })
+      const { data: { session }, error: authError } = await supabase.auth.getSession()
+      
+      if (authError || !session?.user) {
+        console.error('❌ Projects API: Cookie session failed:', authError)
+        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      }
+      
+      user = session.user
+      supabaseClient = supabase  // Use cookie client for session-based requests
+      console.log('✅ Projects API: Cookie authentication successful for user:', user.id)
     }
     
-    // 쿠키 기반 세션 확인
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
-    
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-    
-    const userId = session.user.id
-    return await getProjectsForUser(supabase, userId, request)
+    return await getProjectsForUser(supabaseClient, user.id, request)
   } catch (error) {
-    console.error('API error:', error)
+    console.error('💥 Projects API: Unexpected error:', error)
     return NextResponse.json({ error: '서버 오류가 발생했습니다' }, { status: 500 })
   }
 }
 
 async function getProjectsForUser(supabase: any, userId: string, request: NextRequest) {
+  console.log('📋 Getting projects for user:', userId)
+  
   const searchParams = request.nextUrl.searchParams
   const status = searchParams.get('status')
   const priority = searchParams.get('priority')
   const category = searchParams.get('category')
+  
+  console.log('🔍 Search params:', { status, priority, category })
 
-  const query = supabase
-    .from('project_members')
-    .select(`
-      project:projects(
+  try {
+    // Step 1: Get project memberships for user
+    console.log('🔄 Step 1: Fetching project memberships...')
+    const { data: memberData, error: memberError } = await supabase
+      .from('project_members')
+      .select(`
+        project_id,
+        role,
+        permissions
+      `)
+      .eq('user_id', userId)
+
+    if (memberError) {
+      console.error('❌ Project members query error:', memberError)
+      return NextResponse.json({ error: '프로젝트 멤버십 정보를 불러올 수 없습니다' }, { status: 500 })
+    }
+
+    console.log('✅ Found', memberData?.length || 0, 'project memberships')
+
+    if (!memberData || memberData.length === 0) {
+      console.log('ℹ️ No projects found for user')
+      return NextResponse.json({ projects: [] })
+    }
+
+    // Step 2: Get project details for each membership
+    const projectIds = memberData.map((member: any) => member.project_id)
+    console.log('🔄 Step 2: Fetching project details for IDs:', projectIds)
+    
+    const { data: projectsData, error: projectsError } = await supabase
+      .from('projects')
+      .select(`
         id,
         name,
         description,
@@ -54,40 +116,55 @@ async function getProjectsForUser(supabase: any, userId: string, request: NextRe
         metadata,
         created_at,
         updated_at,
-        owner_id
-      ),
-      role,
-      permissions
-    `)
-    .eq('user_id', userId)
+        owner_id,
+        user_id
+      `)
+      .in('id', projectIds)
 
-  const { data: memberData, error } = await query
+    if (projectsError) {
+      console.error('❌ Projects query error:', projectsError)
+      return NextResponse.json({ error: '프로젝트 정보를 불러올 수 없습니다' }, { status: 500 })
+    }
 
-  if (error) {
-    console.error('Database error:', error)
-    return NextResponse.json({ error: '프로젝트를 불러올 수 없습니다' }, { status: 500 })
+    console.log('✅ Found', projectsData?.length || 0, 'projects')
+
+    // Step 3: Combine membership info with project data
+    const projects: any[] = (projectsData || []).map((project: any) => {
+      const membership = memberData.find((member: any) => member.project_id === project.id)
+      return {
+        ...project,
+        userRole: membership?.role,
+        userPermissions: membership?.permissions
+      }
+    })
+
+    console.log('🔧 Combined projects with membership data')
+
+    // Step 4: Apply filters
+    let filteredProjects = projects
+    
+    if (status && status !== 'all') {
+      filteredProjects = filteredProjects.filter(p => p.status === status)
+      console.log('🔽 Filtered by status:', status, '- Remaining:', filteredProjects.length)
+    }
+
+    if (priority && priority !== 'all') {
+      filteredProjects = filteredProjects.filter(p => p.metadata?.priority === priority)
+      console.log('🔽 Filtered by priority:', priority, '- Remaining:', filteredProjects.length)
+    }
+
+    if (category && category !== 'all') {
+      filteredProjects = filteredProjects.filter(p => p.category === category)
+      console.log('🔽 Filtered by category:', category, '- Remaining:', filteredProjects.length)
+    }
+
+    console.log('✅ Returning', filteredProjects.length, 'projects')
+    return NextResponse.json({ projects: filteredProjects })
+
+  } catch (error) {
+    console.error('💥 Error in getProjectsForUser:', error)
+    return NextResponse.json({ error: '프로젝트를 불러오는 중 예상치 못한 오류가 발생했습니다' }, { status: 500 })
   }
-
-  let projects: any[] = memberData?.map((item: any) => ({
-    ...item.project,
-    userRole: item.role,
-    userPermissions: item.permissions
-  })) || []
-
-  // 필터링 적용
-  if (status && status !== 'all') {
-    projects = projects.filter(p => p.status === status)
-  }
-
-  if (priority && priority !== 'all') {
-    projects = projects.filter(p => p.metadata?.priority === priority)
-  }
-
-  if (category && category !== 'all') {
-    projects = projects.filter(p => p.category === category)
-  }
-
-  return NextResponse.json({ projects })
 }
 
 export async function POST(request: NextRequest) {

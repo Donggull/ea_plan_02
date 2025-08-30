@@ -88,10 +88,12 @@ export function useProjects(filters?: ProjectFilters) {
       const data = await response.json()
       return data.projects || []
     },
-    staleTime: 5 * 60 * 1000, // 5분간 데이터를 fresh로 간주
-    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지
+    staleTime: 15 * 60 * 1000, // 15분간 데이터를 fresh로 간주
+    gcTime: 30 * 60 * 1000, // 30분간 캐시 유지
     refetchOnWindowFocus: false, // 창 포커스 시 재요청 방지
-    refetchOnMount: false // 마운트 시 재요청 방지 (stale 데이터가 있으면)
+    refetchOnMount: false, // 마운트 시 재요청 방지 (stale 데이터가 있으면)
+    refetchOnReconnect: false, // 네트워크 재연결 시 재요청 방지
+    refetchInterval: false // 자동 재요청 방지
   })
 }
 
@@ -113,10 +115,12 @@ export function useProject(projectId: string | null) {
       return data.project
     },
     enabled: !!projectId,
-    staleTime: 5 * 60 * 1000, // 5분간 데이터를 fresh로 간주
-    gcTime: 10 * 60 * 1000, // 10분간 캐시 유지
+    staleTime: 15 * 60 * 1000, // 15분간 데이터를 fresh로 간주
+    gcTime: 30 * 60 * 1000, // 30분간 캐시 유지
     refetchOnWindowFocus: false, // 창 포커스 시 재요청 방지
-    refetchOnMount: false // 마운트 시 재요청 방지 (stale 데이터가 있으면)
+    refetchOnMount: false, // 마운트 시 재요청 방지 (stale 데이터가 있으면)
+    refetchOnReconnect: false, // 네트워크 재연결 시 재요청 방지
+    refetchInterval: false // 자동 재요청 방지
   })
 }
 
