@@ -166,6 +166,7 @@ export default function MessageInput({
                   icon={file.type.startsWith('image/') ? 'Image' : 'File'} 
                   size={16}
                   className="text-blue-600"
+                  {...({} as any)}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-blue-900 truncate">
@@ -218,6 +219,7 @@ export default function MessageInput({
               <IconRenderer 
                 icon={isRecording ? 'Square' : 'Mic'} 
                 size={18}
+                {...({} as any)}
               />
             </Button>
           </div>

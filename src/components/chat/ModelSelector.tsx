@@ -96,6 +96,7 @@ export default function ModelSelector({
             icon="ChevronDown" 
             size={16} 
             className="text-gray-400"
+            {...({} as any)}
           />
         </div>
       </div>
