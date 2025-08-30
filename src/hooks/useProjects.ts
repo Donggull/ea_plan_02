@@ -206,7 +206,7 @@ export function useProjects(filters?: ProjectFilters) {
       
       // 1. 현재 사용자 확인
       const _user = await getCurrentUser()
-      console.log('✅ 인증된 사용자:', user.id)
+      console.log('✅ 인증된 사용자:', _user.id)
       
       try {
         // 2. 사용자의 프로젝트 멤버십 조회
@@ -218,7 +218,7 @@ export function useProjects(filters?: ProjectFilters) {
             role,
             permissions
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', _user.id)
 
         if (memberError) {
           console.error('❌ 프로젝트 멤버십 조회 오류:', memberError)
@@ -348,7 +348,7 @@ export function useProject(projectId: string | null) {
             role,
             permissions
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', _user.id)
           .eq('project_id', projectId)
           .single()
 
@@ -537,7 +537,7 @@ export function useUpdateProject(projectId: string) {
         const { data: memberData, error: memberError } = await supabase
           .from('project_members')
           .select('role, permissions')
-          .eq('user_id', user.id)
+          .eq('user_id', _user.id)
           .eq('project_id', projectId)
           .single()
 
@@ -644,7 +644,7 @@ export function useDeleteProject() {
         const { data: memberData, error: memberError } = await supabase
           .from('project_members')
           .select('role, permissions')
-          .eq('user_id', user.id)
+          .eq('user_id', _user.id)
           .eq('project_id', projectId)
           .single()
 

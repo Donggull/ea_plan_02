@@ -204,8 +204,8 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     }
   }, [sessionId, startHeartbeat, cleanupConnection])
 
-  // 재연결 스케줄
-  const scheduleReconnect = useCallback(() => {
+  // 재연결 스케줄 (현재 사용되지 않지만 향후 확장성을 위해 유지)
+  const _scheduleReconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current)
     }
