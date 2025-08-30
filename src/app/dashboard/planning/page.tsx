@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, FileText, Clock, CheckCircle } from 'lucide-react'
+import { Plus, FileText, Clock, CheckCircle, Upload, Search } from 'lucide-react'
 import Link from 'next/link'
 
 export default function PlanningPage() {
@@ -58,6 +58,54 @@ export default function PlanningPage() {
         </Card>
       </div>
 
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              RFP 문서 업로드
+            </CardTitle>
+            <CardDescription>
+              새 프로젝트 시작을 위한 RFP 문서를 업로드하세요
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              RFP, 요구사항서, 사업계획서 등의 문서를 업로드하여 AI 분석과 함께 프로젝트를 시작할 수 있습니다.
+            </p>
+            <Button asChild className="w-full">
+              <Link href="/dashboard/documents?tab=upload&type=rfp">
+                <Upload className="mr-2 h-4 w-4" />
+                RFP 문서 업로드
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              문서 검색 및 분석
+            </CardTitle>
+            <CardDescription>
+              기존 프로젝트 문서를 검색하고 분석하세요
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              업로드된 문서들을 검색하고, AI를 활용한 내용 분석 및 인사이트를 얻을 수 있습니다.
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/dashboard/documents?tab=search">
+                <Search className="mr-2 h-4 w-4" />
+                문서 검색
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>프로젝트 목록</CardTitle>
@@ -71,13 +119,22 @@ export default function PlanningPage() {
             <div className="mt-4">
               <h3 className="text-lg font-medium">프로젝트가 없습니다</h3>
               <p className="text-muted-foreground mt-2">
-                첫 번째 프로젝트를 시작해보세요
+                RFP 문서를 업로드하여 첫 번째 프로젝트를 시작해보세요
               </p>
-              <Button asChild className="mt-4">
-                <Link href="/dashboard/planning/new">
-                  새 프로젝트 시작
-                </Link>
-              </Button>
+              <div className="flex gap-2 justify-center mt-4">
+                <Button asChild>
+                  <Link href="/dashboard/documents?tab=upload&type=rfp">
+                    <Upload className="mr-2 h-4 w-4" />
+                    RFP 업로드
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/projects/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    직접 시작
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
@@ -29,6 +29,14 @@ export default function DocumentsPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     searchParams.get('projectId') || null
   )
+
+  // URL 파라미터에 따른 초기 탭 설정
+  useEffect(() => {
+    const tab = searchParams.get('tab') as 'upload' | 'list' | 'search' | 'analyze'
+    if (tab && ['upload', 'list', 'search', 'analyze'].includes(tab)) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   // 파일 업로드 처리
   const handleFilesUpload = async (files: File[]) => {

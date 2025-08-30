@@ -25,6 +25,7 @@ export const menuStructure: MenuSection[] = [
     section: '기획',
     items: [
       { id: 'proposal', label: '제안 진행', href: '/dashboard/planning', icon: 'FileText' },
+      { id: 'documents-planning', label: 'RFP 문서 관리', href: '/dashboard/documents?tab=upload&type=rfp', icon: 'Upload' },
       { id: 'development', label: '구축 관리', href: '/planning/development', icon: 'Settings' },
       { id: 'operation', label: '운영 관리', href: '/planning/operation', icon: 'Headphones' }
     ]
