@@ -66,11 +66,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // API를 통해 사용자 정보 가져오기 (RLS 우회)
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        
+        // 세션에서 액세스 토큰이 있으면 Authorization 헤더에 추가
+        if (session.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`
+        }
+
         const response = await fetch('/api/auth/user', {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           credentials: 'include',
         })
 
@@ -90,57 +97,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.error('API error:', apiError)
       }
 
-      // API 실패 시 직접 데이터베이스 조회
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', session.user.email!)
-        .single()
-
-      if (userError || !userData) {
-        console.error('User fetch error:', userError)
-        // 사용자 정보가 없으면 기본 정보로 생성
-        const fallbackUser: User = {
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-          user_role: 'user',
-          subscription_tier: 'free',
-          organization_id: null,
-          role: null,
-          avatar_url: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-        set({ 
-          user: fallbackUser, 
-          organization: null, 
-          isLoading: false, 
-          isInitialized: true 
-        })
-        return
+      // API 실패 시 fallback 사용자 프로필 생성
+      console.error('API failed, creating fallback user profile')
+      const fallbackUser: User = {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+        user_role: 'user',
+        subscription_tier: 'free',
+        organization_id: null,
+        role: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
-
-      // 조직 정보 가져오기
-      let organizationData: Organization | null = null
-      if (userData.organization_id) {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', userData.organization_id)
-          .single()
-
-        if (orgData) {
-          organizationData = orgData
-        }
-      }
-
+      
       set({ 
-        user: userData, 
-        organization: organizationData, 
+        user: fallbackUser, 
+        organization: null, 
         isLoading: false, 
         isInitialized: true 
       })
+      return
     } catch (error) {
       console.error('Auth initialization error:', error)
       set({ user: null, organization: null, isLoading: false, isInitialized: true })
@@ -212,105 +190,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.error('API fetch error:', apiError)
       }
 
-      // If API fails, continue with direct database approach
-      console.log('API failed, trying direct database approach...')
+      // API가 실패했으므로 fallback 사용자 프로필 생성
+      console.log('API failed, creating fallback user profile...')
       
-      // 잠시 대기 후 사용자 정보 가져오기 (RLS 정책 적용 시간 확보)
-      await new Promise(resolve => setTimeout(resolve, 100))
-
-      // 이메일을 기준으로 올바른 사용자 찾기 (ID 불일치 문제 해결)
-      let { data: initialUserData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', data.user.email!)
-        .single()
+      const displayName = data.user.user_metadata?.full_name || 
+                         data.user.user_metadata?.name || 
+                         data.user.email?.split('@')[0] || 
+                         'User'
       
-      // 이메일로도 찾을 수 없으면 ID로 시도
-      if (userError?.code === 'PGRST116' || !initialUserData) {
-        console.log('User not found by email, trying by ID...')
-        const result = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-        
-        initialUserData = result.data
-        userError = result.error
+      const userData = {
+        id: data.user.id,
+        email: data.user.email!,
+        name: displayName,
+        user_role: 'user',
+        subscription_tier: 'free',
+        organization_id: null,
+        role: null,
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
       
-      console.log('User profile query result:', { initialUserData, userError })
-      
-      let userData = initialUserData
-
-      // 사용자 프로필이 없으면 생성 또는 가상 프로필 사용
-      if (userError?.code === 'PGRST116' || !userData) {
-        console.log('User profile not found, database might have RLS issues.')
-        console.log('Creating fallback user profile...')
-        
-        // 데이터베이스에 프로필이 없으면 fallback 프로필 생성
-        const displayName = data.user.user_metadata?.full_name || 
-                          data.user.user_metadata?.name || 
-                          data.user.email?.split('@')[0] || 
-                          'User'
-        
-        // 직접 생성 시도 (이것도 실패할 수 있음)
-        const { data: newUserData, error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            name: displayName,
-            user_role: 'user',
-            subscription_tier: 'free'
-          })
-          .select()
-          .single()
-
-        if (createError) {
-          console.error('Failed to create user profile:', createError)
-          // 데이터베이스 생성 실패 시 fallback 프로필 사용
-          console.log('Database creation failed, using in-memory fallback profile')
-          userData = {
-            id: data.user.id,
-            email: data.user.email!,
-            name: displayName,
-            user_role: 'user',
-            subscription_tier: 'free',
-            organization_id: null,
-            role: null,
-            avatar_url: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          console.log('Fallback profile created:', userData)
-        } else {
-          userData = newUserData
-          console.log('Database profile created successfully:', userData)
-        }
-      }
-
-      // 조직이 없으면 기본 조직을 설정하지 않고 그냥 진행
-      let organizationData: Organization | null = null
-      if (userData.organization_id) {
-        // 기존 조직만 가져오기 (생성하지 않음)
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', userData.organization_id)
-          .single()
-
-        if (orgData) {
-          organizationData = orgData
-        }
-      }
-
-      console.log('Login successful, setting user and organization data')
-      console.log('User data being set:', userData)
-      console.log('Organization data being set:', organizationData)
+      console.log('Login successful with fallback profile, setting user data')
+      console.log('Fallback User data being set:', userData)
       
       set({ 
         user: userData, 
-        organization: organizationData, 
+        organization: null, 
         isLoading: false,
         isInitialized: true
       })

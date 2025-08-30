@@ -40,7 +40,8 @@
       "Bash(timeout 60 npm run build)",
       "mcp__github-mcp__git-diff",
       "Bash(npm run type-check:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "mcp__supabase__get_advisors"
     ],
     "deny": [],
     "ask": []

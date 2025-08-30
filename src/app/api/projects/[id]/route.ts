@@ -9,15 +9,32 @@ export async function GET(
   try {
     const supabase = createRouteHandlerClient({ cookies })
     
-    // 현재 사용자 확인
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
+    let user = null
     
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    // Authorization 헤더에서 토큰 확인
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
+      }
+      
+      user = tokenUser
+    } else {
+      // 쿠키 기반 세션 확인
+      const { data: { session }, error: authError } = await supabase.auth.getSession()
+      
+      if (authError || !session?.user) {
+        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      }
+      
+      user = session.user
     }
 
     const resolvedParams = await params
-    const userId = session.user.id
+    const userId = user.id
     const projectId = resolvedParams.id
 
     // 프로젝트 정보와 사용자의 권한 확인
@@ -94,15 +111,32 @@ export async function PUT(
   try {
     const supabase = createRouteHandlerClient({ cookies })
     
-    // 현재 사용자 확인
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
+    let user = null
     
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    // Authorization 헤더에서 토큰 확인
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
+      }
+      
+      user = tokenUser
+    } else {
+      // 쿠키 기반 세션 확인
+      const { data: { session }, error: authError } = await supabase.auth.getSession()
+      
+      if (authError || !session?.user) {
+        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      }
+      
+      user = session.user
     }
 
     const resolvedParams = await params
-    const userId = session.user.id
+    const userId = user.id
     const projectId = resolvedParams.id
     const body = await request.json()
 
@@ -212,15 +246,32 @@ export async function DELETE(
   try {
     const supabase = createRouteHandlerClient({ cookies })
     
-    // 현재 사용자 확인
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
+    let user = null
     
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    // Authorization 헤더에서 토큰 확인
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
+      }
+      
+      user = tokenUser
+    } else {
+      // 쿠키 기반 세션 확인
+      const { data: { session }, error: authError } = await supabase.auth.getSession()
+      
+      if (authError || !session?.user) {
+        return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+      }
+      
+      user = session.user
     }
 
     const resolvedParams = await params
-    const userId = session.user.id
+    const userId = user.id
     const projectId = resolvedParams.id
 
     // 프로젝트 소유자 확인
