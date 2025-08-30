@@ -77,21 +77,36 @@ export function useMenuNavigation() {
   const breadcrumbs = useMemo(() => {
     const pathSegments = pathname.split('/').filter(Boolean)
     
-    if (pathSegments[0] === 'dashboard' && pathSegments.length > 1) {
+    if (pathSegments[0] === 'dashboard') {
       const breadcrumbs = [{ label: '대시보드', href: '/dashboard' }]
       
-      if (activeMenuItem) {
-        if (activeSection) {
-          breadcrumbs.push({ label: activeSection, href: '#' })
+      if (pathSegments.length > 1) {
+        if (activeMenuItem) {
+          // 섹션명은 제외하고 직접 메뉴 아이템만 추가
+          breadcrumbs.push({ label: activeMenuItem.label, href: activeMenuItem.href })
+        } else {
+          // activeMenuItem이 없으면 경로 기반으로 생성
+          const subPath = pathSegments[1]
+          const pathMap: { [key: string]: string } = {
+            'projects': '프로젝트 관리',
+            'planning': '기획',
+            'design': '디자인',
+            'development': '개발',
+            'publishing': '퍼블리싱',
+            'chatbot': '전용챗봇',
+            'image-gen': '이미지 생성',
+            'admin': '관리자'
+          }
+          const label = pathMap[subPath] || subPath
+          breadcrumbs.push({ label, href: `/dashboard/${subPath}` })
         }
-        breadcrumbs.push({ label: activeMenuItem.label, href: activeMenuItem.href })
       }
       
       return breadcrumbs
     }
     
     return [{ label: '대시보드', href: '/dashboard' }]
-  }, [pathname, activeMenuItem, activeSection])
+  }, [pathname, activeMenuItem])
 
   return {
     menuStructure,
