@@ -56,7 +56,8 @@ export const menuStructure: MenuSection[] = [
       { id: 'chat', label: 'AI 채팅', href: '/dashboard/chat', icon: 'MessageCircle' },
       { id: 'mcp-chat', label: 'MCP 채팅', href: '/dashboard/mcp-chat', icon: 'Zap' },
       { id: 'chatbot', label: '전용챗봇', href: '/dashboard/chatbot', icon: 'Bot' },
-      { id: 'image-gen', label: '이미지 생성', href: '/dashboard/image-gen', icon: 'Image' }
+      { id: 'image-gen', label: '이미지 생성', href: '/dashboard/image-gen', icon: 'Image' },
+      { id: 'documents', label: '문서 관리', href: '/dashboard/documents', icon: 'FileText' }
     ]
   }
 ]
@@ -95,6 +96,7 @@ export function useMenuNavigation() {
           'mcp-chat': 'MCP 채팅',
           'chatbot': '전용챗봇',
           'image-gen': '이미지 생성',
+          'documents': '문서 관리',
           'admin': '관리자'
         }
         
