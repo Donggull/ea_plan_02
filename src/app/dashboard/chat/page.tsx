@@ -116,15 +116,19 @@ export default function ChatPage({}: ChatPageProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
-      setCurrentSessionId(data.conversation.id)
       
-      // URL 업데이트
-      const params = new URLSearchParams()
-      params.set('session', data.conversation.id)
-      if (selectedProjectId) {
-        params.set('project', selectedProjectId)
-      }
-      router.push(`/dashboard/chat?${params.toString()}`)
+      // 데이터베이스 커밋 완료를 위한 약간의 딜레이
+      setTimeout(() => {
+        setCurrentSessionId(data.conversation.id)
+        
+        // URL 업데이트
+        const params = new URLSearchParams()
+        params.set('session', data.conversation.id)
+        if (selectedProjectId) {
+          params.set('project', selectedProjectId)
+        }
+        router.push(`/dashboard/chat?${params.toString()}`)
+      }, 100)
     }
   })
 

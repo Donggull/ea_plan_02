@@ -27,8 +27,8 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 기존 메시지 로드
-  const loadMessages = useCallback(async () => {
+  // 기존 메시지 로드 - 재시도 로직 포함
+  const loadMessages = useCallback(async (retryCount = 0) => {
     if (!sessionId) {
       setMessages([])
       setIsLoading(false)
@@ -47,10 +47,16 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
         .single()
 
       if (convError || !conversation) {
-        // 새로 생성된 세션이거나 아직 데이터가 없는 경우
-        console.log('Conversation not found yet, initializing empty messages for:', sessionId)
-        setMessages([])
-        return
+        // 새로 생성된 세션이 아직 커밋되지 않았을 경우 3번까지 재시도
+        if (retryCount < 3) {
+          console.log(`Conversation not found, retrying... (${retryCount + 1}/3)`, sessionId)
+          setTimeout(() => loadMessages(retryCount + 1), 1000) // 1초 후 재시도
+          return
+        } else {
+          console.log('Conversation not found after 3 retries, initializing empty messages for:', sessionId)
+          setMessages([])
+          return
+        }
       }
 
       // messages 테이블에서 해당 conversation의 메시지들 가져오기
@@ -117,8 +123,17 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
 
   // 실시간 연결 설정
   const setupRealtimeConnection = useCallback(() => {
-    if (!sessionId || channelRef.current) return
+    if (!sessionId) {
+      console.log('No sessionId provided for realtime connection')
+      return
+    }
+    
+    if (channelRef.current) {
+      console.log('Realtime channel already exists, skipping setup')
+      return
+    }
 
+    console.log('Setting up realtime connection for session:', sessionId)
     setConnectionStatus('connecting')
     
     try {
@@ -209,12 +224,11 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
       console.error('실시간 연결 설정 실패:', err)
       setConnectionStatus('error')
       setError('실시간 연결 설정에 실패했습니다.')
-      // scheduleReconnect 함수를 여기서 직접 호출하지 말고 setTimeout 사용
-      setTimeout(() => {
-        console.log('실시간 연결 재시도 중...')
-        cleanupConnection()
-        setupRealtimeConnection()
-      }, 5000)
+      
+      // 실시간 연결이 실패해도 기본적인 채팅 기능은 작동하도록 설정
+      console.log('실시간 연결 실패, 기본 모드로 동작')
+      setIsConnected(false)
+      setConnectionStatus('disconnected')
     }
   }, [sessionId, startHeartbeat, cleanupConnection])
 
@@ -332,12 +346,18 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     if (sessionId) {
       // 이전 연결 정리 후 새로운 연결 설정
       cleanupConnection()
+      setMessages([]) // 매번 초기화
       
-      // 짧은 딜레이로 새 세션 생성 시간 확보
-      setTimeout(() => {
-        loadMessages()
+      // 충분한 딜레이로 데이터베이스 커밋 완료 대기
+      const timeoutId = setTimeout(async () => {
+        await loadMessages(0) // 재시도 횟수 초기화
         setupRealtimeConnection()
-      }, 100)
+      }, 500) // 500ms로 증가
+      
+      return () => {
+        clearTimeout(timeoutId)
+        cleanupConnection()
+      }
     } else {
       cleanupConnection()
       setMessages([])

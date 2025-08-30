@@ -149,15 +149,19 @@ export default function MCPChatPage({}: MCPChatPageProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['mcpChatSessions'] })
-      setCurrentSessionId(data.conversation.id)
       
-      // URL 업데이트
-      const params = new URLSearchParams()
-      params.set('session', data.conversation.id)
-      if (selectedProjectId) {
-        params.set('project', selectedProjectId)
-      }
-      router.push(`/dashboard/mcp-chat?${params.toString()}`)
+      // 데이터베이스 커밋 완료를 위한 약간의 딜레이
+      setTimeout(() => {
+        setCurrentSessionId(data.conversation.id)
+        
+        // URL 업데이트
+        const params = new URLSearchParams()
+        params.set('session', data.conversation.id)
+        if (selectedProjectId) {
+          params.set('project', selectedProjectId)
+        }
+        router.push(`/dashboard/mcp-chat?${params.toString()}`)
+      }, 100)
     }
   })
 
