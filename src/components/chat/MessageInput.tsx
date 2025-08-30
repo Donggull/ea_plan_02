@@ -13,7 +13,7 @@ interface MessageInputProps {
   className?: string
 }
 
-export default function MessageInput({
+const MessageInput = React.memo(function MessageInput({
   onSendMessage,
   disabled = false,
   model = 'claude',
@@ -297,4 +297,6 @@ export default function MessageInput({
       />
     </div>
   )
-}
+})
+
+export default MessageInput

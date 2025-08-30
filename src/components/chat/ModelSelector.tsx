@@ -59,7 +59,7 @@ const models: ModelConfig[] = [
   }
 ]
 
-export default function ModelSelector({
+const ModelSelector = React.memo(function ModelSelector({
   value,
   onChange,
   disabled = false,
@@ -181,4 +181,6 @@ export default function ModelSelector({
       </div> */}
     </div>
   )
-}
+})
+
+export default ModelSelector

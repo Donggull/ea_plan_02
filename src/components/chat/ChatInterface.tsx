@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import ChatWindow from './ChatWindow'
 import MessageInput from './MessageInput'
@@ -24,6 +24,9 @@ export default function ChatInterface({ sessionId, projectId, className }: ChatI
   const params = useParams()
   const currentProjectId = projectId || (params?.projectId as string)
   
+  // sessionId 안정화 - 깜빡임 방지
+  const stableSessionId = useMemo(() => sessionId || 'default', [sessionId])
+  
   const [selectedModel, setSelectedModel] = useState<'claude' | 'gpt-4' | 'gemini'>('claude')
   const [showContext, setShowContext] = useState(false)
   const [contextData, setContextData] = useState<Record<string, any>>({})
@@ -31,7 +34,7 @@ export default function ChatInterface({ sessionId, projectId, className }: ChatI
   const [estimatedCost, setEstimatedCost] = useState(0)
 
   // 실시간 채팅 훅 사용
-  const { messages, sendMessage, isLoading, error } = useChatRealtime(sessionId || 'default')
+  const { messages, sendMessage, isLoading, error } = useChatRealtime(stableSessionId)
   
   // 프로젝트 컨텍스트 훅 사용
   const { projectContext, isLoading: contextLoading } = useProjectContext(currentProjectId)
@@ -42,8 +45,8 @@ export default function ChatInterface({ sessionId, projectId, className }: ChatI
     }
   }, [projectContext])
 
-  // 메시지 전송 처리
-  const handleSendMessage = async (content: string, attachments?: File[]) => {
+  // 메시지 전송 처리 - useCallback으로 최적화
+  const handleSendMessage = useCallback(async (content: string, attachments?: File[]) => {
     try {
       await sendMessage(content, {
         model: selectedModel,
@@ -57,7 +60,7 @@ export default function ChatInterface({ sessionId, projectId, className }: ChatI
     } catch (error) {
       console.error('메시지 전송 실패:', error)
     }
-  }
+  }, [sendMessage, selectedModel, contextData])
 
   // 메시지 편집 처리
   const handleEditMessage = async (messageId: string, newContent: string) => {

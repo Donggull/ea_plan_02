@@ -29,34 +29,47 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
 
   // 기존 메시지 로드
   const loadMessages = useCallback(async () => {
-    if (!sessionId) return
+    if (!sessionId || sessionId === 'default') {
+      setMessages([])
+      setIsLoading(false)
+      return
+    }
 
     try {
       setIsLoading(true)
       setError(null)
 
       // conversations 테이블에서 세션 정보 가져오기
-      const { data: conversation } = await supabase
+      const { data: conversation, error: convError } = await supabase
         .from('conversations')
         .select('id')
         .eq('id', sessionId)
         .single()
 
-      if (conversation) {
-        // messages 테이블에서 해당 conversation의 메시지들 가져오기
-        const { data: messagesData, error: messagesError } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', conversation.id)
-          .order('created_at', { ascending: true })
-
-        if (messagesError) throw messagesError
-
-        setMessages((messagesData || []) as ChatMessage[])
+      if (convError || !conversation) {
+        console.warn('Conversation not found:', sessionId)
+        setMessages([])
+        return
       }
+
+      // messages 테이블에서 해당 conversation의 메시지들 가져오기
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: true })
+
+      if (messagesError) {
+        console.error('Messages loading error:', messagesError)
+        setMessages([])
+        return
+      }
+
+      setMessages((messagesData || []) as ChatMessage[])
     } catch (err) {
       console.error('메시지 로드 실패:', err)
       setError(err instanceof Error ? err.message : '메시지 로드에 실패했습니다.')
+      setMessages([])
     } finally {
       setIsLoading(false)
     }
@@ -305,14 +318,16 @@ export const useChatRealtime = (sessionId: string): UseChatRealtimeResult => {
     return () => {
       cleanupConnection()
     }
-  }, [sessionId, loadMessages, setupRealtimeConnection, cleanupConnection])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]) // 의존성 배열에서 함수들 제거하여 무한 리렌더링 방지
 
   // 언마운트 시 정리
   useEffect(() => {
     return () => {
       cleanupConnection()
     }
-  }, [cleanupConnection])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 컴포넌트 언마운트 시에만 실행
 
   return {
     messages,
