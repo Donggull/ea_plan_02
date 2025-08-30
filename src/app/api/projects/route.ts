@@ -119,13 +119,22 @@ async function getProjectsForUser(supabase: any, userId: string, request: NextRe
         id,
         name,
         description,
-        category,
         status,
+        progress,
+        priority,
+        start_date,
+        end_date,
+        budget,
+        tags,
+        client_name,
+        client_email,
         metadata,
+        settings,
         created_at,
         updated_at,
         owner_id,
-        user_id
+        user_id,
+        organization_id
       `)
       .in('id', projectIds)
 
@@ -157,12 +166,12 @@ async function getProjectsForUser(supabase: any, userId: string, request: NextRe
     }
 
     if (priority && priority !== 'all') {
-      filteredProjects = filteredProjects.filter(p => p.metadata?.priority === priority)
+      filteredProjects = filteredProjects.filter(p => p.priority === priority)
       console.log('🔽 Filtered by priority:', priority, '- Remaining:', filteredProjects.length)
     }
 
     if (category && category !== 'all') {
-      filteredProjects = filteredProjects.filter(p => p.category === category)
+      filteredProjects = filteredProjects.filter(p => p.metadata?.category === category || p.metadata?.type === category)
       console.log('🔽 Filtered by category:', category, '- Remaining:', filteredProjects.length)
     }
 
@@ -215,20 +224,21 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         description,
-        category,
         status,
+        priority,
+        progress: 0,
+        start_date,
+        end_date,
+        budget,
+        tags,
+        client_name,
+        client_email,
         owner_id: userId,
         user_id: userId,
         metadata: {
-          priority,
-          progress: 0,
-          start_date,
-          end_date,
-          client_name,
-          client_email,
-          budget,
-          tags
+          category: category || 'general'
         },
+        settings: {},
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
