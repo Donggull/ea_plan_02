@@ -88,12 +88,16 @@ export function useProjects(filters?: ProjectFilters) {
       const data = await response.json()
       return data.projects || []
     },
-    staleTime: 15 * 60 * 1000, // 15분간 데이터를 fresh로 간주
-    gcTime: 30 * 60 * 1000, // 30분간 캐시 유지
-    refetchOnWindowFocus: false, // 창 포커스 시 재요청 방지
-    refetchOnMount: false, // 마운트 시 재요청 방지 (stale 데이터가 있으면)
-    refetchOnReconnect: false, // 네트워크 재연결 시 재요청 방지
-    refetchInterval: false // 자동 재요청 방지
+    staleTime: 60 * 60 * 1000, // 1시간 동안 데이터를 fresh로 간주 (기존 15분에서 확장)
+    gcTime: 2 * 60 * 60 * 1000, // 2시간 동안 캐시 유지 (기존 30분에서 확장)
+    refetchOnWindowFocus: false, // 창 포커스 시 재요청 완전 방지
+    refetchOnMount: false, // 마운트 시 재요청 완전 방지
+    refetchOnReconnect: false, // 네트워크 재연결 시 재요청 완전 방지
+    refetchInterval: false, // 자동 재요청 완전 방지
+    retry: 1, // 실패 시 재시도 최소화
+    retryOnMount: false, // 마운트 시 재시도 방지
+    enabled: true, // 쿼리 활성화 (명시적 설정)
+    notifyOnChangeProps: ['data', 'error'] // 데이터와 에러 변경 시만 리렌더링
   })
 }
 
@@ -115,12 +119,15 @@ export function useProject(projectId: string | null) {
       return data.project
     },
     enabled: !!projectId,
-    staleTime: 15 * 60 * 1000, // 15분간 데이터를 fresh로 간주
-    gcTime: 30 * 60 * 1000, // 30분간 캐시 유지
-    refetchOnWindowFocus: false, // 창 포커스 시 재요청 방지
-    refetchOnMount: false, // 마운트 시 재요청 방지 (stale 데이터가 있으면)
-    refetchOnReconnect: false, // 네트워크 재연결 시 재요청 방지
-    refetchInterval: false // 자동 재요청 방지
+    staleTime: 60 * 60 * 1000, // 1시간 동안 데이터를 fresh로 간주 (기존 15분에서 확장)
+    gcTime: 2 * 60 * 60 * 1000, // 2시간 동안 캐시 유지 (기존 30분에서 확장)
+    refetchOnWindowFocus: false, // 창 포커스 시 재요청 완전 방지
+    refetchOnMount: false, // 마운트 시 재요청 완전 방지
+    refetchOnReconnect: false, // 네트워크 재연결 시 재요청 완전 방지
+    refetchInterval: false, // 자동 재요청 완전 방지
+    retry: 1, // 실패 시 재시도 최소화
+    retryOnMount: false, // 마운트 시 재시도 방지
+    notifyOnChangeProps: ['data', 'error'] // 데이터와 에러 변경 시만 리렌더링
   })
 }
 
