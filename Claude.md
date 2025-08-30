@@ -24,3 +24,49 @@ TRD 문서 참조 : [자세히 보기](./TRD_part1.md)
 TRD 문서 참조 : [자세히 보기](./TRD_part2.md)
 작업 진행을 위한 프롬프트 문서 참조 : [자세히 보기](./claude-code-prompts.md)
 작업 진행을 위한 프롬프트 문서 참조 : [자세히 보기](./claude-code-step-by-step.md)
+
+## 3단계 프로젝트 워크플로우 시스템 구현 완료 (2025-08-30)
+
+### 데이터베이스 구조
+프로젝트 관리 시스템이 3단계 워크플로우로 재구성되었습니다:
+
+#### 주요 테이블
+- **projects**: 프로젝트 기본 정보 (current_phase, phase_data, category 필드 추가)
+- **rfp_documents**: RFP 문서 관리 (제안 진행 단계)
+- **proposal_tasks**: 제안 작업 관리 (제안 진행 단계)
+- **construction_tasks**: 구축 작업 관리 (구축 관리 단계)
+- **operation_requests**: 운영 요청 관리 (운영 관리 단계 - 기존 테이블 활용)
+
+### 구현된 3단계 워크플로우
+
+#### 1. 제안 진행 (Proposal Phase)
+- RFP 문서 업로드 및 관리
+- 제안 작업 추적 (시장조사, 페르소나 분석, 제안서 작성, 비용 산정 등)
+- 작업별 상태 관리 및 진행률 추적
+
+#### 2. 구축 관리 (Construction Phase)  
+- 7개 세부 카테고리: 현황분석정리, 요구사항정리, 기능정의, 화면설계, WBS 일정관리, QA관리, 종합 인사이트
+- 작업별 우선순위 및 일정 관리
+- 담당자 배정 및 진행 상태 추적
+
+#### 3. 운영 관리 (Operation Phase)
+- 고객사 요건 관리 (기획, 디자인, 퍼블리싱, 개발)
+- 요건별 일정 및 우선순위 관리
+- 실시간 진행 상태 업데이트
+
+### 주요 컴포넌트
+- `src/components/projects/phases/ProjectPhases.tsx`: 메인 단계 관리 컴포넌트
+- `src/components/projects/phases/ProposalPhase.tsx`: 제안 진행 단계 UI
+- `src/components/projects/phases/ConstructionPhase.tsx`: 구축 관리 단계 UI
+- `src/components/projects/phases/OperationPhase.tsx`: 운영 관리 단계 UI
+
+### TypeScript 타입 시스템
+- Supabase 타입 자동 생성 및 통합
+- 타입 안정성을 위한 인터페이스 정의
+- 새로운 테이블에 대한 타입 캐스팅 적용 (임시 해결책)
+
+### 기술적 특징
+- React Query를 활용한 데이터 동기화
+- 실시간 상태 업데이트
+- 단계 간 데이터 연동 지원
+- Row Level Security 준비 (현재 비활성화 상태)
