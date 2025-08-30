@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -66,6 +66,50 @@ export function KeywordAnalyzer({
   const [selectedCategory, setSelectedCategory] = useState<'technical' | 'business' | 'domain'>('technical')
   const [searchTerm, setSearchTerm] = useState('')
 
+  const handleAnalyzeKeywords = useCallback(async () => {
+    if (!analysisId) {
+      onAnalysisError?.('분석 ID가 필요합니다.')
+      return
+    }
+
+    setIsAnalyzing(true)
+
+    try {
+      const response = await fetch(`/api/rfp/${analysisId}/keywords/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: analysisId,
+          analysis_options: {
+            include_context: true,
+            cluster_analysis: true,
+            priority_matrix: true,
+            min_importance: 0.1
+          }
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '키워드 분석 중 오류가 발생했습니다.')
+      }
+
+      const result: KeywordAnalysisResult = await response.json()
+      
+      setKeywordResult(result)
+      onAnalysisComplete?.(result)
+      
+    } catch (error) {
+      console.error('Keyword analysis error:', error)
+      const errorMessage = error instanceof Error ? error.message : '키워드 분석 중 오류가 발생했습니다.'
+      onAnalysisError?.(errorMessage)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [analysisId, onAnalysisError, onAnalysisComplete])
+
   useEffect(() => {
     if (analysis?.keywords && analysis.keywords.length > 0) {
       // 기존 분석 결과가 있으면 변환하여 표시
@@ -110,50 +154,6 @@ export function KeywordAnalyzer({
       handleAnalyzeKeywords()
     }
   }, [autoAnalyze, analysisId, analysis, handleAnalyzeKeywords])
-
-  const handleAnalyzeKeywords = async () => {
-    if (!analysisId) {
-      onAnalysisError?.('분석 ID가 필요합니다.')
-      return
-    }
-
-    setIsAnalyzing(true)
-
-    try {
-      const response = await fetch(`/api/rfp/${analysisId}/keywords/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          analysis_options: {
-            include_context: true,
-            cluster_analysis: true,
-            priority_matrix: true,
-            min_importance: 0.1
-          }
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || '키워드 분석 중 오류가 발생했습니다.')
-      }
-
-      const result: KeywordAnalysisResult = await response.json()
-      
-      setKeywordResult(result)
-      onAnalysisComplete?.(result)
-      
-    } catch (error) {
-      console.error('Keyword analysis error:', error)
-      const errorMessage = error instanceof Error ? error.message : '키워드 분석 중 오류가 발생했습니다.'
-      onAnalysisError?.(errorMessage)
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
 
   const getImportanceColor = (importance: number) => {
     if (importance >= 0.8) return 'bg-red-500'

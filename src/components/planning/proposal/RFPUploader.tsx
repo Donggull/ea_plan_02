@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
@@ -29,14 +29,14 @@ export function RFPUploader({
   const [description, setDescription] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-  const acceptedFileTypes = {
+  const acceptedFileTypes = useMemo(() => ({
     'application/pdf': ['.pdf'],
     'application/msword': ['.doc'],
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     'text/plain': ['.txt'],
     'text/markdown': ['.md'],
     'application/rtf': ['.rtf']
-  }
+  }), [])
 
   const validateFile = useCallback((file: File): string | null => {
     const maxSize = 50 * 1024 * 1024 // 50MB
@@ -68,7 +68,7 @@ export function RFPUploader({
     if (!title) {
       setTitle(file.name.replace(/\.[^/.]+$/, ''))
     }
-  }, [disabled, validateFile, onUploadError, title, acceptedFileTypes])
+  }, [disabled, validateFile, onUploadError, title])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -225,7 +225,6 @@ export function RFPUploader({
         <Button
           onClick={handleUpload}
           disabled={!selectedFile || !title.trim() || disabled || uploading}
-          loading={uploading}
         >
           {uploading ? (
             <>

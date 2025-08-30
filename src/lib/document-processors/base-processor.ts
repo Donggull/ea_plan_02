@@ -114,7 +114,7 @@ export abstract class BaseDocumentProcessor implements DocumentProcessor {
       }
     }))
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('knowledge_base')
       .insert(knowledgeBaseEntries as any)
 

@@ -122,7 +122,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       context: question.context,
       options: question.options,
       validation_rules: question.validation_rules,
-      depends_on: question.depends_on,
+      depends_on: (question as any).depends_on || null,
       next_step_impact: question.next_step_impact,
       order_index: index + 1,
       created_at: new Date().toISOString()

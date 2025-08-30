@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // AI 분석 수행 (실제로는 OpenAI API 등을 사용해야 함)
-    const analysisResult = await performRFPAnalysis(rfpDocument.extracted_text, analysis_options)
+    const analysisResult = await performRFPAnalysis(rfpDocument.content || '', analysis_options)
 
     // 분석 결과 저장
     const { data: analysisData, error: analysisError } = await supabase
@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
       .insert({
         project_id: rfpDocument.project_id,
         rfp_document_id: rfp_document_id,
-        original_file_url: rfpDocument.file_url,
-        extracted_text: rfpDocument.extracted_text,
+        original_file_url: rfpDocument.file_path || '',
+        extracted_text: rfpDocument.content || '',
         project_overview: analysisResult.project_overview,
         functional_requirements: analysisResult.functional_requirements,
         non_functional_requirements: analysisResult.non_functional_requirements,
@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
 
     const response: RFPAnalysisResponse = {
       analysis: analysisData as any,
-      questions: generatedQuestions,
-      estimated_duration: Math.ceil(rfpDocument.file_size / (1024 * 100)) // 대략적인 추정
+      questions: generatedQuestions as any,
+      estimated_duration: Math.ceil((rfpDocument.file_size || 1024) / (1024 * 100)) // 대략적인 추정
     }
 
     return NextResponse.json(response)

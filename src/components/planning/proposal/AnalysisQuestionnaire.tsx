@@ -66,10 +66,8 @@ export function AnalysisQuestionnaire({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          focus_categories: Object.keys(categoryFilters).filter(key => 
-            categoryFilters[key as QuestionCategory]
-          ) as QuestionCategory[],
-          max_questions: 10
+          focus_categories: selectedCategories,
+          max_questions: maxQuestions
         })
       })
 
@@ -89,7 +87,7 @@ export function AnalysisQuestionnaire({
     } finally {
       setIsGenerating(false)
     }
-  }, [analysisId, categoryFilters, onQuestionsGenerated, onError])
+  }, [analysisId, selectedCategories, maxQuestions, onQuestionsGenerated, onError])
 
   useEffect(() => {
     if (autoGenerate && analysisId && questions.length === 0) {

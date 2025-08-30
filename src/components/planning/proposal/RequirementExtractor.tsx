@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -35,13 +35,7 @@ export function RequirementExtractor({
   const [selectedCategory, setSelectedCategory] = useState<'functional' | 'non_functional'>('functional')
   const [_editingRequirement, _setEditingRequirement] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length) {
-      handleExtractRequirements()
-    }
-  }, [autoExtract, analysisId, extractedRequirements.functional.length, extractedRequirements.nonFunctional.length, handleExtractRequirements])
-
-  const handleExtractRequirements = async () => {
+  const handleExtractRequirements = useCallback(async () => {
     if (!analysisId) {
       onExtractError?.('분석 ID가 필요합니다.')
       return
@@ -86,7 +80,13 @@ export function RequirementExtractor({
     } finally {
       setIsExtracting(false)
     }
-  }
+  }, [analysisId, onExtractComplete, onExtractError])
+
+  useEffect(() => {
+    if (autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length) {
+      handleExtractRequirements()
+    }
+  }, [autoExtract, analysisId, extractedRequirements.functional.length, extractedRequirements.nonFunctional.length, handleExtractRequirements])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {

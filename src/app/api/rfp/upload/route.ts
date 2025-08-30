@@ -100,16 +100,17 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         description,
-        original_file_name: file.name,
         file_path: fileName,
-        file_url: urlData.publicUrl,
-        file_size: file.size,
-        mime_type: file.type,
-        extracted_text: extractedText,
+        content: extractedText,
+        metadata: {
+          original_file_name: file.name,
+          file_url: urlData.publicUrl,
+          file_size: file.size,
+          mime_type: file.type
+        },
         project_id: projectId || null,
-        uploaded_by: user.id,
-        status: 'uploaded'
-      })
+        uploaded_by: user.id
+      } as any)
       .select()
       .single()
 

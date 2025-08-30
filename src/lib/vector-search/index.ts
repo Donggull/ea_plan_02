@@ -177,7 +177,7 @@ export class VectorSearchEngine {
     options: VectorSearchOptions = {}
   ): Promise<DocumentSearchResult[]> {
     try {
-      let supabaseQuery = supabase
+      let supabaseQuery = (supabase as any)
         .from('knowledge_base')
         .select(`
           id,
@@ -230,7 +230,7 @@ export class VectorSearchEngine {
   ): Promise<DocumentSearchResult[]> {
     try {
       // 원본 문서의 임베딩들 가져오기
-      const { data: sourceChunks, error } = await supabase
+      const { data: sourceChunks, error } = await (supabase as any)
         .from('knowledge_base')
         .select('embedding, project_id')
         .eq('document_id', documentId)
@@ -300,7 +300,7 @@ export class VectorSearchEngine {
     lastUpdate: string | null
   }> {
     try {
-      let query = supabase
+      let query = (supabase as any)
         .from('knowledge_base')
         .select('document_id, created_at', { count: 'exact' })
 
@@ -314,9 +314,9 @@ export class VectorSearchEngine {
         throw error
       }
 
-      const uniqueDocuments = new Set(data?.map(item => item.document_id).filter(Boolean)).size
+      const uniqueDocuments = new Set(data?.map((item: any) => item.document_id).filter(Boolean)).size
       const lastUpdate = data && data.length > 0 && data[0].created_at
-        ? data.reduce((latest, item) => 
+        ? data.reduce((latest: any, item: any) => 
             (item.created_at && item.created_at > latest) ? item.created_at : latest, data[0].created_at)
         : null
 

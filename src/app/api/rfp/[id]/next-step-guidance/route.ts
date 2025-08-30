@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { NextStepGuidanceRequest, NextStepGuidanceResponse } from '@/types/rfp-analysis'
+import { NextStepGuidanceRequest, NextStepGuidanceResponse, MarketResearchGuidance } from '@/types/rfp-analysis'
 
 type RouteParams = {
   params: Promise<{ id: string }>
@@ -47,7 +47,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const recommendedActions = generateRecommendedActions(guidance)
 
     const response: NextStepGuidanceResponse = {
-      guidance,
+      guidance: {
+        ...guidance,
+        rfp_analysis_id: guidance.rfp_analysis_id || id
+      } as MarketResearchGuidance,
       recommended_actions: recommendedActions
     }
 
@@ -150,7 +153,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const recommendedActions = generateRecommendedActions(savedGuidance)
 
     const response: NextStepGuidanceResponse = {
-      guidance: savedGuidance,
+      guidance: {
+        ...savedGuidance,
+        rfp_analysis_id: savedGuidance.rfp_analysis_id || id
+      } as MarketResearchGuidance,
       recommended_actions: recommendedActions
     }
 

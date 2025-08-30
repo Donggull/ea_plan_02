@@ -25,6 +25,13 @@ export function RFPSummary({
   const [activeSection, setActiveSection] = useState<string>('overview')
   const [isExporting, setIsExporting] = useState(false)
 
+  const getImportanceColor = (importance: number) => {
+    if (importance >= 0.8) return 'bg-red-500'
+    if (importance >= 0.6) return 'bg-orange-500'
+    if (importance >= 0.4) return 'bg-yellow-500'
+    return 'bg-green-500'
+  }
+
   const handleExport = async (format: 'pdf' | 'docx' | 'json') => {
     if (!onExport) return
     

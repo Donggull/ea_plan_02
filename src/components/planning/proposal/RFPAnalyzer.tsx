@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -30,13 +30,7 @@ export function RFPAnalyzer({
   })
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
-  useEffect(() => {
-    if (autoStart && rfpDocumentId) {
-      handleStartAnalysis()
-    }
-  }, [autoStart, rfpDocumentId, handleStartAnalysis])
-
-  const handleStartAnalysis = async () => {
+  const handleStartAnalysis = useCallback(async () => {
     if (!rfpDocumentId) {
       onAnalysisError?.('RFP 문서 ID가 필요합니다.')
       return
@@ -97,7 +91,13 @@ export function RFPAnalyzer({
     } finally {
       setIsAnalyzing(false)
     }
-  }
+  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError])
+
+  useEffect(() => {
+    if (autoStart && rfpDocumentId) {
+      handleStartAnalysis()
+    }
+  }, [autoStart, rfpDocumentId, handleStartAnalysis])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
