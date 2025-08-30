@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Input from '@/basic/src/components/Input/Input'
 import Button from '@/basic/src/components/Button/Button'
-import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface ProjectFormProps {
@@ -44,6 +43,20 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
     tags: project?.tags?.join(', ') || ''
   })
 
+  // API를 통한 인증된 요청 함수
+  const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) || {})
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include' // 쿠키 포함
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -66,62 +79,51 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
         client_name: formData.client_name || null,
         client_email: formData.client_email || null,
         budget: formData.budget ? parseFloat(formData.budget.toString()) : null,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : null,
-        organization_id: organization?.id || null,
-        owner_id: user.id,
-        updated_at: new Date().toISOString()
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : null
       }
 
       if (project?.id) {
-        // Update existing project
-        const { data, error } = await supabase
-          .from('projects')
-          .update(projectData)
-          .eq('id', project.id)
-          .select()
-          .single()
+        // Update existing project via API
+        const response = await authenticatedFetch(`/api/projects/${project.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(projectData)
+        })
 
-        if (error) throw error
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || '프로젝트 수정 중 오류가 발생했습니다.')
+        }
+
+        const result = await response.json()
         
         if (onSubmit) {
-          onSubmit(data)
+          onSubmit(result.project)
         } else {
           router.push('/dashboard/projects')
         }
       } else {
-        // Create new project
-        const { data, error } = await supabase
-          .from('projects')
-          .insert({
-            ...projectData,
-            user_id: user.id
-          })
-          .select()
-          .single()
+        // Create new project via API
+        const response = await authenticatedFetch('/api/projects', {
+          method: 'POST',
+          body: JSON.stringify(projectData)
+        })
 
-        if (error) throw error
-
-        // Add current user as project owner
-        if (data) {
-          await supabase
-            .from('project_members')
-            .insert({
-              project_id: data.id,
-              user_id: user.id,
-              role: 'owner',
-              permissions: { all: true }
-            })
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || '프로젝트 생성 중 오류가 발생했습니다.')
         }
+
+        const result = await response.json()
         
         if (onSubmit) {
-          onSubmit(data)
+          onSubmit(result.project)
         } else {
           router.push('/dashboard/projects')
         }
       }
     } catch (error) {
       console.error('Error saving project:', error)
-      alert('프로젝트 저장 중 오류가 발생했습니다.')
+      alert(error instanceof Error ? error.message : '프로젝트 저장 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }

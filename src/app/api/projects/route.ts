@@ -186,19 +186,52 @@ async function getProjectsForUser(supabase: any, userId: string, request: NextRe
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ 
-      cookies 
-    })
+    console.log('🆕 Project Creation API: Starting request...')
     
-    // 현재 사용자 확인
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
+    let user = null
+    let supabaseClient = null
     
-    if (authError || !session?.user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    // Authorization 헤더에서 토큰 확인
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      console.log('🔑 Project Creation API: Using token-based authentication')
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        console.error('❌ Project Creation API: Token validation failed:', tokenError)
+        return NextResponse.json({ error: '유효하지 않은 토큰입니다' }, { status: 401 })
+      }
+      
+      user = tokenUser
+      supabaseClient = supabaseAdmin
+      console.log('✅ Project Creation API: Token authentication successful for user:', user.id)
+    } else {
+      // 쿠키 기반 세션 확인
+      console.log('🍪 Project Creation API: Using cookie-based authentication')
+      try {
+        const supabase = createRouteHandlerClient({ 
+          cookies 
+        })
+        const { data: { session }, error: authError } = await supabase.auth.getSession()
+        
+        if (authError || !session?.user) {
+          console.error('❌ Project Creation API: Cookie session failed:', authError)
+          return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+        }
+        
+        user = session.user
+        supabaseClient = supabase
+        console.log('✅ Project Creation API: Cookie authentication successful for user:', user.id)
+      } catch (cookieError) {
+        console.error('❌ Project Creation API: Cookie access failed:', cookieError)
+        return NextResponse.json({ error: '쿠키 인증 오류' }, { status: 401 })
+      }
     }
 
-    const userId = session.user.id
+    const userId = user.id
     const body = await request.json()
+    console.log('📋 Project Creation API: Request body:', body)
 
     const {
       name,
@@ -206,6 +239,7 @@ export async function POST(request: NextRequest) {
       category = 'general',
       status = 'draft',
       priority = 'medium',
+      progress = 0,
       start_date,
       end_date,
       client_name,
@@ -214,44 +248,60 @@ export async function POST(request: NextRequest) {
       tags
     } = body
 
-    if (!name) {
+    if (!name || !name.trim()) {
+      console.error('❌ Project Creation API: Missing project name')
       return NextResponse.json({ error: '프로젝트명은 필수입니다' }, { status: 400 })
     }
 
+    console.log('🔨 Creating project with data:', {
+      name: name.trim(),
+      description,
+      status,
+      priority,
+      progress,
+      userId
+    })
+
     // 프로젝트 생성
-    const { data: project, error: projectError } = await supabase
+    const projectData = {
+      name: name.trim(),
+      description: description || null,
+      status,
+      priority,
+      progress: parseInt(progress.toString()) || 0,
+      start_date: start_date || null,
+      end_date: end_date || null,
+      budget: budget ? parseFloat(budget.toString()) : null,
+      tags: tags || null,
+      client_name: client_name || null,
+      client_email: client_email || null,
+      owner_id: userId,
+      user_id: userId,
+      organization_id: null, // 조직 ID는 나중에 구현
+      metadata: {
+        category: category || 'general'
+      },
+      settings: {}
+    }
+
+    const { data: project, error: projectError } = await supabaseClient
       .from('projects')
-      .insert({
-        name,
-        description,
-        status,
-        priority,
-        progress: 0,
-        start_date,
-        end_date,
-        budget,
-        tags,
-        client_name,
-        client_email,
-        owner_id: userId,
-        user_id: userId,
-        metadata: {
-          category: category || 'general'
-        },
-        settings: {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .insert(projectData)
       .select()
       .single()
 
     if (projectError) {
-      console.error('Project creation error:', projectError)
-      return NextResponse.json({ error: '프로젝트 생성 중 오류가 발생했습니다' }, { status: 500 })
+      console.error('❌ Project Creation API: Project creation error:', projectError)
+      return NextResponse.json({ 
+        error: '프로젝트 생성 중 오류가 발생했습니다',
+        details: projectError.message 
+      }, { status: 500 })
     }
 
+    console.log('✅ Project Creation API: Project created successfully:', project.id)
+
     // 프로젝트 소유자를 멤버로 추가
-    const { error: memberError } = await supabase
+    const { error: memberError } = await supabaseClient
       .from('project_members')
       .insert({
         project_id: project.id,
@@ -261,10 +311,13 @@ export async function POST(request: NextRequest) {
       })
 
     if (memberError) {
-      console.error('Member creation error:', memberError)
-      // 프로젝트는 생성되었지만 멤버 추가 실패
+      console.error('⚠️ Project Creation API: Member creation error:', memberError)
+      // 프로젝트는 생성되었지만 멤버 추가 실패 - 계속 진행
+    } else {
+      console.log('✅ Project Creation API: Project member added successfully')
     }
 
+    console.log('📤 Project Creation API: Returning project data')
     return NextResponse.json({ 
       project: {
         ...project,
@@ -273,7 +326,10 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 201 })
   } catch (error) {
-    console.error('API error:', error)
-    return NextResponse.json({ error: '서버 오류가 발생했습니다' }, { status: 500 })
+    console.error('💥 Project Creation API error:', error)
+    return NextResponse.json({ 
+      error: '서버 오류가 발생했습니다',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
