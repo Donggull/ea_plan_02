@@ -81,24 +81,47 @@ export function useMenuNavigation() {
       const breadcrumbs = [{ label: '대시보드', href: '/dashboard' }]
       
       if (pathSegments.length > 1) {
-        if (activeMenuItem) {
-          // 섹션명은 제외하고 직접 메뉴 아이템만 추가
-          breadcrumbs.push({ label: activeMenuItem.label, href: activeMenuItem.href })
-        } else {
-          // activeMenuItem이 없으면 경로 기반으로 생성
-          const subPath = pathSegments[1]
-          const pathMap: { [key: string]: string } = {
-            'projects': '프로젝트 관리',
-            'planning': '기획',
-            'design': '디자인',
-            'development': '개발',
-            'publishing': '퍼블리싱',
-            'chatbot': '전용챗봇',
-            'image-gen': '이미지 생성',
-            'admin': '관리자'
+        // 첫 번째 서브 경로 처리
+        const subPath = pathSegments[1]
+        const pathMap: { [key: string]: string } = {
+          'projects': '프로젝트 관리',
+          'planning': '기획',
+          'design': '디자인',
+          'development': '개발',
+          'publishing': '퍼블리싱',
+          'chatbot': '전용챗봇',
+          'image-gen': '이미지 생성',
+          'admin': '관리자'
+        }
+        
+        const subLabel = pathMap[subPath] || subPath
+        breadcrumbs.push({ label: subLabel, href: `/dashboard/${subPath}` })
+        
+        // 프로젝트 상세 페이지의 경우 프로젝트명 추가
+        if (subPath === 'projects' && pathSegments.length > 2 && pathSegments[2] !== 'new') {
+          breadcrumbs.push({ 
+            label: '프로젝트 상세', 
+            href: `/dashboard/projects/${pathSegments[2]}` 
+          })
+        }
+        
+        // 기타 하위 경로들 처리
+        if (pathSegments.length > 3) {
+          for (let i = 3; i < pathSegments.length; i++) {
+            const segment = pathSegments[i]
+            const currentPath = '/dashboard/' + pathSegments.slice(1, i + 1).join('/')
+            
+            // 특정 경로에 대한 라벨 매핑
+            const segmentMap: { [key: string]: string } = {
+              'edit': '편집',
+              'new': '새로 만들기',
+              'settings': '설정',
+              'members': '멤버 관리'
+            }
+            
+            const segmentLabel = segmentMap[segment] || segment
+            breadcrumbs.push({ label: segmentLabel, href: currentPath })
           }
-          const label = pathMap[subPath] || subPath
-          breadcrumbs.push({ label, href: `/dashboard/${subPath}` })
         }
       }
       
@@ -106,7 +129,7 @@ export function useMenuNavigation() {
     }
     
     return [{ label: '대시보드', href: '/dashboard' }]
-  }, [pathname, activeMenuItem])
+  }, [pathname])
 
   return {
     menuStructure,
