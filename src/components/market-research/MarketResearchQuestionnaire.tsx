@@ -38,11 +38,7 @@ export default function MarketResearchQuestionnaire({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    generateQuestionsFromMarketData();
-  }, [marketData]);
-
-  const generateQuestionsFromMarketData = async () => {
+  const generateQuestionsFromMarketData = React.useCallback(async () => {
     try {
       setLoading(true);
       const generator = new MarketResearchQuestionGenerator();
@@ -56,7 +52,11 @@ export default function MarketResearchQuestionnaire({
     } finally {
       setLoading(false);
     }
-  };
+  }, [marketData]);
+
+  useEffect(() => {
+    generateQuestionsFromMarketData();
+  }, [generateQuestionsFromMarketData]);
 
   const handleResponseChange = (value: any) => {
     setCurrentResponse(value);
@@ -299,7 +299,7 @@ export default function MarketResearchQuestionnaire({
               시장 조사 결과를 바탕으로 페르소나 개발 방향을 설정합니다
             </p>
           </div>
-          <Badge variant="outline">
+          <Badge variant="default">
             {currentQuestionIndex + 1} / {questions.length}
           </Badge>
         </div>

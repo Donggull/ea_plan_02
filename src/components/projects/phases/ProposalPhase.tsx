@@ -36,7 +36,7 @@ interface ProposalPhaseProps {
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'market_research' | 'persona'>('rfp')
   const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
-  const [personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
+  const [_personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
   

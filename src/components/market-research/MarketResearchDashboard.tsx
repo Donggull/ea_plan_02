@@ -8,10 +8,8 @@ import {
   TrendingUp, 
   Users, 
   Cpu, 
-  DollarSign, 
   Search,
   RefreshCw,
-  FileText,
   ChevronRight,
   AlertCircle,
   CheckCircle2,
@@ -38,13 +36,9 @@ export default function MarketResearchDashboard({
   const [activeTab, setActiveTab] = useState('overview');
   const [researchHistory, setResearchHistory] = useState<MarketResearch[]>([]);
 
-  useEffect(() => {
-    loadResearchHistory();
-  }, [projectId]);
-
-  const loadResearchHistory = async () => {
+  const loadResearchHistory = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('market_research')
         .select('*')
         .eq('project_id', projectId)
@@ -59,7 +53,11 @@ export default function MarketResearchDashboard({
     } catch (error) {
       console.error('Error loading research history:', error);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    loadResearchHistory();
+  }, [loadResearchHistory]);
 
   const startNewResearch = async () => {
     setLoading(true);
@@ -69,7 +67,7 @@ export default function MarketResearchDashboard({
       let keywords: string[] = ['digital transformation', 'SaaS', 'enterprise'];
       
       if (rfpAnalysisId) {
-        const { data: rfpData } = await supabase
+        const { data: rfpData } = await (supabase as any)
           .from('rfp_analyses')
           .select('keywords')
           .eq('id', rfpAnalysisId)
@@ -159,7 +157,7 @@ export default function MarketResearchDashboard({
               {research.status}
             </Badge>
             {research.confidence_score && (
-              <Badge variant="outline">
+              <Badge variant="default">
                 신뢰도 {(research.confidence_score * 100).toFixed(0)}%
               </Badge>
             )}

@@ -6,7 +6,7 @@ import type {
   PersonaGenerationGuidance,
   DataCollectionNeed,
 } from '@/types/market-research';
-import type { RFPAnalysis, AnalysisQuestion, QuestionResponse } from '@/types/market-research';
+import type { AnalysisQuestion, QuestionResponse } from '@/types/market-research';
 
 export class MarketResearchQuestionGenerator {
   /**
@@ -14,7 +14,7 @@ export class MarketResearchQuestionGenerator {
    */
   async generatePersonaResearchQuestions(
     marketData: MarketResearch,
-    previousResponses: QuestionResponse[]
+    _previousResponses: QuestionResponse[]
   ): Promise<AnalysisQuestion[]> {
     const questions: AnalysisQuestion[] = [];
 
@@ -239,7 +239,7 @@ export class MarketResearchQuestionGenerator {
     };
 
     // Supabase에 가이던스 저장
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('persona_generation_guidance')
       .insert({
         market_research_id: marketData.id,
@@ -493,7 +493,7 @@ export class MarketResearchQuestionGenerator {
       is_answered: false,
     }));
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('market_research_questions')
       .insert(questionsToSave)
       .select();
@@ -517,7 +517,7 @@ export class MarketResearchQuestionGenerator {
     const responsesToSave = await Promise.all(
       responses.map(async (r) => {
         // 질문 ID 찾기
-        const { data: question } = await supabase
+        const { data: question } = await (supabase as any)
           .from('market_research_questions')
           .select('id')
           .eq('market_research_id', marketResearchId)
@@ -539,7 +539,7 @@ export class MarketResearchQuestionGenerator {
       })
     );
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('market_research_responses')
       .insert(responsesToSave)
       .select();
@@ -551,7 +551,7 @@ export class MarketResearchQuestionGenerator {
 
     // 질문을 답변됨으로 표시
     const questionIds = responses.map(r => r.question_id);
-    await supabase
+    await (supabase as any)
       .from('market_research_questions')
       .update({ is_answered: true })
       .eq('market_research_id', marketResearchId)

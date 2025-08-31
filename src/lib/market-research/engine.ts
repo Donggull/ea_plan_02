@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
 import type {
-  MarketResearch,
   MarketResearchRequest,
   MarketResearchResult,
   CompetitorInfo,
@@ -27,7 +26,7 @@ export class MarketResearchEngine {
     try {
       // Tavily API를 사용한 경쟁사 검색 시뮬레이션
       // 실제 구현에서는 Tavily API를 호출
-      const searchQuery = `${keywords.join(' ')} competitors market analysis`;
+      const _searchQuery = `${keywords.join(' ')} competitors market analysis`;
       
       // 시뮬레이션 데이터
       const competitors: CompetitorInfo[] = [
@@ -157,7 +156,7 @@ export class MarketResearchEngine {
   /**
    * 기술 동향 스캔
    */
-  async findTechnologies(domain: string): Promise<TechnologyInfo[]> {
+  async findTechnologies(_domain: string): Promise<TechnologyInfo[]> {
     try {
       // 기술 동향 시뮬레이션
       const technologies: TechnologyInfo[] = [
@@ -277,7 +276,7 @@ export class MarketResearchEngine {
   /**
    * 인사이트 생성
    */
-  async generateInsights(data: Partial<MarketResearchResult>): Promise<MarketInsights> {
+  async generateInsights(_data: Partial<MarketResearchResult>): Promise<MarketInsights> {
     try {
       const insights: MarketInsights = {
         summary: '시장은 AI 통합과 사용자 경험 개선을 중심으로 빠르게 성장하고 있습니다.',
@@ -379,7 +378,7 @@ export class MarketResearchEngine {
   async conductResearch(request: MarketResearchRequest): Promise<MarketResearchResult> {
     try {
       // 시장 조사 레코드 생성
-      const { data: researchData, error: createError } = await supabase
+      const { data: researchData, error: createError } = await (supabase as any)
         .from('market_research')
         .insert({
           project_id: request.project_id,
@@ -475,7 +474,7 @@ export class MarketResearchEngine {
       ];
 
       // 시장 조사 결과 업데이트
-      const { data: updatedResearch, error: updateError } = await supabase
+      const { data: updatedResearch, error: updateError } = await (supabase as any)
         .from('market_research')
         .update({
           status: 'completed',
