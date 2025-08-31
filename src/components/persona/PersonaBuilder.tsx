@@ -21,7 +21,7 @@ import type { UserPersona, PersonalityTrait, DeviceUsage, PainPoint, Goal } from
 import type { MarketResearch } from '@/types/market-research';
 
 interface PersonaBuilderProps {
-  marketResearch: MarketResearch;
+  marketResearch: MarketResearch | null;
   onPersonaCreated: (persona: UserPersona) => void;
   onCancel: () => void;
   existingPersona?: UserPersona;
@@ -231,11 +231,11 @@ export default function PersonaBuilder({
     try {
       const personaData: Partial<UserPersona> = {
         ...formData,
-        project_id: marketResearch.project_id,
-        rfp_analysis_id: marketResearch.rfp_analysis_id,
-        market_research_id: marketResearch.id,
+        project_id: marketResearch?.project_id || null,
+        rfp_analysis_id: marketResearch?.rfp_analysis_id || null,
+        market_research_id: marketResearch?.id || null,
         confidence_score: 3.5, // 기본값
-        data_sources: ['market_research', 'manual_input'],
+        data_sources: marketResearch ? ['market_research', 'manual_input'] : ['manual_input'],
         last_updated_stage: 'basic_info'
       };
 
@@ -532,14 +532,28 @@ export default function PersonaBuilder({
         <div className="flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-blue-600 mt-0.5" />
           <div className="flex-1">
-            <h4 className="font-medium text-blue-900">연결된 시장 조사 데이터</h4>
-            <p className="text-blue-700 text-sm mt-1">
-              {marketResearch.title} - {marketResearch.research_type} 분석
-            </p>
-            {marketResearch.insights && (
-              <p className="text-blue-600 text-sm mt-2">
-                핵심 인사이트: {marketResearch.insights.summary.substring(0, 100)}...
-              </p>
+{marketResearch ? (
+              <>
+                <h4 className="font-medium text-blue-900">연결된 시장 조사 데이터</h4>
+                <p className="text-blue-700 text-sm mt-1">
+                  {marketResearch.title} - {marketResearch.research_type} 분석
+                </p>
+                {marketResearch.insights && (
+                  <p className="text-blue-600 text-sm mt-2">
+                    핵심 인사이트: {marketResearch.insights.summary.substring(0, 100)}...
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <h4 className="font-medium text-blue-900">독립 실행 모드</h4>
+                <p className="text-blue-700 text-sm mt-1">
+                  시장조사 데이터 없이 페르소나를 생성합니다
+                </p>
+                <p className="text-blue-600 text-sm mt-2">
+                  기본 정보를 입력하여 페르소나를 구축하세요
+                </p>
+              </>
             )}
           </div>
         </div>

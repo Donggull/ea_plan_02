@@ -33,7 +33,7 @@ import type { UserPersona, ProposalStrategy } from '@/types/persona';
 import type { MarketResearch } from '@/types/market-research';
 
 interface PersonaAnalysisDashboardProps {
-  marketResearch: MarketResearch;
+  marketResearch: MarketResearch | null;
   projectId: string;
   onGuidanceComplete?: (guidance: any) => void;
 }
@@ -56,27 +56,47 @@ export default function PersonaAnalysisDashboard({
   const loadExistingPersonas = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await (supabase as any)
-        .from('personas')
-        .select('*')
-        .eq('market_research_id', marketResearch.id)
-        .order('created_at', { ascending: false });
+      
+      if (!marketResearch) {
+        // 시장조사 없이 프로젝트 기반으로 페르소나 조회
+        const { data, error } = await (supabase as any)
+          .from('personas')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data && data.length > 0) {
-        setPersonas(data);
-        setCurrentStep('persona_list');
+        if (data && data.length > 0) {
+          setPersonas(data);
+          setCurrentStep('persona_list');
+        } else {
+          setCurrentStep('questionnaire');
+        }
       } else {
-        // 기존 페르소나가 없으면 설문부터 시작
-        setCurrentStep('questionnaire');
+        // 시장조사 연동 모드
+        const { data, error } = await (supabase as any)
+          .from('personas')
+          .select('*')
+          .eq('market_research_id', marketResearch.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setPersonas(data);
+          setCurrentStep('persona_list');
+        } else {
+          setCurrentStep('questionnaire');
+        }
       }
     } catch (error) {
       console.error('페르소나 로드 오류:', error);
+      setCurrentStep('questionnaire');
     } finally {
       setLoading(false);
     }
-  }, [marketResearch.id]);
+  }, [marketResearch, projectId]);
 
   useEffect(() => {
     loadExistingPersonas();
@@ -299,12 +319,19 @@ export default function PersonaAnalysisDashboard({
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 'questionnaire':
-        return (
+        return marketResearch ? (
           <MarketResearchQuestionnaire
             marketData={marketResearch}
             onComplete={handleQuestionnaireComplete}
             onSkip={() => setCurrentStep('persona_builder')}
           />
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">시장 조사 데이터가 없어 질문지 단계를 건너뜁니다.</p>
+            <Button onClick={() => setCurrentStep('persona_builder')}>
+              페르소나 생성으로 이동
+            </Button>
+          </div>
         );
 
       case 'persona_list':

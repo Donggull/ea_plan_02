@@ -53,7 +53,7 @@ export class PersonaQuestionGenerator {
   /**
    * 인구통계학적 질문 생성
    */
-  private generateDemographicQuestions(marketResearch: MarketResearch): any[] {
+  private generateDemographicQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     questions.push({
@@ -104,7 +104,7 @@ export class PersonaQuestionGenerator {
   /**
    * 전문적 컨텍스트 질문 생성
    */
-  private generateProfessionalContextQuestions(marketResearch: MarketResearch): any[] {
+  private generateProfessionalContextQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     // 시장 조사의 경쟁사 데이터를 기반으로 직업군 추출
@@ -156,7 +156,7 @@ export class PersonaQuestionGenerator {
   /**
    * 기술 사용 패턴 질문 생성
    */
-  private generateTechnologyUsageQuestions(marketResearch: MarketResearch): any[] {
+  private generateTechnologyUsageQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     // 기술 동향 데이터를 활용한 질문 생성
@@ -212,7 +212,7 @@ export class PersonaQuestionGenerator {
   /**
    * 페인포인트 및 도전과제 질문 생성
    */
-  private generatePainPointQuestions(marketResearch: MarketResearch): any[] {
+  private generatePainPointQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     // 경쟁사 분석에서 도출된 약점들을 페인포인트로 활용
@@ -267,7 +267,7 @@ export class PersonaQuestionGenerator {
   /**
    * 목표 및 동기 질문 생성
    */
-  private generateGoalsMotivationsQuestions(marketResearch: MarketResearch): any[] {
+  private generateGoalsMotivationsQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     questions.push({
@@ -334,7 +334,7 @@ export class PersonaQuestionGenerator {
   /**
    * 의사결정 과정 질문 생성
    */
-  private generateDecisionMakingQuestions(marketResearch: MarketResearch): any[] {
+  private generateDecisionMakingQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     questions.push({
@@ -402,7 +402,7 @@ export class PersonaQuestionGenerator {
   /**
    * 사용자 여정 관련 질문 생성
    */
-  private generateUserJourneyQuestions(marketResearch: MarketResearch): any[] {
+  private generateUserJourneyQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     questions.push({
@@ -449,7 +449,7 @@ export class PersonaQuestionGenerator {
   /**
    * 터치포인트 선호도 질문 생성
    */
-  private generateTouchpointQuestions(marketResearch: MarketResearch): any[] {
+  private generateTouchpointQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     questions.push({
@@ -503,7 +503,7 @@ export class PersonaQuestionGenerator {
   /**
    * 시나리오 검증 질문 생성
    */
-  private generateScenarioValidationQuestions(marketResearch: MarketResearch): any[] {
+  private generateScenarioValidationQuestions(_marketResearch: MarketResearch): any[] {
     const questions: any[] = [];
 
     questions.push({
@@ -786,7 +786,7 @@ export class PersonaQuestionGenerator {
     };
   }
 
-  private determinePrimaryFocus(responseMap: Record<string, any>, marketResearch: MarketResearch): string {
+  private determinePrimaryFocus(responseMap: Record<string, any>, _marketResearch: MarketResearch): string {
     const impactLevel = responseMap['pain_impact_level'] || 3;
     const techComfort = responseMap['tech_comfort_level'] || 3;
     const decisionAuthority = responseMap['prof_decision_authority'];

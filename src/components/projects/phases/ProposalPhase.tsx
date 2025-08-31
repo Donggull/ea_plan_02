@@ -212,14 +212,18 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
-            disabled={!currentResearch}
+disabled={false}
           >
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               페르소나 분석
-              {!currentResearch && (
-                <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                  대기중
+{currentResearch ? (
+                <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">
+                  시장조사 연동
+                </span>
+              ) : (
+                <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
+                  독립실행
                 </span>
               )}
             </div>
@@ -378,28 +382,34 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       {/* 페르소나 분석 탭 */}
       {activeTab === 'persona' && (
         <div className="space-y-6">
-          {currentResearch ? (
-            <PersonaAnalysisDashboard
-              marketResearch={currentResearch}
-              projectId={projectId}
-              onGuidanceComplete={handlePersonaGuidanceComplete}
-            />
-          ) : (
-            <div className="text-center py-12">
-              <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">시장 조사가 필요합니다</h3>
-              <p className="text-gray-600 mb-6">
-                페르소나 분석을 위해서는 먼저 시장 조사를 완료해야 합니다.
-              </p>
-              <Button
-                onClick={() => setActiveTab('market_research')}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <BarChart3 className="h-4 w-4 mr-2" />
-                시장 조사 시작
-              </Button>
+          {!currentResearch && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-100 rounded-full p-2 mt-0.5">
+                  <Target className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-blue-900 mb-1">독립 실행 모드</h4>
+                  <p className="text-sm text-blue-700 mb-3">
+                    시장조사 데이터 없이 페르소나 분석을 진행합니다. 
+                    더 정확한 분석을 위해서는 시장조사를 먼저 완료하는 것을 권장합니다.
+                  </p>
+                  <Button
+                    onClick={() => setActiveTab('market_research')}
+                    className="text-blue-700 border-blue-300 hover:bg-blue-100 bg-white border text-sm px-3 py-1"
+                  >
+                    <BarChart3 className="h-3 w-3 mr-1" />
+                    시장조사 바로가기
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
+          <PersonaAnalysisDashboard
+            marketResearch={currentResearch}
+            projectId={projectId}
+            onGuidanceComplete={handlePersonaGuidanceComplete}
+          />
         </div>
       )}
 
