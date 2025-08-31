@@ -10,6 +10,8 @@ import {
 } from '@/hooks/useProjects'
 import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
+import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
+import MarketResearchQuestionnaire from '@/components/market-research/MarketResearchQuestionnaire'
 import { 
   FileText, 
   Plus, 
@@ -21,15 +23,20 @@ import {
   Upload as _Upload,
   Clock,
   CheckCircle,
-  AlertCircle as _AlertCircle
+  AlertCircle as _AlertCircle,
+  BarChart3,
+  Target
 } from 'lucide-react'
+import type { MarketResearch, PersonaGenerationGuidance } from '@/types/market-research'
 
 interface ProposalPhaseProps {
   projectId: string
 }
 
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
-  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks'>('rfp')
+  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'market_research' | 'persona'>('rfp')
+  const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
+  const [personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
   
@@ -123,6 +130,16 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     }
   }
 
+  const handleMarketResearchComplete = (research: MarketResearch) => {
+    setCurrentResearch(research)
+    setActiveTab('persona') // 시장 조사 완료 후 페르소나 탭으로 이동
+  }
+
+  const handlePersonaGuidanceComplete = (guidance: PersonaGenerationGuidance) => {
+    setPersonaGuidance(guidance)
+    // 페르소나 가이던스 완료 후 추가 작업 가능
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-100'
@@ -148,10 +165,10 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
 
       {/* 탭 네비게이션 */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex space-x-8 overflow-x-auto">
           <button
             onClick={() => setActiveTab('rfp')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'rfp'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -164,7 +181,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
           </button>
           <button
             onClick={() => setActiveTab('tasks')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'tasks'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -173,6 +190,38 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
               제안 작업 관리
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('market_research')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'market_research'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              시장 조사
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('persona')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'persona'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            disabled={!currentResearch}
+          >
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              페르소나 분석
+              {!currentResearch && (
+                <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                  대기중
+                </span>
+              )}
             </div>
           </button>
         </nav>
@@ -312,6 +361,45 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* 시장 조사 탭 */}
+      {activeTab === 'market_research' && (
+        <div className="space-y-6">
+          <MarketResearchDashboard
+            projectId={projectId}
+            rfpAnalysisId={rfpDocs.find(doc => doc.status === 'completed')?.id}
+            onResearchComplete={handleMarketResearchComplete}
+          />
+        </div>
+      )}
+
+      {/* 페르소나 분석 탭 */}
+      {activeTab === 'persona' && (
+        <div className="space-y-6">
+          {currentResearch ? (
+            <MarketResearchQuestionnaire
+              marketData={currentResearch}
+              onComplete={handlePersonaGuidanceComplete}
+              onSkip={() => setActiveTab('tasks')}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">시장 조사가 필요합니다</h3>
+              <p className="text-gray-600 mb-6">
+                페르소나 분석을 위해서는 먼저 시장 조사를 완료해야 합니다.
+              </p>
+              <Button
+                onClick={() => setActiveTab('market_research')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                시장 조사 시작
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
