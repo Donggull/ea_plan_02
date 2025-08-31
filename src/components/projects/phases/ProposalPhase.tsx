@@ -11,7 +11,7 @@ import {
 import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
-import MarketResearchQuestionnaire from '@/components/market-research/MarketResearchQuestionnaire'
+import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import { 
   FileText, 
   Plus, 
@@ -379,10 +379,10 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       {activeTab === 'persona' && (
         <div className="space-y-6">
           {currentResearch ? (
-            <MarketResearchQuestionnaire
-              marketData={currentResearch}
-              onComplete={handlePersonaGuidanceComplete}
-              onSkip={() => setActiveTab('tasks')}
+            <PersonaAnalysisDashboard
+              marketResearch={currentResearch}
+              projectId={projectId}
+              onGuidanceComplete={handlePersonaGuidanceComplete}
             />
           ) : (
             <div className="text-center py-12">
