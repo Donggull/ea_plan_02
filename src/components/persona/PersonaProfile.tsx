@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Card from '@/basic/src/components/Card/Card';
 import Button from '@/basic/src/components/Button/Button';
-import Badge from '@/basic/src/components/Badge/Badge';
+import { Badge } from '@/components/ui/badge';
 import {
   User,
   MapPin,
@@ -46,7 +46,7 @@ export default function PersonaProfile({
 
   const getTechAdoptionBadge = (level: string) => {
     const badges = {
-      'innovator': { text: '혁신자', variant: 'primary' as const },
+      'innovator': { text: '혁신자', variant: 'default' as const },
       'early_adopter': { text: '얼리어답터', variant: 'default' as const },
       'early_majority': { text: '조기 다수', variant: 'secondary' as const },
       'late_majority': { text: '후기 다수', variant: 'secondary' as const },
@@ -60,7 +60,7 @@ export default function PersonaProfile({
     const badges = {
       'draft': { text: '초안', variant: 'secondary' as const, icon: Edit3 },
       'validated': { text: '검증됨', variant: 'default' as const, icon: CheckCircle },
-      'approved': { text: '승인됨', variant: 'primary' as const, icon: Star }
+      'approved': { text: '승인됨', variant: 'default' as const, icon: Star }
     };
     const badge = badges[status as keyof typeof badges] || badges.draft;
     const Icon = badge.icon;
@@ -353,7 +353,7 @@ export default function PersonaProfile({
             <div key={index} className="p-4 border rounded-lg">
               <div className="flex items-start justify-between mb-2">
                 <h5 className="font-medium">{goal.title}</h5>
-                <Badge variant={goal.priority === 'urgent' ? 'primary' : 'secondary'}>
+                <Badge variant={goal.priority === 'urgent' ? 'default' : 'secondary'}>
                   {goal.priority}
                 </Badge>
               </div>
@@ -413,7 +413,7 @@ export default function PersonaProfile({
               <div className="flex items-start justify-between mb-2">
                 <h5 className="font-medium">{painPoint.title}</h5>
                 <div className="flex gap-2">
-                  <Badge variant={painPoint.severity === 'critical' ? 'primary' : 'secondary'}>
+                  <Badge variant={painPoint.severity === 'critical' ? 'default' : 'secondary'}>
                     {painPoint.severity}
                   </Badge>
                   <Badge variant="outline">{painPoint.frequency}</Badge>

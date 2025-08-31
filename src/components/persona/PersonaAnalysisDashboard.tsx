@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Card from '@/basic/src/components/Card/Card';
 import Button from '@/basic/src/components/Button/Button';
-import Badge from '@/basic/src/components/Badge/Badge';
+import { Badge } from '@/components/ui/badge';
 import {
   User,
   Users,
@@ -14,7 +14,6 @@ import {
   MessageSquare,
   Plus,
   Eye,
-  Edit3,
   BarChart3,
   TrendingUp,
   Lightbulb,
@@ -30,13 +29,13 @@ import TouchpointIdentifier from './TouchpointIdentifier';
 import ScenarioGenerator from './ScenarioGenerator';
 import ProposalStrategyQuestionnaire from './ProposalStrategyQuestionnaire';
 import MarketResearchQuestionnaire from '@/components/market-research/MarketResearchQuestionnaire';
-import type { UserPersona, PersonaGenerationGuidance, ProposalStrategy } from '@/types/persona';
+import type { UserPersona, ProposalStrategy } from '@/types/persona';
 import type { MarketResearch } from '@/types/market-research';
 
 interface PersonaAnalysisDashboardProps {
   marketResearch: MarketResearch;
   projectId: string;
-  onGuidanceComplete?: (guidance: PersonaGenerationGuidance) => void;
+  onGuidanceComplete?: (guidance: any) => void;
 }
 
 type AnalysisStep = 'questionnaire' | 'persona_list' | 'persona_builder' | 'persona_profile' | 'journey_mapping' | 'pain_analysis' | 'touchpoint_analysis' | 'scenario_generation' | 'strategy_generation';
@@ -49,16 +48,12 @@ export default function PersonaAnalysisDashboard({
   const [currentStep, setCurrentStep] = useState<AnalysisStep>('questionnaire');
   const [personas, setPersonas] = useState<UserPersona[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<UserPersona | null>(null);
-  const [guidance, setGuidance] = useState<PersonaGenerationGuidance | null>(null);
+  const [guidance, setGuidance] = useState<any | null>(null);
   const [strategies, setStrategies] = useState<ProposalStrategy[]>([]);
   const [loading, setLoading] = useState(true);
 
 
-  useEffect(() => {
-    loadExistingPersonas();
-  }, [marketResearch.id]);
-
-  const loadExistingPersonas = async () => {
+  const loadExistingPersonas = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await (supabase as any)
@@ -81,9 +76,13 @@ export default function PersonaAnalysisDashboard({
     } finally {
       setLoading(false);
     }
-  };
+  }, [marketResearch.id]);
 
-  const handleQuestionnaireComplete = (newGuidance: PersonaGenerationGuidance) => {
+  useEffect(() => {
+    loadExistingPersonas();
+  }, [loadExistingPersonas]);
+
+  const handleQuestionnaireComplete = (newGuidance: any) => {
     setGuidance(newGuidance);
     setCurrentStep('persona_builder');
     if (onGuidanceComplete) {
@@ -167,7 +166,7 @@ export default function PersonaAnalysisDashboard({
           </p>
         </div>
         {selectedPersona && (
-          <Badge variant="primary">
+          <Badge variant="default">
             분석 대상: {selectedPersona.name}
           </Badge>
         )}
@@ -184,7 +183,7 @@ export default function PersonaAnalysisDashboard({
           'touchpoint_analysis',
           'scenario_generation',
           'strategy_generation'
-        ].map((step, index) => {
+        ].map((step, _index) => {
           const StepIcon = getStepIcon(step as AnalysisStep);
           const isActive = currentStep === step;
           const isCompleted = personas.length > 0 && ['questionnaire', 'persona_builder'].includes(step);
@@ -358,13 +357,13 @@ export default function PersonaAnalysisDashboard({
         return selectedPersona ? (
           <UserJourneyMapper
             persona={selectedPersona}
-            onStageAdded={(stage) => {
+            onStageAdded={(_stage) => {
               // 여정 단계 추가 처리
             }}
-            onStageUpdated={(stage) => {
+            onStageUpdated={(_stage) => {
               // 여정 단계 업데이트 처리
             }}
-            onStageDeleted={(stageId) => {
+            onStageDeleted={(_stageId) => {
               // 여정 단계 삭제 처리
             }}
           />

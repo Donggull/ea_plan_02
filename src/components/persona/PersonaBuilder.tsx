@@ -1,17 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Card from '@/basic/src/components/Card/Card';
 import Button from '@/basic/src/components/Button/Button';
-import Badge from '@/basic/src/components/Badge/Badge';
+import { Badge } from '@/components/ui/badge';
 import { 
   User, 
   Building, 
   MapPin, 
   GraduationCap, 
   DollarSign, 
-  Heart,
-  Target,
   Smartphone,
   Clock,
   Save,
@@ -73,7 +71,7 @@ export default function PersonaBuilder({
   };
 
   // 성격 특성 관리
-  const handlePersonalityTraitChange = (index: number, field: 'trait' | 'score' | 'description', value: string | number) => {
+  const _handlePersonalityTraitChange = (index: number, field: 'trait' | 'score' | 'description', value: string | number) => {
     const updatedTraits = [...(formData.personality_traits || [])];
     if (!updatedTraits[index]) {
       updatedTraits[index] = { trait: '', score: 3, description: '' };
@@ -82,7 +80,7 @@ export default function PersonaBuilder({
     setFormData(prev => ({ ...prev, personality_traits: updatedTraits }));
   };
 
-  const addPersonalityTrait = () => {
+  const _addPersonalityTrait = () => {
     const newTrait: PersonalityTrait = { trait: '', score: 3, description: '' };
     setFormData(prev => ({ 
       ...prev, 
@@ -90,7 +88,7 @@ export default function PersonaBuilder({
     }));
   };
 
-  const removePersonalityTrait = (index: number) => {
+  const _removePersonalityTrait = (index: number) => {
     setFormData(prev => ({
       ...prev,
       personality_traits: prev.personality_traits?.filter((_, i) => i !== index) || []
@@ -98,7 +96,7 @@ export default function PersonaBuilder({
   };
 
   // 디바이스 사용 관리
-  const handleDeviceUsageChange = (index: number, field: keyof DeviceUsage, value: any) => {
+  const _handleDeviceUsageChange = (index: number, field: keyof DeviceUsage, value: any) => {
     const updatedDevices = [...(formData.device_usage || [])];
     if (!updatedDevices[index]) {
       updatedDevices[index] = { 
@@ -112,7 +110,7 @@ export default function PersonaBuilder({
     setFormData(prev => ({ ...prev, device_usage: updatedDevices }));
   };
 
-  const addDeviceUsage = () => {
+  const _addDeviceUsage = () => {
     const newDevice: DeviceUsage = { 
       device_type: 'desktop', 
       usage_frequency: 'daily', 
@@ -126,7 +124,7 @@ export default function PersonaBuilder({
   };
 
   // 페인포인트 관리
-  const handlePainPointChange = (index: number, field: keyof PainPoint, value: any) => {
+  const _handlePainPointChange = (index: number, field: keyof PainPoint, value: any) => {
     const updatedPainPoints = [...(formData.pain_points || [])];
     if (!updatedPainPoints[index]) {
       updatedPainPoints[index] = { 
@@ -142,7 +140,7 @@ export default function PersonaBuilder({
     setFormData(prev => ({ ...prev, pain_points: updatedPainPoints }));
   };
 
-  const addPainPoint = () => {
+  const _addPainPoint = () => {
     const newPainPoint: PainPoint = { 
       title: '', 
       description: '', 
@@ -158,7 +156,7 @@ export default function PersonaBuilder({
   };
 
   // 목표 관리
-  const handleGoalChange = (index: number, field: keyof Goal, value: any) => {
+  const _handleGoalChange = (index: number, field: keyof Goal, value: any) => {
     const updatedGoals = [...(formData.goals_objectives || [])];
     if (!updatedGoals[index]) {
       updatedGoals[index] = { 
@@ -174,7 +172,7 @@ export default function PersonaBuilder({
     setFormData(prev => ({ ...prev, goals_objectives: updatedGoals }));
   };
 
-  const addGoal = () => {
+  const _addGoal = () => {
     const newGoal: Goal = { 
       title: '', 
       description: '', 
@@ -190,19 +188,19 @@ export default function PersonaBuilder({
   };
 
   // 문자열 배열 관리 함수
-  const handleArrayChange = (field: keyof UserPersona, index: number, value: string) => {
+  const _handleArrayChange = (field: keyof UserPersona, index: number, value: string) => {
     const currentArray = formData[field] as string[] || [];
     const updatedArray = [...currentArray];
     updatedArray[index] = value;
     setFormData(prev => ({ ...prev, [field]: updatedArray }));
   };
 
-  const addToArray = (field: keyof UserPersona) => {
+  const _addToArray = (field: keyof UserPersona) => {
     const currentArray = formData[field] as string[] || [];
     setFormData(prev => ({ ...prev, [field]: [...currentArray, ''] }));
   };
 
-  const removeFromArray = (field: keyof UserPersona, index: number) => {
+  const _removeFromArray = (field: keyof UserPersona, index: number) => {
     const currentArray = formData[field] as string[] || [];
     setFormData(prev => ({ 
       ...prev, 

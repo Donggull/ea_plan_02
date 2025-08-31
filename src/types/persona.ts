@@ -365,3 +365,20 @@ export interface ProposalStrategy {
   created_at: string;
   updated_at: string;
 }
+
+// 분석 질문 관련 타입
+export interface AnalysisQuestion {
+  id: string;
+  category: string;
+  question: string;
+  type: 'text' | 'multiple_choice' | 'scale' | 'boolean';
+  options?: string[];
+  required?: boolean;
+  weight?: number;
+}
+
+export interface QuestionResponse {
+  questionId: string;
+  response: any;
+  confidence: number;
+}

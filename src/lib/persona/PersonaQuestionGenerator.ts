@@ -1,14 +1,8 @@
 import { supabase } from '@/lib/supabase/client';
 import type { 
-  MarketResearch, 
-  UserPersona, 
-  PersonaQuestion,
-  PersonaQuestionResponse,
-  PersonaGenerationConfig,
-  PersonaQuestionCategory,
-  AnalysisQuestion,
-  QuestionResponse
+  UserPersona
 } from '@/types/persona';
+import type { MarketResearch } from '@/types/market-research';
 
 export class PersonaQuestionGenerator {
   private supabase = supabase;
@@ -18,9 +12,9 @@ export class PersonaQuestionGenerator {
    */
   async generatePersonaResearchQuestions(
     marketResearch: MarketResearch,
-    existingPersonas: UserPersona[] = []
-  ): Promise<AnalysisQuestion[]> {
-    const questions: AnalysisQuestion[] = [];
+    _existingPersonas: UserPersona[] = []
+  ): Promise<any[]> {
+    const questions: any[] = [];
     
     // 기본 인구통계학적 질문
     questions.push(...this.generateDemographicQuestions(marketResearch));
@@ -59,8 +53,8 @@ export class PersonaQuestionGenerator {
   /**
    * 인구통계학적 질문 생성
    */
-  private generateDemographicQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateDemographicQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     questions.push({
       id: 'demo_age_range',
@@ -110,8 +104,8 @@ export class PersonaQuestionGenerator {
   /**
    * 전문적 컨텍스트 질문 생성
    */
-  private generateProfessionalContextQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateProfessionalContextQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     // 시장 조사의 경쟁사 데이터를 기반으로 직업군 추출
     const competitorIndustries = marketResearch.competitor_data?.map(comp => comp.target_audience).filter(Boolean) || [];
@@ -162,8 +156,8 @@ export class PersonaQuestionGenerator {
   /**
    * 기술 사용 패턴 질문 생성
    */
-  private generateTechnologyUsageQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateTechnologyUsageQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     // 기술 동향 데이터를 활용한 질문 생성
     const techTrends = marketResearch.technology_trends || [];
@@ -218,8 +212,8 @@ export class PersonaQuestionGenerator {
   /**
    * 페인포인트 및 도전과제 질문 생성
    */
-  private generatePainPointQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generatePainPointQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     // 경쟁사 분석에서 도출된 약점들을 페인포인트로 활용
     const competitorWeaknesses = marketResearch.competitor_data?.flatMap(comp => comp.weaknesses) || [];
@@ -273,8 +267,8 @@ export class PersonaQuestionGenerator {
   /**
    * 목표 및 동기 질문 생성
    */
-  private generateGoalsMotivationsQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateGoalsMotivationsQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     questions.push({
       id: 'goals_primary_objectives',
@@ -340,8 +334,8 @@ export class PersonaQuestionGenerator {
   /**
    * 의사결정 과정 질문 생성
    */
-  private generateDecisionMakingQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateDecisionMakingQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     questions.push({
       id: 'decision_key_factors',
@@ -408,8 +402,8 @@ export class PersonaQuestionGenerator {
   /**
    * 사용자 여정 관련 질문 생성
    */
-  private generateUserJourneyQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateUserJourneyQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     questions.push({
       id: 'journey_awareness_channels',
@@ -455,8 +449,8 @@ export class PersonaQuestionGenerator {
   /**
    * 터치포인트 선호도 질문 생성
    */
-  private generateTouchpointQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateTouchpointQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     questions.push({
       id: 'touchpoint_preferred_communication',
@@ -509,8 +503,8 @@ export class PersonaQuestionGenerator {
   /**
    * 시나리오 검증 질문 생성
    */
-  private generateScenarioValidationQuestions(marketResearch: MarketResearch): AnalysisQuestion[] {
-    const questions: AnalysisQuestion[] = [];
+  private generateScenarioValidationQuestions(marketResearch: MarketResearch): any[] {
+    const questions: any[] = [];
 
     questions.push({
       id: 'scenario_typical_day',
@@ -557,7 +551,7 @@ export class PersonaQuestionGenerator {
    * 질문 응답 저장
    */
   async saveQuestions(
-    questions: AnalysisQuestion[], 
+    questions: any[], 
     marketResearchId: string,
     rfpAnalysisId?: string
   ): Promise<void> {
@@ -592,7 +586,7 @@ export class PersonaQuestionGenerator {
    * 질문 응답 저장
    */
   async saveResponses(
-    responses: QuestionResponse[], 
+    responses: any[], 
     marketResearchId: string,
     personaId?: string
   ): Promise<void> {
@@ -622,7 +616,7 @@ export class PersonaQuestionGenerator {
    * 응답 기반 페르소나 가이던스 생성
    */
   async generatePersonaGuidance(
-    responses: QuestionResponse[], 
+    responses: any[], 
     marketResearch: MarketResearch
   ): Promise<any> {
     try {
@@ -671,7 +665,7 @@ export class PersonaQuestionGenerator {
   /**
    * 응답 분석 로직
    */
-  private analyzeResponses(responses: QuestionResponse[], marketResearch: MarketResearch) {
+  private analyzeResponses(responses: any[], marketResearch: MarketResearch) {
     const responseMap = responses.reduce((acc, response) => {
       acc[response.question_id] = response.response_value;
       return acc;
@@ -811,7 +805,7 @@ export class PersonaQuestionGenerator {
   private recommendDevelopmentApproach(responseMap: Record<string, any>): string {
     const techComfort = responseMap['tech_comfort_level'] || 3;
     const adoptionLevel = responseMap['tech_adoption_level'];
-    const companySize = responseMap['prof_company_size'];
+    const _companySize = responseMap['prof_company_size'];
 
     if (techComfort <= 2 || adoptionLevel === 'laggard') {
       return '단순하고 직관적인 접근 - 최소한의 학습 곡선으로 즉시 사용 가능한 솔루션';

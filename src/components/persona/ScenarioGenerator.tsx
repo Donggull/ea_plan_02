@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Card from '@/basic/src/components/Card/Card';
 import Button from '@/basic/src/components/Button/Button';
-import Badge from '@/basic/src/components/Badge/Badge';
+import { Badge } from '@/components/ui/badge';
 import {
   Play,
   Plus,
   Edit3,
   Trash2,
-  Clock,
   MapPin,
   User,
   Target,
@@ -18,7 +17,6 @@ import {
   ArrowRight,
   Shuffle,
   Copy,
-  Download,
   Filter,
   Search,
   BarChart3,
@@ -26,7 +24,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import type { UserPersona, UsageScenario, ScenarioStep, AlternativePath } from '@/types/persona';
+import type { UserPersona, UsageScenario, ScenarioStep } from '@/types/persona';
 
 interface ScenarioGeneratorProps {
   persona: UserPersona;
@@ -43,7 +41,7 @@ export default function ScenarioGenerator({
   const [filterType, setFilterType] = useState<string>('all');
   const [filterImportance, setFilterImportance] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'detail'>('grid');
+  const [_viewMode, _setViewMode] = useState<'grid' | 'detail'>('grid');
   const [selectedScenario, setSelectedScenario] = useState<UsageScenario | null>(null);
 
 

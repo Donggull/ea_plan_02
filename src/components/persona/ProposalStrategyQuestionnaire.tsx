@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Card from '@/basic/src/components/Card/Card';
 import Button from '@/basic/src/components/Button/Button';
-import Badge from '@/basic/src/components/Badge/Badge';
+import { Badge } from '@/components/ui/badge';
 import {
   Target,
   MessageSquare,
@@ -13,7 +13,6 @@ import {
   Lightbulb,
   CheckCircle,
   AlertTriangle,
-  Plus,
   Save,
   Download,
   Share2,
@@ -97,11 +96,7 @@ export default function ProposalStrategyQuestionnaire({
   ];
 
   // 페르소나 기반 질문 생성
-  useEffect(() => {
-    generateQuestions();
-  }, [persona]);
-
-  const generateQuestions = () => {
+  const generateQuestions = useCallback(() => {
     const allQuestions: StrategyQuestion[] = [
       // 메시징 전략
       {
@@ -264,7 +259,11 @@ export default function ProposalStrategyQuestionnaire({
     ];
 
     setQuestions(allQuestions);
-  };
+  }, [persona]);
+
+  useEffect(() => {
+    generateQuestions();
+  }, [generateQuestions]);
 
   const handleResponseChange = (questionId: string, value: any, confidence: number = 3) => {
     setResponses(prev => ({
@@ -303,7 +302,7 @@ export default function ProposalStrategyQuestionnaire({
         id: Date.now().toString(),
         project_id: projectId,
         persona_id: persona.id,
-        strategy_type: 'comprehensive',
+        strategy_type: 'implementation',
         strategy_title: `${persona.name} 맞춤 제안 전략`,
         description: `${persona.name} 페르소나를 위한 종합적인 제안 전략`,
         target_persona_segments: [persona.name],
@@ -446,7 +445,7 @@ export default function ProposalStrategyQuestionnaire({
                   id={`${question.id}-${index}`}
                   name={question.id}
                   checked={currentResponse?.response === option}
-                  onChange={(e) => handleResponseChange(question.id, option)}
+                  onChange={(_e) => handleResponseChange(question.id, option)}
                   className="w-4 h-4 text-blue-600"
                 />
                 <label htmlFor={`${question.id}-${index}`} className="flex-1 text-sm cursor-pointer">
@@ -545,7 +544,7 @@ export default function ProposalStrategyQuestionnaire({
                   {option}
                 </label>
                 {(currentResponse?.response as string[] || []).includes(option) && (
-                  <Badge variant="primary" className="text-xs">
+                  <Badge variant="default" className="text-xs">
                     {(currentResponse?.response as string[]).indexOf(option) + 1}순위
                   </Badge>
                 )}
@@ -578,7 +577,7 @@ export default function ProposalStrategyQuestionnaire({
           </div>
           
           <div className="flex items-center gap-2">
-            <Badge variant="primary">신뢰도: {generatedStrategy.confidence_level}/5</Badge>
+            <Badge variant="default">신뢰도: {generatedStrategy.confidence_level}/5</Badge>
             <Badge variant="default">
               {strategyCategories.find(cat => cat.key === generatedStrategy.strategy_type)?.label || '종합'}
             </Badge>
@@ -766,7 +765,7 @@ export default function ProposalStrategyQuestionnaire({
                     가중치: {question.weight}/5
                   </Badge>
                   {responses[question.id] && (
-                    <Badge variant="primary" className="text-xs">
+                    <Badge variant="default" className="text-xs">
                       <CheckCircle className="w-3 h-3 mr-1" />
                       답변 완료
                     </Badge>

@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Card from '@/basic/src/components/Card/Card';
 import Button from '@/basic/src/components/Button/Button';
-import Badge from '@/basic/src/components/Badge/Badge';
+import { Badge } from '@/components/ui/badge';
 import {
   MapPin,
   Clock,
-  User,
   Brain,
   Lightbulb,
   AlertTriangle,
@@ -18,11 +17,10 @@ import {
   Heart,
   MessageSquare,
   CheckCircle,
-  Target,
-  Zap
+  Target
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import type { UserPersona, UserJourneyStage, EmotionState, JourneyAction } from '@/types/persona';
+import type { UserPersona, UserJourneyStage, EmotionState } from '@/types/persona';
 
 interface UserJourneyMapperProps {
   persona: UserPersona;
