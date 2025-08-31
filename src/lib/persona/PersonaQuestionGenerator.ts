@@ -108,7 +108,7 @@ export class PersonaQuestionGenerator {
     const questions: any[] = [];
 
     // 시장 조사의 경쟁사 데이터를 기반으로 직업군 추출
-    const competitorIndustries = marketResearch.competitor_data?.map(comp => comp.target_audience).filter(Boolean) || [];
+    const competitorIndustries = _marketResearch.competitor_data?.map(comp => comp.target_audience).filter(Boolean) || [];
     
     questions.push({
       id: 'prof_occupation',
@@ -160,7 +160,7 @@ export class PersonaQuestionGenerator {
     const questions: any[] = [];
 
     // 기술 동향 데이터를 활용한 질문 생성
-    const techTrends = marketResearch.technology_trends || [];
+    const techTrends = _marketResearch.technology_trends || [];
     const relevantTechnologies = techTrends.map(tech => tech.name).slice(0, 6);
 
     questions.push({
@@ -216,7 +216,7 @@ export class PersonaQuestionGenerator {
     const questions: any[] = [];
 
     // 경쟁사 분석에서 도출된 약점들을 페인포인트로 활용
-    const competitorWeaknesses = marketResearch.competitor_data?.flatMap(comp => comp.weaknesses) || [];
+    const competitorWeaknesses = _marketResearch.competitor_data?.flatMap(comp => comp.weaknesses) || [];
 
     questions.push({
       id: 'pain_current_challenges',
@@ -617,16 +617,16 @@ export class PersonaQuestionGenerator {
    */
   async generatePersonaGuidance(
     responses: any[], 
-    marketResearch: MarketResearch
+    _marketResearch: MarketResearch
   ): Promise<any> {
     try {
       // 응답 분석 로직
-      const analysisResult = this.analyzeResponses(responses, marketResearch);
+      const analysisResult = this.analyzeResponses(responses, _marketResearch);
       
       const guidance = {
         id: Date.now().toString(),
-        market_research_id: marketResearch.id,
-        rfp_analysis_id: marketResearch.rfp_analysis_id,
+        market_research_id: _marketResearch.id,
+        rfp_analysis_id: _marketResearch.rfp_analysis_id,
         primary_persona_focus: analysisResult.primaryFocus,
         persona_development_approach: analysisResult.developmentApproach,
         data_collection_needs: analysisResult.dataCollectionNeeds,
