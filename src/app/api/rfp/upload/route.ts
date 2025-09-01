@@ -102,6 +102,9 @@ export async function POST(request: NextRequest) {
         description,
         file_path: fileName,
         content: extractedText,
+        phase_type: 'proposal', // 제안 진행 단계로 설정
+        file_size: file.size,
+        mime_type: file.type,
         metadata: {
           original_file_name: file.name,
           file_url: urlData.publicUrl,
@@ -109,7 +112,8 @@ export async function POST(request: NextRequest) {
           mime_type: file.type
         },
         project_id: projectId || null,
-        uploaded_by: user.id
+        uploaded_by: user.id,
+        status: 'uploaded'
       } as any)
       .select()
       .single()
