@@ -81,8 +81,8 @@ export function RequirementExtractor({
       })
       
       onExtractComplete?.({
-        functional_requirements: analysis.functional_requirements || [],
-        non_functional_requirements: analysis.non_functional_requirements || []
+        functional: analysis.functional_requirements || [],
+        nonFunctional: analysis.non_functional_requirements || []
       })
       
     } catch (error) {
