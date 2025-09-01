@@ -1,11 +1,6 @@
 import { BaseAIProvider } from '../base'
 import { AIModelConfig, AIResponse } from '@/types/ai-models'
 
-interface AnthropicMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
 interface AnthropicResponse {
   id: string
   type: string

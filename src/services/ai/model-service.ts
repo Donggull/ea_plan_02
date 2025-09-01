@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { AIModel, AIModelProvider, AIModelAPIKey, UserAIPreference, AIModelUsageLog } from '@/types/ai-models'
+import { AIModel, AIModelAPIKey } from '@/types/ai-models'
 import { AIProviderFactory } from './factory'
 import { AIProvider } from './base'
 
@@ -30,7 +30,7 @@ export class AIModelService {
       }
 
       // Provider 정보를 별도로 가져와서 매핑
-      const { data: providersData, error: providersError } = await supabase
+      const { data: providersData, error: _providersError } = await supabase
         .from('ai_model_providers' as any)
         .select('*')
       
@@ -57,15 +57,15 @@ export class AIModelService {
       console.error('AIModelService: getActiveModels 전체 오류:', error)
       // 에러가 발생해도 빈 배열 대신 기본 구조 반환 시도
       try {
-        const { data: fallbackData, error: fallbackError } = await supabase
+        const { data: fallbackData, error: _fallbackError } = await supabase
           .from('ai_models' as any)  
           .select('*')
           .eq('is_active', true)
         
         console.log('AIModelService: 폴백 데이터:', fallbackData)
-        return fallbackData || []
-      } catch (fallbackError) {
-        console.error('AIModelService: 폴백도 실패:', fallbackError)
+        return (fallbackData as AIModel[]) || []
+      } catch (_fallbackError) {
+        console.error('AIModelService: 폴백도 실패:', _fallbackError)
         return []
       }
     }

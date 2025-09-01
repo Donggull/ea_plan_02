@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import { cn } from '@/lib/utils'
 import { AIModel, UserAIPreference } from '@/types/ai-models'
@@ -17,7 +17,7 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
   const { user } = useAuth()
   const [models, setModels] = useState<AIModel[]>([])
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null)
-  const [userPreference, setUserPreference] = useState<UserAIPreference | null>(null)
+  const [_userPreference, _setUserPreference] = useState<UserAIPreference | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showDropdown, setShowDropdown] = useState(false)
   const [settings, setSettings] = useState({
@@ -29,9 +29,9 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
   useEffect(() => {
     loadModels()
     loadUserPreference()
-  }, [user])
+  }, [user, loadModels, loadUserPreference])
 
-  const loadModels = async () => {
+  const loadModels = useCallback(async () => {
     try {
       const activeModels = await AIModelService.getActiveModels()
       setModels(activeModels)
@@ -47,9 +47,9 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [selectedModel, onModelSelect])
 
-  const loadUserPreference = async () => {
+  const loadUserPreference = useCallback(async () => {
     if (!user?.id || !(user as any)?.organization_id) return
 
     try {
@@ -63,18 +63,18 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
         onModelSelect?.(preferredModel)
         
         // 사용자 설정 로드
-        if (userPreference?.settings) {
+        if (_userPreference?.settings) {
           setSettings({
-            temperature: userPreference.settings.temperature || 0.7,
-            max_tokens: userPreference.settings.max_tokens || 4096,
-            top_p: userPreference.settings.top_p || 1.0
+            temperature: _userPreference.settings.temperature || 0.7,
+            max_tokens: _userPreference.settings.max_tokens || 4096,
+            top_p: _userPreference.settings.top_p || 1.0
           })
         }
       }
     } catch (error) {
       console.error('Error loading user preference:', error)
     }
-  }
+  }, [user, _userPreference, onModelSelect])
 
   const handleModelSelect = async (model: AIModel) => {
     setSelectedModel(model)

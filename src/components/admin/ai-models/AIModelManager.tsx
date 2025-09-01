@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -39,9 +39,9 @@ export function AIModelManager() {
     loadProviders()
     loadModels()
     loadAPIKeys()
-  }, [])
+  }, [loadProviders, loadModels, loadAPIKeys])
 
-  const loadProviders = async () => {
+  const loadProviders = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('ai_model_providers' as any)
@@ -56,9 +56,9 @@ export function AIModelManager() {
     } catch (error) {
       console.error('Error loading providers:', error)
     }
-  }
+  }, [])
 
-  const loadModels = async () => {
+  const loadModels = useCallback(async () => {
     try {
       console.log('Admin: loadModels 시작')
       
@@ -109,9 +109,9 @@ export function AIModelManager() {
     } catch (error) {
       console.error('Admin: loadModels 오류:', error)
     }
-  }
+  }, [])
 
-  const loadAPIKeys = async () => {
+  const loadAPIKeys = useCallback(async () => {
     const organizationId = (user as any)?.organization_id
     if (!organizationId) return
 
@@ -130,7 +130,7 @@ export function AIModelManager() {
     } catch (error) {
       console.error('Error loading API keys:', error)
     }
-  }
+  }, [user])
 
   const handleSaveAPIKey = async () => {
     if (!selectedProvider || !newApiKey || !(user as any)?.organization_id) return
