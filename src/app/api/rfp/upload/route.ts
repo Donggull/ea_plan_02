@@ -6,27 +6,48 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     
-    // 사용자 인증 확인 - 더 자세한 로깅 추가
+    // 사용자 인증 확인 - 세션과 사용자 정보 모두 확인
     console.log('RFP Upload: Checking authentication...')
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (authError) {
-      console.error('RFP Upload: Auth error:', authError)
-      return NextResponse.json(
-        { message: '인증 오류가 발생했습니다: ' + authError.message },
-        { status: 401 }
-      )
+    // Authorization 헤더 확인 (클라이언트에서 토큰을 헤더로 전송하는 경우)
+    const authHeader = request.headers.get('authorization')
+    console.log('RFP Upload: Auth header present:', !!authHeader)
+    
+    let user: any = null
+    
+    // 먼저 세션 확인
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    console.log('RFP Upload: Session check:', session ? 'session exists' : 'no session', sessionError ? sessionError.message : 'no session error')
+    
+    if (session && session.user) {
+      user = session.user
+      console.log('RFP Upload: User authenticated via session:', user.email)
+    } else {
+      // 세션이 없으면 getUser()로 다시 시도
+      console.log('RFP Upload: No session found, trying getUser()...')
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError) {
+        console.error('RFP Upload: Auth error:', authError)
+        return NextResponse.json(
+          { message: '인증 오류가 발생했습니다: ' + authError.message },
+          { status: 401 }
+        )
+      }
+      
+      if (authUser) {
+        user = authUser
+        console.log('RFP Upload: User authenticated via getUser:', user.email)
+      }
     }
     
     if (!user) {
-      console.error('RFP Upload: No user found')
+      console.error('RFP Upload: No user found after all attempts')
       return NextResponse.json(
         { message: '로그인이 필요합니다. 다시 로그인해주세요.' },
         { status: 401 }
       )
     }
-    
-    console.log('RFP Upload: User authenticated:', user.email)
 
     const formData = await request.formData()
     const file = formData.get('file') as File

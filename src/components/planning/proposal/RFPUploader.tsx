@@ -8,6 +8,7 @@ import Card from '@/basic/src/components/Card/Card'
 import Input from '@/basic/src/components/Input/Input'
 import { cn } from '@/lib/utils'
 import { /* RFPUploadRequest, */ RFPUploadResponse } from '@/types/rfp-analysis'
+import { supabase } from '@/lib/supabase/client'
 
 interface RFPUploaderProps {
   projectId?: string
@@ -98,10 +99,22 @@ export function RFPUploader({
 
       console.log('RFP Upload: Starting file upload...')
       
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('RFP Upload: Client session check:', session ? 'session exists' : 'no session')
+      
+      const headers: Record<string, string> = {}
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('RFP Upload: Added Authorization header')
+      }
+      
       const response = await fetch('/api/rfp/upload', {
         method: 'POST',
         body: formData,
         credentials: 'include', // 쿠키 포함해서 전송
+        headers, // Authorization 헤더 추가
       })
 
       console.log('RFP Upload: Response status:', response.status)
