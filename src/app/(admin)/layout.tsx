@@ -108,15 +108,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* 모바일 오버레이 */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 lg:hidden z-40"
+          className="fixed inset-0 bg-gray-600 bg-opacity-50 lg:hidden z-20"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* 사이드바 */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 lg:z-auto
+        ${sidebarOpen ? 'translate-x-0 z-40' : '-translate-x-full z-30'}
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-2">
@@ -193,12 +193,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* 메인 콘텐츠 */}
       <div className="lg:ml-64">
         {/* 상단 바 */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 lg:pl-0">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 z-50"
               >
                 <Menu className="h-5 w-5" />
               </button>
