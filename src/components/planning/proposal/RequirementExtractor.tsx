@@ -6,6 +6,7 @@ import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import { cn } from '@/lib/utils'
 import { RFPAnalysis, Requirement } from '@/types/rfp-analysis'
+import { supabase } from '@/lib/supabase/client'
 
 interface RequirementExtractorProps {
   analysisId: string
@@ -44,11 +45,25 @@ export function RequirementExtractor({
     setIsExtracting(true)
 
     try {
+      console.log('Requirements Extraction: Starting extraction...')
+      
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Requirements Extraction: Client session check:', session ? 'session exists' : 'no session')
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('Requirements Extraction: Added Authorization header')
+      }
+
       const response = await fetch(`/api/rfp/${analysisId}/requirements/extract`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
+        credentials: 'include', // 쿠키 포함해서 전송
         body: JSON.stringify({
           analysis_id: analysisId,
           extraction_options: {

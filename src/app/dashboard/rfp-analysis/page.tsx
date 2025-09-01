@@ -14,6 +14,7 @@ import { AnalysisQuestionnaire } from '@/components/planning/proposal/AnalysisQu
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { RFPAnalysis, RFPUploadResponse } from '@/types/rfp-analysis'
+import { supabase } from '@/lib/supabase/client'
 
 export default function RFPAnalysisPage() {
   const searchParams = useSearchParams()
@@ -50,9 +51,28 @@ export default function RFPAnalysisPage() {
     setError(null)
     
     try {
-      const response = await fetch(`/api/rfp/${analysisId}/analysis`)
+      console.log('Load Analysis Data: Starting data load...')
+      
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Load Analysis Data: Client session check:', session ? 'session exists' : 'no session')
+      
+      const headers: Record<string, string> = {}
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('Load Analysis Data: Added Authorization header')
+      }
+
+      const response = await fetch(`/api/rfp/${analysisId}/analysis`, {
+        method: 'GET',
+        headers,
+        credentials: 'include', // 쿠키 포함해서 전송
+      })
+      
       if (!response.ok) {
-        throw new Error('분석 데이터를 불러올 수 없습니다.')
+        const errorData = await response.json()
+        throw new Error(errorData.message || '분석 데이터를 불러올 수 없습니다.')
       }
       
       const result = await response.json()

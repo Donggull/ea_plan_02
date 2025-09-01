@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { QuestionGenerationRequest, QuestionCategory, QuestionType } from '@/types/rfp-analysis'
+
+// Service role client for privileged operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables for admin client')
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 type RouteParams = {
   params: Promise<{ id: string }>
