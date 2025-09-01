@@ -63,7 +63,7 @@ export class AIModelService {
           .eq('is_active', true)
         
         console.log('AIModelService: 폴백 데이터:', fallbackData)
-        return (fallbackData as AIModel[]) || []
+        return (fallbackData as unknown as AIModel[]) || []
       } catch (_fallbackError) {
         console.error('AIModelService: 폴백도 실패:', _fallbackError)
         return []

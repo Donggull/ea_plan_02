@@ -26,11 +26,6 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
     top_p: 1.0
   })
 
-  useEffect(() => {
-    loadModels()
-    loadUserPreference()
-  }, [user, loadModels, loadUserPreference])
-
   const loadModels = useCallback(async () => {
     try {
       const activeModels = await AIModelService.getActiveModels()
@@ -75,6 +70,11 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
       console.error('Error loading user preference:', error)
     }
   }, [user, _userPreference, onModelSelect])
+
+  useEffect(() => {
+    loadModels()
+    loadUserPreference()
+  }, [user, loadModels, loadUserPreference])
 
   const handleModelSelect = async (model: AIModel) => {
     setSelectedModel(model)
