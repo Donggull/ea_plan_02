@@ -31,20 +31,76 @@ type RouteParams = {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const resolvedParams = await params
   try {
-    const supabase = await createClient()
+    console.log('RFP Questions GET: Starting authentication check...')
     const { id } = resolvedParams
     
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    let user: any = null
+    
+    // Authorization 헤더에서 토큰 확인 (동일한 방식 사용)
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      console.log('RFP Questions GET: Using token-based authentication')
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        console.error('RFP Questions GET: Token validation failed:', tokenError)
+        return NextResponse.json(
+          { message: '유효하지 않은 토큰입니다: ' + (tokenError?.message || 'Unknown error') },
+          { status: 401 }
+        )
+      }
+      
+      user = tokenUser
+      console.log('RFP Questions GET: User authenticated via token:', user.email)
+    } else {
+      // 쿠키 기반 세션 확인 (동일한 방식 사용)
+      console.log('RFP Questions GET: Using cookie-based authentication')
+      
+      try {
+        const supabase = createRouteHandlerClient({ cookies })
+        
+        // Get the current user from the session
+        console.log('RFP Questions GET: Getting user from session...')
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('RFP Questions GET: Session error:', sessionError)
+          return NextResponse.json(
+            { message: '세션 오류가 발생했습니다: ' + sessionError.message },
+            { status: 401 }
+          )
+        }
+        
+        if (!session?.user) {
+          console.log('RFP Questions GET: No session user found')
+          return NextResponse.json(
+            { message: '인증된 세션을 찾을 수 없습니다. 다시 로그인해주세요.' },
+            { status: 401 }
+          )
+        }
+        
+        user = session.user
+        console.log('RFP Questions GET: User authenticated via session:', user.email)
+      } catch (cookieError) {
+        console.error('RFP Questions GET: Cookie access failed:', cookieError)
+        return NextResponse.json(
+          { message: '쿠키 인증 오류가 발생했습니다.' },
+          { status: 401 }
+        )
+      }
+    }
+    
+    if (!user) {
+      console.log('RFP Questions GET: No user found')
       return NextResponse.json(
-        { message: '인증이 필요합니다.' },
+        { message: '인증된 사용자를 찾을 수 없습니다.' },
         { status: 401 }
       )
     }
 
-    // 질문 목록 조회
-    const { data: questions, error: questionsError } = await supabase
+    // 질문 목록 조회 (Service Role 사용)
+    const { data: questions, error: questionsError } = await supabaseAdmin
       .from('analysis_questions')
       .select('*')
       .eq('rfp_analysis_id', id)
@@ -58,8 +114,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 응답 현황 조회
-    const { data: responses } = await supabase
+    // 응답 현황 조회 (Service Role 사용)
+    const { data: responses } = await supabaseAdmin
       .from('question_responses')
       .select('analysis_question_id, response_value, response_text')
       .eq('rfp_analysis_id', id)
@@ -92,14 +148,40 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const resolvedParams = await params
   try {
-    const supabase = await createClient()
+    console.log('RFP Questions POST: Starting authentication check...')
     const { id } = resolvedParams
     
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    let user: any = null
+    
+    // Authorization 헤더에서 토큰 확인
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        return NextResponse.json(
+          { message: '유효하지 않은 토큰입니다.' },
+          { status: 401 }
+        )
+      }
+      user = tokenUser
+    } else {
+      const supabase = createRouteHandlerClient({ cookies })
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session?.user) {
+        return NextResponse.json(
+          { message: '인증된 세션을 찾을 수 없습니다.' },
+          { status: 401 }
+        )
+      }
+      user = session.user
+    }
+    
+    if (!user) {
       return NextResponse.json(
-        { message: '인증이 필요합니다.' },
+        { message: '인증된 사용자를 찾을 수 없습니다.' },
         { status: 401 }
       )
     }
@@ -107,8 +189,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body: QuestionGenerationRequest = await request.json()
     const { focus_categories, max_questions = 10 } = body
 
-    // RFP 분석 결과 존재 확인
-    const { data: analysis, error: analysisError } = await supabase
+    // RFP 분석 결과 존재 확인 (Service Role 사용)
+    const { data: analysis, error: analysisError } = await supabaseAdmin
       .from('rfp_analyses')
       .select('*')
       .eq('id', id)
@@ -121,8 +203,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 기존 질문 삭제 (재생성하는 경우)
-    await supabase
+    // 기존 질문 삭제 (재생성하는 경우) (Service Role 사용)
+    await supabaseAdmin
       .from('analysis_questions')
       .delete()
       .eq('rfp_analysis_id', id)
@@ -150,7 +232,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       created_at: new Date().toISOString()
     }))
 
-    const { data: savedQuestions, error: saveError } = await supabase
+    const { data: savedQuestions, error: saveError } = await supabaseAdmin
       .from('analysis_questions')
       .insert(questionsToInsert)
       .select()
