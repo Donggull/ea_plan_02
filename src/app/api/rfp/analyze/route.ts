@@ -1,16 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
+
+// Service role client for privileged operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables for admin client')
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    console.log('RFP Analysis: Starting authentication check...')
     
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    let user: any = null
+    
+    // Authorization 헤더에서 토큰 확인 (동일한 방식 사용)
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      console.log('RFP Analysis: Using token-based authentication')
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+      
+      if (tokenError || !tokenUser) {
+        console.error('RFP Analysis: Token validation failed:', tokenError)
+        return NextResponse.json(
+          { message: '유효하지 않은 토큰입니다: ' + (tokenError?.message || 'Unknown error') },
+          { status: 401 }
+        )
+      }
+      
+      user = tokenUser
+      console.log('RFP Analysis: User authenticated via token:', user.email)
+    } else {
+      // 쿠키 기반 세션 확인 (동일한 방식 사용)
+      console.log('RFP Analysis: Using cookie-based authentication')
+      
+      try {
+        const supabase = createRouteHandlerClient({ cookies })
+        
+        // Get the current user from the session
+        console.log('RFP Analysis: Getting user from session...')
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('RFP Analysis: Session error:', sessionError)
+          return NextResponse.json(
+            { message: '세션 오류가 발생했습니다: ' + sessionError.message },
+            { status: 401 }
+          )
+        }
+        
+        if (!session?.user) {
+          console.log('RFP Analysis: No session user found')
+          return NextResponse.json(
+            { message: '인증된 세션을 찾을 수 없습니다. 다시 로그인해주세요.' },
+            { status: 401 }
+          )
+        }
+        
+        user = session.user
+        console.log('RFP Analysis: User authenticated via session:', user.email)
+      } catch (cookieError) {
+        console.error('RFP Analysis: Cookie access failed:', cookieError)
+        return NextResponse.json(
+          { message: '쿠키 인증 오류가 발생했습니다.' },
+          { status: 401 }
+        )
+      }
+    }
+    
+    if (!user) {
+      console.log('RFP Analysis: No user found')
       return NextResponse.json(
-        { message: '인증이 필요합니다.' },
+        { message: '인증된 사용자를 찾을 수 없습니다.' },
         { status: 401 }
       )
     }
@@ -25,8 +103,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // RFP 문서 조회
-    const { data: rfpDocument, error: rfpError } = await supabase
+    // RFP 문서 조회 (Service Role 사용)
+    const { data: rfpDocument, error: rfpError } = await supabaseAdmin
       .from('rfp_documents')
       .select('*')
       .eq('id', rfp_document_id)
@@ -39,8 +117,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 이미 분석된 문서인지 확인
-    const { data: existingAnalysis } = await supabase
+    // 이미 분석된 문서인지 확인 (Service Role 사용)
+    const { data: existingAnalysis } = await supabaseAdmin
       .from('rfp_analyses')
       .select('*')
       .eq('rfp_document_id', rfp_document_id)
@@ -58,8 +136,8 @@ export async function POST(request: NextRequest) {
     // AI 분석 수행 (실제로는 OpenAI API 등을 사용해야 함)
     const analysisResult = await performRFPAnalysis(rfpDocument.content || '', analysis_options)
 
-    // 분석 결과 저장
-    const { data: analysisData, error: analysisError } = await supabase
+    // 분석 결과 저장 (Service Role 사용)
+    const { data: analysisData, error: analysisError } = await supabaseAdmin
       .from('rfp_analyses')
       .insert({
         project_id: rfpDocument.project_id,
@@ -74,7 +152,8 @@ export async function POST(request: NextRequest) {
         keywords: analysisResult.keywords,
         risk_factors: analysisResult.risk_factors,
         questions_for_client: analysisResult.questions_for_client,
-        confidence_score: analysisResult.confidence_score
+        confidence_score: analysisResult.confidence_score,
+        created_by: user.id
       })
       .select()
       .single()

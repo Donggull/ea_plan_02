@@ -6,6 +6,7 @@ import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import { cn } from '@/lib/utils'
 import { RFPAnalysis, RFPAnalysisRequest, RFPAnalysisResponse, AnalysisProgress } from '@/types/rfp-analysis'
+import { supabase } from '@/lib/supabase/client'
 
 interface RFPAnalyzerProps {
   rfpDocumentId: string
@@ -52,11 +53,25 @@ export function RFPAnalyzer({
         }
       }
 
+      console.log('RFP Analysis: Starting analysis...')
+      
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('RFP Analysis: Client session check:', session ? 'session exists' : 'no session')
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('RFP Analysis: Added Authorization header')
+      }
+
       const response = await fetch('/api/rfp/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
+        credentials: 'include', // 쿠키 포함해서 전송
         body: JSON.stringify(request)
       })
 
