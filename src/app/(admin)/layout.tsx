@@ -104,7 +104,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* 모바일 오버레이 */}
       {sidebarOpen && (
         <div 
@@ -115,8 +115,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* 사이드바 */}
       <div className={`
-        fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 lg:z-auto
-        ${sidebarOpen ? 'translate-x-0 z-40' : '-translate-x-full z-30'}
+        w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out
+        lg:relative lg:translate-x-0 lg:block lg:flex-shrink-0
+        fixed inset-y-0 left-0 z-40
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-2">
@@ -191,9 +193,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* 상단 바 */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 lg:pl-0">
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center">
               <button
@@ -225,7 +227,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         {/* 페이지 콘텐츠 */}
-        <main className="p-6">
+        <main className="flex-1 p-6 overflow-auto">
           {children}
         </main>
       </div>
