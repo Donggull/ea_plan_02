@@ -242,6 +242,9 @@ export function useProjects(filters?: ProjectFilters) {
             id,
             name,
             description,
+            category,
+            current_phase,
+            phase_data,
             status,
             progress,
             priority,
@@ -372,6 +375,9 @@ export function useProject(projectId: string | null) {
             id,
             name,
             description,
+            category,
+            current_phase,
+            phase_data,
             status,
             progress,
             priority,
@@ -446,6 +452,8 @@ export function useCreateProject() {
         const projectData = {
           name: data.name.trim(),
           description: data.description || null,
+          category: data.category || 'general',
+          current_phase: data.current_phase || 'proposal',
           status: data.status || 'draft',
           priority: data.priority || 'medium',
           progress: 0,
@@ -458,9 +466,8 @@ export function useCreateProject() {
           owner_id: _user.id,
           user_id: _user.id,
           organization_id: null,
-          metadata: {
-            category: data.category || 'general'
-          },
+          phase_data: {},
+          metadata: {},
           settings: {}
         }
 

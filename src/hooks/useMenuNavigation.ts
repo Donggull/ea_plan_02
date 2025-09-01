@@ -15,51 +15,62 @@ export interface MenuSection {
 
 export const menuStructure: MenuSection[] = [
   {
-    section: '대시보드',
+    section: '📊 대시보드',
     items: [
       { id: 'dashboard', label: '대시보드', href: '/dashboard', icon: 'LayoutDashboard' },
       { id: 'projects', label: '프로젝트 관리', href: '/dashboard/projects', icon: 'FolderOpen' }
     ]
   },
   {
-    section: '기획',
+    section: '📊 기획',
     items: [
-      { id: 'proposal', label: '제안 진행', href: '/dashboard/planning', icon: 'FileText' },
-      { id: 'rfp-analysis', label: 'RFP 분석 자동화', href: '/dashboard/rfp-analysis', icon: 'Brain' },
-      { id: 'documents-planning', label: 'RFP 문서 관리', href: '/dashboard/documents?tab=upload&type=rfp', icon: 'Upload' },
-      { id: 'development', label: '구축 관리', href: '/planning/development', icon: 'Settings' },
-      { id: 'operation', label: '운영 관리', href: '/planning/operation', icon: 'Headphones' }
+      { id: 'proposal', label: '제안 진행', href: '/dashboard/planning/proposal', icon: 'FileText' },
+      { id: 'rfp-analysis', label: 'RFP 분석 자동화', href: '/dashboard/planning/rfp-analysis', icon: 'Brain' },
+      { id: 'construction', label: '구축 관리', href: '/dashboard/planning/construction', icon: 'Settings' },
+      { id: 'operation', label: '운영 관리', href: '/dashboard/planning/operation', icon: 'Headphones' }
     ]
   },
   {
-    section: '디자인',
+    section: '🎨 디자인',
     items: [
-      { id: 'workflow', label: '디자인 워크플로우', href: '/dashboard/design', icon: 'Palette' },
-      { id: 'resources', label: '리소스 관리', href: '/design/resources', icon: 'Folder' }
+      { id: 'ui-ux', label: 'UI/UX 생성', href: '/dashboard/design/ui-ux', icon: 'Palette' },
+      { id: 'design-system', label: '디자인 시스템', href: '/dashboard/design/system', icon: 'Grid' }
     ]
   },
   {
-    section: '퍼블리싱',
+    section: '💻 퍼블리싱',
     items: [
-      { id: 'canvas', label: '코드 캔버스', href: '/dashboard/publishing', icon: 'Code' },
-      { id: 'preview', label: '실시간 미리보기', href: '/publishing/preview', icon: 'Eye' }
+      { id: 'code-canvas', label: '코드 캔버스', href: '/dashboard/publishing/canvas', icon: 'Code' },
+      { id: 'component-library', label: '컴포넌트 라이브러리', href: '/dashboard/publishing/components', icon: 'Package' }
     ]
   },
   {
-    section: '개발',
+    section: '⚙️ 개발',
     items: [
-      { id: 'environment', label: '개발 환경', href: '/dashboard/development', icon: 'Terminal' },
-      { id: 'deployment', label: '배포 관리', href: '/development/deployment', icon: 'Upload' }
+      { id: 'api-design', label: 'API 설계', href: '/dashboard/development/api', icon: 'Globe' },
+      { id: 'test-management', label: '테스트 관리', href: '/dashboard/development/test', icon: 'CheckCircle' }
     ]
   },
   {
-    section: 'AI',
+    section: '🤖 전용챗봇',
     items: [
-      { id: 'chat', label: 'AI 채팅', href: '/dashboard/chat', icon: 'MessageCircle' },
-      { id: 'mcp-chat', label: 'MCP 채팅', href: '/dashboard/mcp-chat', icon: 'Zap' },
-      { id: 'chatbot', label: '전용챗봇', href: '/dashboard/chatbot', icon: 'Bot' },
-      { id: 'image-gen', label: '이미지 생성', href: '/dashboard/image-gen', icon: 'Image' },
-      { id: 'documents', label: '문서 관리', href: '/dashboard/documents', icon: 'FileText' }
+      { id: 'my-chatbot', label: '내 챗봇', href: '/dashboard/chatbot/my', icon: 'Bot' },
+      { id: 'public-chatbot', label: '공개 챗봇', href: '/dashboard/chatbot/public', icon: 'Users' }
+    ]
+  },
+  {
+    section: '🖼️ 이미지 생성',
+    items: [
+      { id: 'generation-tool', label: '생성 도구', href: '/dashboard/image-gen/tool', icon: 'Wand2' },
+      { id: 'image-gallery', label: '이미지 갤러리', href: '/dashboard/image-gen/gallery', icon: 'Image' }
+    ]
+  },
+  {
+    section: '⚡ 관리자',
+    items: [
+      { id: 'workflow-management', label: '워크플로우 관리', href: '/dashboard/admin/workflow', icon: 'GitBranch' },
+      { id: 'mcp-management', label: 'MCP 관리', href: '/dashboard/admin/mcp', icon: 'Zap' },
+      { id: 'user-management', label: '사용자 관리', href: '/dashboard/admin/users', icon: 'UserCog' }
     ]
   }
 ]
@@ -91,15 +102,11 @@ export function useMenuNavigation() {
         const pathMap: { [key: string]: string } = {
           'projects': '프로젝트 관리',
           'planning': '기획',
-          'rfp-analysis': 'RFP 분석 자동화',
           'design': '디자인',
+          'publishing': '퍼블리싱', 
           'development': '개발',
-          'publishing': '퍼블리싱',
-          'chat': 'AI 채팅',
-          'mcp-chat': 'MCP 채팅',
           'chatbot': '전용챗봇',
           'image-gen': '이미지 생성',
-          'documents': '문서 관리',
           'admin': '관리자'
         }
         

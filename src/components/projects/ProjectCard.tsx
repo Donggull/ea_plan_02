@@ -14,6 +14,7 @@ interface ProjectCardProps {
     name: string
     description?: string | null
     status?: string | null
+    current_phase?: string | null
     progress?: number | null
     priority?: string | null
     start_date?: string | null
@@ -58,6 +59,24 @@ export function ProjectCard({ project, view = 'grid', onEdit, onDelete }: Projec
     }
   }
 
+  const getPhaseLabel = (phase: string | null) => {
+    switch (phase) {
+      case 'proposal': return '제안 진행'
+      case 'construction': return '구축 관리'
+      case 'operation': return '운영 관리'
+      default: return '단계 미정'
+    }
+  }
+
+  const getPhaseColor = (phase: string | null) => {
+    switch (phase) {
+      case 'proposal': return 'bg-blue-100 text-blue-800'
+      case 'construction': return 'bg-orange-100 text-orange-800'
+      case 'operation': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   const formatDate = (date: string | null | undefined) => {
     if (!date) return '-'
     return new Date(date).toLocaleDateString('ko-KR', {
@@ -78,6 +97,9 @@ export function ProjectCard({ project, view = 'grid', onEdit, onDelete }: Projec
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h3 className="text-lg font-semibold">{project.name}</h3>
+              <Badge className={getPhaseColor(project.current_phase || null)}>
+                {getPhaseLabel(project.current_phase || null)}
+              </Badge>
               <Badge className={getStatusColor(project.status || 'draft')}>
                 {project.status || 'draft'}
               </Badge>
@@ -204,8 +226,11 @@ export function ProjectCard({ project, view = 'grid', onEdit, onDelete }: Projec
         </div>
       </div>
 
-      {/* Status and Priority */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Phase, Status and Priority */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <Badge className={getPhaseColor(project.current_phase || null)}>
+          {getPhaseLabel(project.current_phase || null)}
+        </Badge>
         <Badge className={getStatusColor(project.status || 'draft')}>
           {project.status || 'draft'}
         </Badge>

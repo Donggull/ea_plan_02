@@ -14,6 +14,7 @@ interface Project {
   status?: string | null
   progress?: number | null
   priority?: string | null
+  current_phase?: string | null
   start_date?: string | null
   end_date?: string | null
   members?: Array<{
@@ -40,14 +41,16 @@ export function ProjectList({ projects, onCreateNew, onEdit, onDelete }: Project
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
+  const [phaseFilter, setPhaseFilter] = useState<string>('all')
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           project.description?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter
     const matchesPriority = priorityFilter === 'all' || project.priority === priorityFilter
+    const matchesPhase = phaseFilter === 'all' || project.current_phase === phaseFilter
     
-    return matchesSearch && matchesStatus && matchesPriority
+    return matchesSearch && matchesStatus && matchesPriority && matchesPhase
   })
 
   return (
@@ -104,6 +107,18 @@ export function ProjectList({ projects, onCreateNew, onEdit, onDelete }: Project
             <option value="low">낮음</option>
           </select>
 
+          {/* Phase Filter */}
+          <select
+            value={phaseFilter}
+            onChange={(e) => setPhaseFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+          >
+            <option value="all">모든 단계</option>
+            <option value="proposal">제안 진행</option>
+            <option value="construction">구축 관리</option>
+            <option value="operation">운영 관리</option>
+          </select>
+
           {/* View Toggle */}
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             <Button
@@ -136,11 +151,11 @@ export function ProjectList({ projects, onCreateNew, onEdit, onDelete }: Project
           </div>
           <h3 className="text-lg font-medium mb-2">프로젝트가 없습니다</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
+            {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || phaseFilter !== 'all'
               ? '검색 조건에 맞는 프로젝트가 없습니다.'
               : '첫 번째 프로젝트를 만들어보세요.'}
           </p>
-          {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && (
+          {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && phaseFilter === 'all' && (
             <Button
               onClick={onCreateNew}
               className="bg-blue-600 hover:bg-blue-700 text-white"
