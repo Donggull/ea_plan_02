@@ -1,50 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { RFPUploadResponse } from '@/types/rfp-analysis'
+
+// Service role client for privileged operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables for admin client')
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // 사용자 인증 확인 - 세션과 사용자 정보 모두 확인
-    console.log('RFP Upload: Checking authentication...')
-    
-    // Authorization 헤더 확인 (클라이언트에서 토큰을 헤더로 전송하는 경우)
-    const authHeader = request.headers.get('authorization')
-    console.log('RFP Upload: Auth header present:', !!authHeader)
+    console.log('RFP Upload: Starting authentication check...')
     
     let user: any = null
     
-    // 먼저 세션 확인
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    console.log('RFP Upload: Session check:', session ? 'session exists' : 'no session', sessionError ? sessionError.message : 'no session error')
-    
-    if (session && session.user) {
-      user = session.user
-      console.log('RFP Upload: User authenticated via session:', user.email)
-    } else {
-      // 세션이 없으면 getUser()로 다시 시도
-      console.log('RFP Upload: No session found, trying getUser()...')
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+    // Authorization 헤더에서 토큰 확인 (동일한 방식 사용)
+    const authorization = request.headers.get('authorization')
+    if (authorization) {
+      console.log('RFP Upload: Using token-based authentication')
+      const token = authorization.replace('Bearer ', '')
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
       
-      if (authError) {
-        console.error('RFP Upload: Auth error:', authError)
+      if (tokenError || !tokenUser) {
+        console.error('RFP Upload: Token validation failed:', tokenError)
         return NextResponse.json(
-          { message: '인증 오류가 발생했습니다: ' + authError.message },
+          { message: '유효하지 않은 토큰입니다: ' + (tokenError?.message || 'Unknown error') },
           { status: 401 }
         )
       }
       
-      if (authUser) {
-        user = authUser
-        console.log('RFP Upload: User authenticated via getUser:', user.email)
+      user = tokenUser
+      console.log('RFP Upload: User authenticated via token:', user.email)
+    } else {
+      // 쿠키 기반 세션 확인 (동일한 방식 사용)
+      console.log('RFP Upload: Using cookie-based authentication')
+      
+      try {
+        const supabase = createRouteHandlerClient({ cookies })
+        
+        // Get the current user from the session
+        console.log('RFP Upload: Getting user from session...')
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('RFP Upload: Session error:', sessionError)
+          return NextResponse.json(
+            { message: '세션 오류가 발생했습니다: ' + sessionError.message },
+            { status: 401 }
+          )
+        }
+        
+        if (!session?.user) {
+          console.log('RFP Upload: No session user found')
+          return NextResponse.json(
+            { message: '인증된 세션을 찾을 수 없습니다. 다시 로그인해주세요.' },
+            { status: 401 }
+          )
+        }
+        
+        user = session.user
+        console.log('RFP Upload: User authenticated via session:', user.email)
+      } catch (cookieError) {
+        console.error('RFP Upload: Cookie access failed:', cookieError)
+        return NextResponse.json(
+          { message: '쿠키 인증 오류가 발생했습니다.' },
+          { status: 401 }
+        )
       }
     }
     
     if (!user) {
-      console.error('RFP Upload: No user found after all attempts')
+      console.log('RFP Upload: No user found')
       return NextResponse.json(
-        { message: '로그인이 필요합니다. 다시 로그인해주세요.' },
+        { message: '인증된 사용자를 찾을 수 없습니다.' },
         { status: 401 }
       )
     }
@@ -93,8 +137,8 @@ export async function POST(request: NextRequest) {
     const fileExtension = file.name.split('.').pop()
     const fileName = `rfp-${timestamp}-${randomId}.${fileExtension}`
     
-    // Supabase Storage에 파일 업로드
-    const { data: _uploadData, error: uploadError } = await supabase.storage
+    // Supabase Storage에 파일 업로드 (Service Role 사용)
+    const { data: _uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('rfp-documents')
       .upload(fileName, file, {
         contentType: file.type,
@@ -104,13 +148,13 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error('File upload error:', uploadError)
       return NextResponse.json(
-        { message: '파일 업로드 중 오류가 발생했습니다.' },
+        { message: '파일 업로드 중 오류가 발생했습니다: ' + uploadError.message },
         { status: 500 }
       )
     }
 
     // 파일 URL 생성
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseAdmin.storage
       .from('rfp-documents')
       .getPublicUrl(fileName)
 
@@ -128,8 +172,8 @@ export async function POST(request: NextRequest) {
       extractedText = '[텍스트 추출 실패]'
     }
 
-    // RFP 문서 메타데이터 저장
-    const { data: documentData, error: dbError } = await supabase
+    // RFP 문서 메타데이터 저장 (Service Role 사용)
+    const { data: documentData, error: dbError } = await supabaseAdmin
       .from('rfp_documents')
       .insert({
         title,
@@ -148,7 +192,7 @@ export async function POST(request: NextRequest) {
         project_id: projectId || null,
         uploaded_by: user.id,
         status: 'uploaded'
-      } as any)
+      })
       .select()
       .single()
 
@@ -156,12 +200,12 @@ export async function POST(request: NextRequest) {
       console.error('Database error:', dbError)
       
       // 업로드된 파일 삭제 (롤백)
-      await supabase.storage
+      await supabaseAdmin.storage
         .from('rfp-documents')
         .remove([fileName])
         
       return NextResponse.json(
-        { message: '데이터베이스 저장 중 오류가 발생했습니다.' },
+        { message: '데이터베이스 저장 중 오류가 발생했습니다: ' + dbError.message },
         { status: 500 }
       )
     }
