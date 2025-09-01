@@ -35,12 +35,6 @@ export function AIModelManager() {
     cost_per_1k_output_tokens: 0.015
   })
 
-  useEffect(() => {
-    loadProviders()
-    loadModels()
-    loadAPIKeys()
-  }, [loadProviders, loadModels, loadAPIKeys])
-
   const loadProviders = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -131,6 +125,12 @@ export function AIModelManager() {
       console.error('Error loading API keys:', error)
     }
   }, [user])
+
+  useEffect(() => {
+    loadProviders()
+    loadModels()
+    loadAPIKeys()
+  }, [loadProviders, loadModels, loadAPIKeys])
 
   const handleSaveAPIKey = async () => {
     if (!selectedProvider || !newApiKey || !(user as any)?.organization_id) return
