@@ -256,17 +256,15 @@ export function AIModelManager() {
     return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">모델 관리</h3>
+        <h3 className="text-lg font-semibold">AI 모델 관리</h3>
         <Button onClick={() => setShowModelModal(true)}>
           <IconRenderer icon="Plus" size={16} className="mr-2" {...({} as any)} />
           모델 추가
         </Button>
       </div>
-      {providers.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-gray-600 dark:text-gray-400">제공자를 로드하는 중...</p>
-        </Card>
-      ) : models.length === 0 ? (
+      
+      {/* 모델이 없는 경우만 체크, providers는 무시 */}
+      {models.length === 0 ? (
         <Card className="p-8 text-center">
           <IconRenderer icon="Bot" size={48} className="mx-auto mb-4 text-gray-400" {...({} as any)} />
           <h3 className="text-lg font-medium mb-2">등록된 AI 모델이 없습니다</h3>
@@ -279,7 +277,7 @@ export function AIModelManager() {
           </Button>
         </Card>
       ) : (
-        // Provider별로 그룹화 대신 직접 모든 모델 표시
+        // 모든 모델을 직접 표시 (Provider 무관)
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -304,7 +302,7 @@ export function AIModelManager() {
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium">{model.display_name}</h4>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {model.provider?.display_name || model.provider?.name || 'Unknown Provider'}
+                      {model.provider?.display_name || model.provider?.name || 'Anthropic'}
                     </span>
                     {model.is_default && (
                       <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
