@@ -13,8 +13,7 @@ import {
   Menu,
   X
 } from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useAuthStore } from '@/stores/auth-store'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -23,15 +22,14 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading } = useAuth()
+  const { user, isLoading, signOut } = useAuthStore()
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     const checkAdminAccess = async () => {
-      if (loading) return
+      if (isLoading) return
 
       if (!user) {
         router.push('/auth/login')
@@ -39,28 +37,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       }
 
       try {
-        // 사용자의 관리자 권한 확인 (users 테이블 사용)
-        const { data: userProfile, error } = await supabase
-          .from('users')
-          .select('role, user_role, email')
-          .eq('email', user.email)
-          .single()
-
-        if (error || !userProfile) {
-          console.error('사용자 조회 오류:', error)
-          router.push('/')
-          return
-        }
+        // useAuthStore의 user 객체는 이미 users 테이블 정보를 포함하고 있음
+        console.log('Admin access check for user:', user.email, 'role:', user.role, 'user_role:', user.user_role)
 
         // owner, admin 또는 super_admin 권한 확인
-        const isOwner = userProfile.role === 'owner'
-        const isAdmin = userProfile.role === 'admin' || userProfile.role === 'super_admin'
-        const hasAdminUserRole = userProfile.user_role === 'admin' || userProfile.user_role === 'super_admin'
+        const isOwner = user.role === 'owner'
+        const isAdmin = user.role === 'admin' || user.role === 'super_admin'
+        const hasAdminUserRole = user.user_role === 'admin' || user.user_role === 'super_admin'
 
         if (isOwner || isAdmin || hasAdminUserRole) {
+          console.log('Admin access granted:', { isOwner, isAdmin, hasAdminUserRole })
           setIsAuthorized(true)
         } else {
-          console.log('관리자 권한 없음:', userProfile)
+          console.log('관리자 권한 없음:', { role: user.role, user_role: user.user_role })
           router.push('/')
         }
       } catch (error) {
@@ -72,14 +61,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
 
     checkAdminAccess()
-  }, [user, loading, router, supabase])
+  }, [user, isLoading, router])
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut()
-      router.push('/auth/login')
+      await signOut()
+      window.location.href = '/'
     } catch (error) {
       console.error('로그아웃 오류:', error)
+      window.location.href = '/'
     }
   }
 
@@ -98,7 +88,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
   ]
 
-  if (loading || checkingAuth) {
+  if (isLoading || checkingAuth) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex items-center space-x-2">
