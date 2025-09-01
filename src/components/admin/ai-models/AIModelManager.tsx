@@ -60,19 +60,54 @@ export function AIModelManager() {
 
   const loadModels = async () => {
     try {
-      const models = await AIModelService.getActiveModels()
-      console.log('Admin: Loaded models:', models) // 디버그용
+      console.log('Admin: loadModels 시작')
+      
+      // 먼저 AIModelService 사용
+      console.log('Admin: AIModelService.getActiveModels() 호출')
+      const serviceModels = await AIModelService.getActiveModels()
+      console.log('Admin: AIModelService 결과:', serviceModels)
+      
+      // 직접 supabase 쿼리도 시도
+      console.log('Admin: 직접 supabase 쿼리 시도')
+      const { data: directModels, error: directError } = await supabase
+        .from('ai_models' as any)
+        .select(`
+          *,
+          provider:ai_model_providers(*)
+        `)
+        .eq('is_active', true)
+        .order('display_name')
+      
+      console.log('Admin: 직접 쿼리 결과:', directModels)
+      console.log('Admin: 직접 쿼리 오류:', directError)
+      
+      // 사용할 데이터 결정
+      const models = serviceModels || directModels || []
+      console.log('Admin: 최종 사용할 models:', models)
+      console.log('Admin: models 배열 길이:', models.length)
       
       // 데이터 구조 확인
-      if (models.length > 0) {
-        console.log('Admin: First model structure:', models[0])
-        console.log('Admin: First model provider_id:', models[0].provider_id)
-        console.log('Admin: First model provider:', models[0].provider)
+      if (models && models.length > 0) {
+        console.log('Admin: 첫 번째 모델 전체 구조:', JSON.stringify(models[0], null, 2))
+        models.forEach((model, index) => {
+          console.log(`Admin: Model ${index + 1}:`, {
+            id: model.id,
+            model_id: model.model_id,
+            display_name: model.display_name,
+            provider_id: model.provider_id,
+            provider: model.provider,
+            is_active: model.is_active
+          })
+        })
+      } else {
+        console.log('Admin: models 배열이 비어있거나 null입니다')
       }
       
+      console.log('Admin: setModels 호출 전')
       setModels(models)
+      console.log('Admin: setModels 호출 완료')
     } catch (error) {
-      console.error('Error loading models:', error)
+      console.error('Admin: loadModels 오류:', error)
     }
   }
 
@@ -212,7 +247,13 @@ export function AIModelManager() {
     }
   }
 
-  const renderModelsTab = () => (
+  const renderModelsTab = () => {
+    console.log('Admin: renderModelsTab 실행')
+    console.log('Admin: 현재 providers.length:', providers.length)
+    console.log('Admin: 현재 models.length:', models.length)
+    console.log('Admin: 현재 models 상태:', models)
+    
+    return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">모델 관리</h3>
@@ -390,7 +431,8 @@ export function AIModelManager() {
         )
       })}
     </div>
-  )
+    )
+  }
 
   const renderAPIKeysTab = () => (
     <div className="space-y-4">
