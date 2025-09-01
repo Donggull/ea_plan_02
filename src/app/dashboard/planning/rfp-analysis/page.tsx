@@ -17,6 +17,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import { RFPAnalysis, RFPUploadResponse } from '@/types/rfp-analysis'
 import { supabase } from '@/lib/supabase/client'
+import { AIModelSelector } from '@/components/ai/AIModelSelector'
+import { AIModel } from '@/types/ai-models'
 
 interface Project {
   id: string
@@ -48,6 +50,9 @@ export default function RFPAnalysisPage() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [newProjectName, setNewProjectName] = useState('')
   const [createNewProject, setCreateNewProject] = useState(false)
+  
+  // AI 모델 관련 상태
+  const [selectedAIModel, setSelectedAIModel] = useState<AIModel | null>(null)
   const [assignLoading, setAssignLoading] = useState(false)
 
   // URL 파라미터에 따른 초기 탭 설정
@@ -276,6 +281,7 @@ export default function RFPAnalysisPage() {
             onAnalysisComplete={handleAnalysisComplete}
             onAnalysisError={handleAnalysisError}
             autoStart={!!currentDocumentId}
+            selectedModel={selectedAIModel}
           />
         )
       case 'extract':
@@ -471,23 +477,31 @@ export default function RFPAnalysisPage() {
               </p>
             </div>
 
-            {analysisData && (
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {analysisData.project_overview.title}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    신뢰도: {Math.round(analysisData.confidence_score * 100)}%
-                  </p>
+            <div className="flex items-center space-x-4">
+              {/* AI 모델 선택기 */}
+              <AIModelSelector 
+                onModelSelect={(model) => setSelectedAIModel(model)}
+                showSettings={true}
+              />
+              
+              {analysisData && (
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {analysisData.project_overview.title}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      신뢰도: {Math.round(analysisData.confidence_score * 100)}%
+                    </p>
+                  </div>
+                  <div className={cn(
+                    'w-3 h-3 rounded-full',
+                    analysisData.confidence_score >= 0.8 ? 'bg-green-500' :
+                    analysisData.confidence_score >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                  )} />
                 </div>
-                <div className={cn(
-                  'w-3 h-3 rounded-full',
-                  analysisData.confidence_score >= 0.8 ? 'bg-green-500' :
-                  analysisData.confidence_score >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
-                )} />
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* 프로세스 진행 표시 */}

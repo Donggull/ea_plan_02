@@ -7,6 +7,7 @@ import Card from '@/basic/src/components/Card/Card'
 import { cn } from '@/lib/utils'
 import { RFPAnalysis, RFPAnalysisRequest, RFPAnalysisResponse, AnalysisProgress } from '@/types/rfp-analysis'
 import { supabase } from '@/lib/supabase/client'
+import { AIModel } from '@/types/ai-models'
 
 interface RFPAnalyzerProps {
   rfpDocumentId: string
@@ -14,6 +15,7 @@ interface RFPAnalyzerProps {
   onAnalysisError?: (error: string) => void
   className?: string
   autoStart?: boolean
+  selectedModel?: AIModel | null
 }
 
 export function RFPAnalyzer({
