@@ -152,8 +152,7 @@ export async function POST(request: NextRequest) {
         keywords: analysisResult.keywords,
         risk_factors: analysisResult.risk_factors,
         questions_for_client: analysisResult.questions_for_client,
-        confidence_score: analysisResult.confidence_score,
-        created_by: user.id
+        confidence_score: analysisResult.confidence_score
       })
       .select()
       .single()
