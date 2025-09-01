@@ -259,11 +259,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       console.log('Starting signOut process...')
       
-      // 1. Supabase 세션 완전히 제거
-      const { error } = await supabase.auth.signOut({ scope: 'global' })
-      if (error) throw error
-
-      // 2. 로컬 상태 초기화
+      // 1. 로컬 상태 먼저 초기화 (빠른 UI 반영)
       set({ 
         user: null, 
         organization: null, 
@@ -271,25 +267,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitialized: false
       })
       
-      // 3. 브라우저 세션 저장소 클리어
+      // 2. 브라우저 세션 저장소 클리어
       if (typeof window !== 'undefined') {
-        localStorage.clear()
         sessionStorage.clear()
+        localStorage.clear()
         
         // Supabase 관련 쿠키들도 확실히 제거
         const cookies = document.cookie.split(';')
         cookies.forEach(cookie => {
           const [name] = cookie.split('=')
           if (name.trim().includes('supabase') || name.trim().includes('sb-')) {
+            document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`
             document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`
           }
         })
       }
       
+      // 3. Supabase 세션 제거 (백그라운드에서 실행)
+      try {
+        const { error } = await supabase.auth.signOut({ scope: 'global' })
+        if (error) {
+          console.warn('Supabase signOut warning:', error)
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase signOut failed, but continuing:', supabaseError)
+      }
+      
       console.log('SignOut completed successfully')
     } catch (error) {
       console.error('SignOut error:', error)
-      set({ isLoading: false })
+      // 에러가 발생해도 상태는 초기화
+      set({ 
+        user: null, 
+        organization: null, 
+        isLoading: false,
+        isInitialized: false
+      })
       throw error
     }
   },

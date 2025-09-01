@@ -47,11 +47,16 @@ export function Header() {
     try {
       console.log('Starting sign out process...')
       setUserMenuOpen(false)
+      
       await signOut()
       console.log('Sign out successful, redirecting to main page...')
-      router.replace('/')
+      
+      // 강제로 페이지 새로고침과 함께 리다이렉트
+      window.location.href = '/'
     } catch (error) {
       console.error('Sign out error:', error)
+      // 에러가 발생해도 강제로 메인 페이지로 이동
+      window.location.href = '/'
     }
   }
 

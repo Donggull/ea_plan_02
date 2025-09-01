@@ -24,21 +24,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true, // 세션 유지
     detectSessionInUrl: false, // URL에서 세션 감지 비활성화 (자동 새로고침 방지)
     storage: {
-      // localStorage 사용하여 세션 유지
+      // sessionStorage 사용으로 브라우저 종료 시 세션 자동 만료
       getItem: (key: string) => {
         if (typeof window !== 'undefined') {
-          return window.localStorage.getItem(key)
+          return window.sessionStorage.getItem(key)
         }
         return null
       },
       setItem: (key: string, value: string) => {
         if (typeof window !== 'undefined') {
-          window.localStorage.setItem(key, value)
+          window.sessionStorage.setItem(key, value)
         }
       },
       removeItem: (key: string) => {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem(key)
+          window.sessionStorage.removeItem(key)
         }
       }
     }
