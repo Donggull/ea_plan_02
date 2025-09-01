@@ -1,15 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Card } from '@/components/ui/card'
-import Button from '@/basic/src/components/Button/Button'
-import Input from '@/basic/src/components/Input/Input'
-import { useAuthStore } from '@/stores/auth-store'
-import { supabase } from '@/lib/supabase'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { IconRenderer } from '@/components/icons/IconRenderer'
+import Button from '@/basic/src/components/Button/Button'
+import Card from '@/basic/src/components/Card/Card'
+import Input from '@/basic/src/components/Input/Input'
 import { RFPUploader } from '@/components/planning/proposal/RFPUploader'
 import { RFPAnalyzer } from '@/components/planning/proposal/RFPAnalyzer'
+import { RequirementExtractor } from '@/components/planning/proposal/RequirementExtractor'
+import { KeywordAnalyzer } from '@/components/planning/proposal/KeywordAnalyzer'
+import { RFPSummary } from '@/components/planning/proposal/RFPSummary'
+import { AnalysisQuestionnaire } from '@/components/planning/proposal/AnalysisQuestionnaire'
+import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/stores/auth-store'
+import { cn } from '@/lib/utils'
+import { RFPAnalysis, RFPUploadResponse } from '@/types/rfp-analysis'
+import { supabase } from '@/lib/supabase/client'
 
 interface Project {
   id: string
@@ -19,36 +26,54 @@ interface Project {
   status: string | null
 }
 
-interface RFPDocument {
-  id: string
-  title: string
-  file_path: string
-  status: string
-  analysis_result: any
-  project_id: string | null
-  created_at: string
-}
-
 export default function RFPAnalysisPage() {
+  const searchParams = useSearchParams()
   const router = useRouter()
-  const { user } = useAuthStore()
-  const [currentStep, setCurrentStep] = useState<'upload' | 'analyze' | 'assign'>('upload')
+  const { user } = useAuth()
+  const { user: authUser } = useAuthStore()
+  
+  const [activeTab, setActiveTab] = useState<'upload' | 'analyze' | 'extract' | 'keywords' | 'summary' | 'questions' | 'assign'>('upload')
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(
+    searchParams.get('analysisId') || null
+  )
+  const [currentDocumentId, setCurrentDocumentId] = useState<string | null>(
+    searchParams.get('documentId') || null
+  )
+  const [analysisData, setAnalysisData] = useState<RFPAnalysis | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  // 프로젝트 할당 관련 상태
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [newProjectName, setNewProjectName] = useState('')
-  const [rfpDocument, setRfpDocument] = useState<RFPDocument | null>(null)
-  const [loading, setLoading] = useState(false)
   const [createNewProject, setCreateNewProject] = useState(false)
+  const [assignLoading, setAssignLoading] = useState(false)
+
+  // URL 파라미터에 따른 초기 탭 설정
+  useEffect(() => {
+    const tab = searchParams.get('tab') as typeof activeTab
+    if (tab && ['upload', 'analyze', 'extract', 'keywords', 'summary', 'questions', 'assign'].includes(tab)) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  // 분석 ID가 있으면 분석 데이터 로드
+  useEffect(() => {
+    if (currentAnalysisId) {
+      loadAnalysisData(currentAnalysisId)
+    }
+  }, [currentAnalysisId])
 
   // 프로젝트 목록 로드
   useEffect(() => {
     const loadProjects = async () => {
-      if (!user) return
+      if (!authUser) return
 
       const { data, error } = await supabase
         .from('projects')
         .select('id, name, description, current_phase, status')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
 
@@ -60,67 +85,108 @@ export default function RFPAnalysisPage() {
       setProjects(data || [])
     }
 
-    loadProjects()
-  }, [user])
-
-  const handleUploadSuccess = (response: any) => {
-    // RFPUploadResponse를 RFPDocument 형태로 변환
-    const document: RFPDocument = {
-      id: response.id,
-      title: response.title,
-      file_path: response.file_path,
-      status: response.status || 'uploaded',
-      analysis_result: response.analysis_result || null,
-      project_id: response.project_id || null,
-      created_at: response.created_at || new Date().toISOString()
+    if (activeTab === 'assign') {
+      loadProjects()
     }
-    setRfpDocument(document)
-    setCurrentStep('analyze')
+  }, [authUser, activeTab])
+
+  const loadAnalysisData = async (analysisId: string) => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      console.log('Load Analysis Data: Starting data load...')
+      
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('Load Analysis Data: Client session check:', session ? 'session exists' : 'no session')
+      
+      const headers: Record<string, string> = {}
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('Load Analysis Data: Added Authorization header')
+      }
+
+      const response = await fetch(`/api/rfp/${analysisId}/analysis`, {
+        method: 'GET',
+        headers,
+        credentials: 'include', // 쿠키 포함해서 전송
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '분석 데이터를 불러올 수 없습니다.')
+      }
+      
+      const result = await response.json()
+      setAnalysisData(result.analysis)
+    } catch (error) {
+      console.error('Analysis loading error:', error)
+      setError(error instanceof Error ? error.message : '분석 데이터 로딩 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleAnalysisComplete = (analysis: any) => {
-    // RFPAnalysis 결과를 RFPDocument에 반영
-    if (rfpDocument) {
-      const updatedDocument: RFPDocument = {
-        ...rfpDocument,
-        status: 'analyzed',
-        analysis_result: analysis
-      }
-      setRfpDocument(updatedDocument)
-    }
-    setCurrentStep('assign')
+  const handleUploadSuccess = (response: RFPUploadResponse) => {
+    setCurrentDocumentId(response.rfp_document_id)
+    setActiveTab('analyze')
+  }
+
+  const handleUploadError = (error: string) => {
+    setError(error)
+  }
+
+  const handleAnalysisComplete = (analysis: RFPAnalysis) => {
+    setAnalysisData(analysis)
+    setCurrentAnalysisId(analysis.id)
+    setActiveTab('extract')
+  }
+
+  const handleAnalysisError = (error: string) => {
+    setError(error)
+  }
+
+  // 프로젝트 할당 기능
+  const handleAssignClick = () => {
+    setActiveTab('assign')
   }
 
   const handleCreateNewProject = async () => {
-    if (!user || !newProjectName.trim() || !rfpDocument) return
+    if (!authUser || !newProjectName.trim() || !analysisData) return
 
-    setLoading(true)
+    setAssignLoading(true)
     try {
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert({
           name: newProjectName.trim(),
-          description: `RFP 분석을 통해 생성된 프로젝트: ${rfpDocument.title}`,
+          description: `RFP 분석을 통해 생성된 프로젝트: ${analysisData.project_overview.title}`,
           category: 'rfp_analysis',
           current_phase: 'proposal',
           status: 'active',
           priority: 'medium',
           progress: 0,
           organization_id: null,
-          created_by: user.id
+          created_by: authUser.id
         })
         .select()
         .single()
 
       if (projectError) throw projectError
 
-      // RFP 문서를 새 프로젝트에 연결
-      const { error: updateError } = await supabase
-        .from('rfp_documents')
-        .update({ project_id: projectData.id })
-        .eq('id', rfpDocument.id)
+      // RFP 문서를 새 프로젝트에 연결 (분석 데이터에서 문서 ID 추출)
+      if (currentDocumentId) {
+        const { error: updateError } = await supabase
+          .from('rfp_documents')
+          .update({ project_id: projectData.id })
+          .eq('id', currentDocumentId)
 
-      if (updateError) throw updateError
+        if (updateError) {
+          console.warn('RFP 문서 연결 실패:', updateError)
+        }
+      }
 
       // 프로젝트 상세 페이지로 이동
       router.push(`/dashboard/projects/${projectData.id}`)
@@ -128,19 +194,19 @@ export default function RFPAnalysisPage() {
       console.error('프로젝트 생성 오류:', error)
       alert('프로젝트 생성 중 오류가 발생했습니다.')
     } finally {
-      setLoading(false)
+      setAssignLoading(false)
     }
   }
 
   const handleAssignToExistingProject = async () => {
-    if (!selectedProject || !rfpDocument) return
+    if (!selectedProject || !currentDocumentId) return
 
-    setLoading(true)
+    setAssignLoading(true)
     try {
       const { error } = await supabase
         .from('rfp_documents')
         .update({ project_id: selectedProject })
-        .eq('id', rfpDocument.id)
+        .eq('id', currentDocumentId)
 
       if (error) throw error
 
@@ -150,170 +216,340 @@ export default function RFPAnalysisPage() {
       console.error('프로젝트 할당 오류:', error)
       alert('프로젝트 할당 중 오류가 발생했습니다.')
     } finally {
-      setLoading(false)
+      setAssignLoading(false)
     }
   }
 
-  return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          RFP 분석 자동화
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          RFP 문서를 업로드하고 AI를 통해 자동으로 분석한 후, 프로젝트에 할당할 수 있습니다.
-        </p>
-      </div>
+  const tabs = [
+    { key: 'upload', label: 'RFP 업로드', icon: 'Upload', description: 'RFP 파일 업로드' },
+    { key: 'analyze', label: 'AI 분석', icon: 'Brain', description: 'AI 기반 자동 분석', disabled: !currentDocumentId },
+    { key: 'extract', label: '요구사항 추출', icon: 'FileSearch', description: '요구사항 자동 추출', disabled: !analysisData },
+    { key: 'keywords', label: '키워드 분석', icon: 'Hash', description: '핵심 키워드 분석', disabled: !analysisData },
+    { key: 'summary', label: '분석 요약', icon: 'FileText', description: '종합 분석 보고서', disabled: !analysisData },
+    { key: 'questions', label: 'AI 질문', icon: 'HelpCircle', description: 'AI 기반 후속 질문', disabled: !analysisData },
+    { key: 'assign', label: '프로젝트 할당', icon: 'FolderOpen', description: '프로젝트에 분석 결과 할당', disabled: !analysisData }
+  ]
 
-      {/* 진행 단계 표시 */}
-      <div className="mb-8">
-        <div className="flex items-center justify-center space-x-8">
-          {[
-            { step: 'upload', label: 'RFP 업로드', icon: 'Upload' },
-            { step: 'analyze', label: 'AI 분석', icon: 'Brain' },
-            { step: 'assign', label: '프로젝트 할당', icon: 'FolderOpen' }
-          ].map((item, index) => (
-            <div key={item.step} className="flex items-center">
-              <div
-                className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${
-                  currentStep === item.step
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : index < (['upload', 'analyze', 'assign'].indexOf(currentStep))
-                    ? 'bg-green-600 border-green-600 text-white'
-                    : 'bg-gray-200 border-gray-200 text-gray-600'
-                }`}
-              >
-                <IconRenderer icon={item.icon as any} size={20} />
-              </div>
-              <span className="ml-3 text-sm font-medium text-gray-900 dark:text-white">
-                {item.label}
+  const renderTabContent = () => {
+    if (isLoading) {
+      return (
+        <Card className="p-8">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <IconRenderer icon="Loader2" size={24} className="animate-spin text-blue-600" {...({} as any)} />
+              <span className="text-lg text-gray-600 dark:text-gray-400">
+                분석 데이터를 불러오는 중...
               </span>
-              {index < 2 && (
-                <div className="ml-8 w-8 h-0.5 bg-gray-200 dark:bg-gray-700" />
-              )}
             </div>
-          ))}
+          </div>
+        </Card>
+      )
+    }
+
+    if (error) {
+      return (
+        <Card className="p-8">
+          <div className="text-center">
+            <IconRenderer icon="AlertCircle" size={48} className="mx-auto mb-4 text-red-500" {...({} as any)} />
+            <h3 className="text-lg font-semibold text-red-600 mb-2">오류가 발생했습니다</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+            <Button onClick={() => setError(null)} variant="outline">
+              다시 시도
+            </Button>
+          </div>
+        </Card>
+      )
+    }
+
+    switch (activeTab) {
+      case 'upload':
+        return (
+          <RFPUploader
+            onUploadSuccess={handleUploadSuccess}
+            onUploadError={handleUploadError}
+          />
+        )
+      case 'analyze':
+        return (
+          <RFPAnalyzer
+            rfpDocumentId={currentDocumentId || ''}
+            onAnalysisComplete={handleAnalysisComplete}
+            onAnalysisError={handleAnalysisError}
+            autoStart={!!currentDocumentId}
+          />
+        )
+      case 'extract':
+        return (
+          <RequirementExtractor
+            analysisId={currentAnalysisId || ''}
+            analysis={analysisData || undefined}
+            autoExtract={!!analysisData}
+          />
+        )
+      case 'keywords':
+        return (
+          <KeywordAnalyzer
+            analysisId={currentAnalysisId || ''}
+            analysis={analysisData || undefined}
+            autoAnalyze={!!analysisData}
+          />
+        )
+      case 'summary':
+        return analysisData ? (
+          <div>
+            <RFPSummary
+              analysis={analysisData}
+              showActions={true}
+            />
+            <div className="mt-6 text-center">
+              <Button 
+                onClick={handleAssignClick}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                프로젝트에 할당하기
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Card className="p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-400">
+              분석 데이터가 없습니다. 먼저 RFP를 업로드하고 분석을 완료해주세요.
+            </p>
+          </Card>
+        )
+      case 'questions':
+        return (
+          <div>
+            <AnalysisQuestionnaire
+              analysisId={currentAnalysisId || ''}
+              autoGenerate={!!analysisData}
+            />
+            <div className="mt-6 text-center">
+              <Button 
+                onClick={handleAssignClick}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                프로젝트에 할당하기
+              </Button>
+            </div>
+          </div>
+        )
+      case 'assign':
+        return (
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold mb-6">프로젝트 할당</h2>
+            
+            <div className="space-y-6">
+              {/* 새 프로젝트 생성 옵션 */}
+              <div className="border rounded-lg p-4">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="projectOption"
+                    checked={createNewProject}
+                    onChange={() => setCreateNewProject(true)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">새 프로젝트 생성</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      이 RFP 분석을 기반으로 새로운 프로젝트를 생성합니다.
+                    </p>
+                  </div>
+                </label>
+                
+                {createNewProject && (
+                  <div className="mt-4 pl-7">
+                    <Input
+                      type="text"
+                      placeholder="새 프로젝트 이름을 입력하세요"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      className="w-full max-w-md"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 기존 프로젝트 할당 옵션 */}
+              <div className="border rounded-lg p-4">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="projectOption"
+                    checked={!createNewProject}
+                    onChange={() => setCreateNewProject(false)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">기존 프로젝트에 할당</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      기존 프로젝트 중 하나를 선택하여 할당합니다.
+                    </p>
+                  </div>
+                </label>
+                
+                {!createNewProject && (
+                  <div className="mt-4 pl-7">
+                    <select
+                      value={selectedProject || ''}
+                      onChange={(e) => setSelectedProject(e.target.value || null)}
+                      className="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                    >
+                      <option value="">프로젝트 선택...</option>
+                      {projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name} ({project.current_phase === 'proposal' ? '제안 진행' : 
+                            project.current_phase === 'construction' ? '구축 관리' : '운영 관리'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab('summary')}
+                disabled={assignLoading}
+              >
+                이전
+              </Button>
+              <Button
+                variant="primary"
+                onClick={createNewProject ? handleCreateNewProject : handleAssignToExistingProject}
+                disabled={
+                  assignLoading || 
+                  (createNewProject && !newProjectName.trim()) || 
+                  (!createNewProject && !selectedProject)
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {assignLoading ? '처리 중...' : createNewProject ? '프로젝트 생성' : '프로젝트 할당'}
+              </Button>
+            </div>
+          </Card>
+        )
+      default:
+        return null
+    }
+  }
+
+  if (!user && !authUser) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <Card className="p-8 text-center">
+          <IconRenderer icon="Lock" size={48} className="mx-auto mb-4 text-gray-400" {...({} as any)} />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            로그인이 필요합니다
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            RFP 분석 기능을 사용하려면 로그인해주세요.
+          </p>
+          <Button onClick={() => window.location.href = '/auth/login'}>
+            로그인하기
+          </Button>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* 헤더 */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                RFP 분석 자동화
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                AI 기반 RFP 분석, 요구사항 추출, 키워드 분석 및 프로젝트 할당
+              </p>
+            </div>
+
+            {analysisData && (
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {analysisData.project_overview.title}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    신뢰도: {Math.round(analysisData.confidence_score * 100)}%
+                  </p>
+                </div>
+                <div className={cn(
+                  'w-3 h-3 rounded-full',
+                  analysisData.confidence_score >= 0.8 ? 'bg-green-500' :
+                  analysisData.confidence_score >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                )} />
+              </div>
+            )}
+          </div>
+
+          {/* 프로세스 진행 표시 */}
+          <div className="flex items-center space-x-4 mt-6">
+            {tabs.map((tab, index) => (
+              <div key={tab.key} className="flex items-center">
+                <div className={cn(
+                  'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  activeTab === tab.key
+                    ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : tab.disabled
+                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                )}>
+                  <IconRenderer 
+                    icon={tab.icon} 
+                    size={16} 
+                    {...({} as any)} 
+                  />
+                  <span>{tab.label}</span>
+                </div>
+                {index < tabs.length - 1 && (
+                  <IconRenderer 
+                    icon="ChevronRight" 
+                    size={16} 
+                    className="mx-2 text-gray-400" 
+                    {...({} as any)} 
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 탭 메뉴 */}
+          <div className="flex space-x-1 mt-6">
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => !tab.disabled && setActiveTab(tab.key as any)}
+                disabled={tab.disabled}
+                className={cn(
+                  'flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                  activeTab === tab.key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : tab.disabled
+                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                )}
+                title={tab.disabled ? '이전 단계를 먼저 완료해주세요.' : tab.description}
+              >
+                <IconRenderer icon={tab.icon} size={16} {...({} as any)} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* 단계별 컨텐츠 */}
-      {currentStep === 'upload' && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">1. RFP 문서 업로드</h2>
-          <RFPUploader
-            onUploadSuccess={handleUploadSuccess}
-            projectId={undefined} // 독립 실행이므로 undefined
-          />
-        </Card>
-      )}
-
-      {currentStep === 'analyze' && rfpDocument && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">2. AI 자동 분석</h2>
-          <RFPAnalyzer
-            rfpDocumentId={rfpDocument.id}
-            onAnalysisComplete={handleAnalysisComplete}
-          />
-        </Card>
-      )}
-
-      {currentStep === 'assign' && rfpDocument && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-6">3. 프로젝트 할당</h2>
-          
-          <div className="space-y-6">
-            {/* 새 프로젝트 생성 옵션 */}
-            <div className="border rounded-lg p-4">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="projectOption"
-                  checked={createNewProject}
-                  onChange={() => setCreateNewProject(true)}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">새 프로젝트 생성</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    이 RFP를 기반으로 새로운 프로젝트를 생성합니다.
-                  </p>
-                </div>
-              </label>
-              
-              {createNewProject && (
-                <div className="mt-4 pl-7">
-                  <Input
-                    type="text"
-                    placeholder="새 프로젝트 이름을 입력하세요"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    className="w-full max-w-md"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 기존 프로젝트 할당 옵션 */}
-            <div className="border rounded-lg p-4">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="projectOption"
-                  checked={!createNewProject}
-                  onChange={() => setCreateNewProject(false)}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-white">기존 프로젝트에 할당</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    기존 프로젝트 중 하나를 선택하여 할당합니다.
-                  </p>
-                </div>
-              </label>
-              
-              {!createNewProject && (
-                <div className="mt-4 pl-7">
-                  <select
-                    value={selectedProject || ''}
-                    onChange={(e) => setSelectedProject(e.target.value || null)}
-                    className="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  >
-                    <option value="">프로젝트 선택...</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name} ({project.current_phase === 'proposal' ? '제안 진행' : 
-                          project.current_phase === 'construction' ? '구축 관리' : '운영 관리'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentStep('analyze')}
-              disabled={loading}
-            >
-              이전
-            </Button>
-            <Button
-              variant="primary"
-              onClick={createNewProject ? handleCreateNewProject : handleAssignToExistingProject}
-              disabled={
-                loading || 
-                (createNewProject && !newProjectName.trim()) || 
-                (!createNewProject && !selectedProject)
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {loading ? '처리 중...' : createNewProject ? '프로젝트 생성' : '프로젝트 할당'}
-            </Button>
-          </div>
-        </Card>
-      )}
+      {/* 메인 컨텐츠 */}
+      <div className="px-6 py-6">
+        {renderTabContent()}
+      </div>
     </div>
   )
 }
