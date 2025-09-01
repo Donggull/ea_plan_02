@@ -133,3 +133,188 @@ TRD 문서 참조 : [자세히 보기](./TRD_part2.md)
 - **GitHub 연동**: 모든 변경사항 커밋 및 푸시 완료
 
 이제 사용자는 언제든지 페르소나 분석 시스템에 접근하여 독립적으로 페르소나를 생성하고 관리할 수 있습니다.
+
+## 포괄적인 AI 모델 연동 시스템 구현 완료 (2025-09-01)
+
+### 개요
+RFP 분석 자동화에 AI 모델 선택 기능을 추가하고, Admin 페이지에서 AI 모델을 관리할 수 있는 종합적인 AI 연동 시스템을 구현했습니다.
+
+### 구현된 주요 기능
+
+#### 1. 다중 AI 모델 지원
+- **Claude (Anthropic)**: Claude 3 Opus, Sonnet, Haiku, 3.5 Sonnet 지원
+- **OpenAI GPT**: GPT-4 Turbo, GPT-3.5 Turbo 지원
+- **Google Gemini**: 향후 확장 가능한 구조 준비
+- **Factory 패턴**: 확장 가능한 AI 제공자 관리 구조
+
+#### 2. Admin 페이지 AI 모델 관리 시스템
+**경로**: `/dashboard/admin/ai-models`
+- **모델 관리**: 각 AI 모델의 활성화/비활성화 제어
+- **API 키 관리**: 조직별 API 키 암호화 저장 및 관리
+- **기본 모델 설정**: 시스템 기본 AI 모델 지정
+- **환경별 설정**: 개발/스테이징/프로덕션 환경 지원
+- **API 키 유효성 검증**: 등록 시 실시간 API 키 검증
+
+#### 3. 사용자 AI 모델 선택 기능
+**컴포넌트**: `AIModelSelector.tsx`
+- **모델 선택 드롭다운**: 활성화된 AI 모델 목록 표시
+- **개인 설정 저장**: 사용자별 선호 모델 및 파라미터 저장
+- **실시간 설정**: Temperature, Max Tokens, Top-p 등 세부 조정
+- **제공자별 아이콘**: 시각적 구분을 위한 제공자 아이콘
+
+#### 4. RFP 분석 자동화 AI 연동
+**페이지**: `/dashboard/planning/rfp-analysis`
+- **AI 모델 선택기 통합**: 페이지 헤더에 모델 선택 UI 추가
+- **분석 프로세스 연동**: 선택된 AI 모델로 RFP 분석 수행
+- **사용량 추적**: AI 모델 사용량 자동 로깅
+- **에러 핸들링**: AI API 오류에 대한 사용자 친화적 메시지
+
+### 데이터베이스 구조
+
+#### 새로 추가된 테이블
+```sql
+-- AI 모델 제공자 (Anthropic, OpenAI, Google 등)
+ai_model_providers: id, name, display_name, base_url, description
+
+-- AI 모델 (Claude 3 Opus, GPT-4 등)
+ai_models: id, provider_id, model_id, display_name, context_window, cost_per_1k_tokens
+
+-- 조직별 API 키 (암호화 저장)
+ai_model_api_keys: id, provider_id, organization_id, api_key_encrypted
+
+-- 사용자 AI 선호 설정
+user_ai_preferences: id, user_id, preferred_model_id, settings
+
+-- AI 사용량 로그
+ai_model_usage_logs: id, user_id, model_id, feature, input_tokens, output_tokens
+```
+
+### 아키텍처 구조
+
+#### 1. 서비스 레이어
+- **BaseAIProvider**: 모든 AI 제공자의 기본 추상 클래스
+- **AnthropicProvider**: Claude API 연동 구현체
+- **OpenAIProvider**: GPT API 연동 구현체
+- **AIProviderFactory**: Factory 패턴으로 제공자 인스턴스 생성
+- **AIModelService**: AI 모델 관리 및 데이터베이스 연동
+
+#### 2. 컴포넌트 구조
+```
+src/components/
+├── admin/ai-models/
+│   └── AIModelManager.tsx      # Admin용 AI 모델 관리
+├── ai/
+│   └── AIModelSelector.tsx     # 사용자용 AI 모델 선택
+└── planning/proposal/
+    └── RFPAnalyzer.tsx         # AI 모델 연동된 RFP 분석기
+```
+
+#### 3. API 엔드포인트
+- `/api/ai/model-analyze`: AI 모델 분석 API
+- 기존 RFP 분석 API와 통합하여 선택된 모델 사용
+
+### 기술적 특징
+
+#### 1. 타입 안전성
+- TypeScript 완전 지원
+- AI 모델 관련 타입 정의 (`src/types/ai-models.ts`)
+- Supabase 타입 캐스팅으로 새 테이블 지원
+
+#### 2. 보안
+- API 키 암호화 저장 (Base64 임시, 프로덕션에서는 강화 필요)
+- 환경별 API 키 분리 (개발/스테이징/프로덕션)
+- 서버 사이드 API 호출 권장
+
+#### 3. 확장성
+- Factory 패턴으로 새로운 AI 제공자 추가 용이
+- 모듈화된 컴포넌트 구조
+- 설정 가능한 모델 파라미터
+
+### Vercel 환경 변수 설정
+
+#### 필수 환경 변수
+```bash
+# Anthropic Claude API
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxx...
+
+# OpenAI API
+OPENAI_API_KEY=sk-xxxxx...
+
+# Google AI API (향후 사용)
+GOOGLE_AI_API_KEY=AIzaSy...
+
+# 선택적: 클라이언트 사이드용 (보안 주의)
+NEXT_PUBLIC_ANTHROPIC_API_KEY=sk-ant-api03-xxxxx...
+NEXT_PUBLIC_OPENAI_API_KEY=sk-xxxxx...
+```
+
+#### Claude API 키 획득 방법
+1. [Anthropic Console](https://console.anthropic.com) 접속
+2. 계정 생성 또는 로그인
+3. Settings > API Keys 메뉴 이동
+4. "Create API Key" 클릭
+5. 생성된 키 복사 (`sk-ant-api03-`로 시작)
+
+### 사용자 워크플로우
+
+#### 1. Admin 관리자
+1. `/dashboard/admin/ai-models` 접속
+2. "API 키 관리" 탭에서 API 키 등록
+3. "모델 관리" 탭에서 모델 활성화 및 기본값 설정
+
+#### 2. 일반 사용자
+1. `/dashboard/planning/rfp-analysis` 접속
+2. 상단 AI 모델 선택기에서 원하는 모델 선택
+3. Temperature, Max Tokens 등 세부 설정 조정
+4. RFP 분석 진행 시 선택된 모델 자동 사용
+
+### 비용 관리 및 모니터링
+
+#### 모델별 예상 비용 (1,000 토큰 기준)
+- **Claude 3 Opus**: 입력 $0.015, 출력 $0.075
+- **Claude 3 Sonnet**: 입력 $0.003, 출력 $0.015
+- **Claude 3 Haiku**: 입력 $0.00025, 출력 $0.00125
+- **GPT-4 Turbo**: 입력 $0.01, 출력 $0.03
+- **GPT-3.5 Turbo**: 입력 $0.0005, 출력 $0.0015
+
+#### 사용량 추적
+- 모든 AI 요청에 대한 토큰 사용량 로깅
+- 사용자별, 기능별 사용량 통계
+- 비용 계산 기능 (향후 개선 예정)
+
+### 파일 구조
+```
+src/
+├── types/ai-models.ts                          # AI 모델 타입 정의
+├── services/ai/
+│   ├── base.ts                                 # BaseAIProvider 추상 클래스
+│   ├── factory.ts                              # AIProviderFactory
+│   ├── model-service.ts                        # AI 모델 관리 서비스
+│   └── providers/
+│       ├── anthropic.ts                        # Claude API 구현
+│       └── openai.ts                           # GPT API 구현
+├── components/
+│   ├── admin/ai-models/
+│   │   └── AIModelManager.tsx                  # Admin AI 모델 관리
+│   └── ai/
+│       └── AIModelSelector.tsx                 # AI 모델 선택기
+├── app/
+│   ├── dashboard/admin/ai-models/page.tsx      # Admin 페이지
+│   └── api/ai/model-analyze/route.ts           # AI 분석 API
+└── docs/AI_MODEL_SETUP.md                      # 설정 가이드
+```
+
+### 향후 개선 사항
+1. **보안 강화**: API 키 암호화 알고리즘 개선
+2. **비용 최적화**: 토큰 사용량 기반 자동 모델 선택
+3. **성능 향상**: AI 응답 캐싱 시스템
+4. **모니터링**: 사용량 대시보드 및 알림 시스템
+5. **추가 모델**: Google Gemini, Mistral 등 연동
+
+### 배포 및 검증
+- **TypeScript 컴파일**: 성공 (46개 페이지 생성)
+- **ESLint 검증**: 경고만 있고 오류 없음
+- **빌드 성공**: Next.js 15.5.2 환경에서 정상 빌드
+- **GitHub 연동**: 모든 변경사항 커밋 및 푸시 완료
+
+이제 사용자는 다양한 AI 모델을 선택하여 RFP 분석을 수행할 수 있으며, 관리자는 중앙집중식으로 AI 모델과 API 키를 관리할 수 있습니다.
