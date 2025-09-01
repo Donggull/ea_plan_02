@@ -20,7 +20,18 @@ export class AIModelService {
       throw error
     }
 
-    return (data as any) || []
+    const models = (data as any) || []
+    console.log('AIModelService: Raw models data:', models)
+    
+    // 데이터 구조 정규화
+    const normalizedModels = models.map((model: any) => ({
+      ...model,
+      // provider 객체를 유지하되, provider_id가 없으면 추가
+      provider_id: model.provider_id || model.provider?.id
+    }))
+    
+    console.log('AIModelService: Normalized models:', normalizedModels)
+    return normalizedModels
   }
 
   // 특정 제공자의 모델 가져오기

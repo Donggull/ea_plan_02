@@ -62,6 +62,14 @@ export function AIModelManager() {
     try {
       const models = await AIModelService.getActiveModels()
       console.log('Admin: Loaded models:', models) // 디버그용
+      
+      // 데이터 구조 확인
+      if (models.length > 0) {
+        console.log('Admin: First model structure:', models[0])
+        console.log('Admin: First model provider_id:', models[0].provider_id)
+        console.log('Admin: First model provider:', models[0].provider)
+      }
+      
       setModels(models)
     } catch (error) {
       console.error('Error loading models:', error)
@@ -217,9 +225,101 @@ export function AIModelManager() {
         <Card className="p-8 text-center">
           <p className="text-gray-600 dark:text-gray-400">제공자를 로드하는 중...</p>
         </Card>
-      ) : providers.map(provider => {
-        const providerModels = models.filter(m => m.provider_id === provider.id)
-        console.log(`Admin: Provider ${provider.display_name} has ${providerModels.length} models:`, providerModels) // 디버그용
+      ) : models.length === 0 ? (
+        <Card className="p-8 text-center">
+          <IconRenderer icon="Bot" size={48} className="mx-auto mb-4 text-gray-400" {...({} as any)} />
+          <h3 className="text-lg font-medium mb-2">등록된 AI 모델이 없습니다</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            첫 번째 AI 모델을 추가하여 시스템을 설정하세요.
+          </p>
+          <Button onClick={() => setShowModelModal(true)}>
+            <IconRenderer icon="Plus" size={16} className="mr-2" {...({} as any)} />
+            AI 모델 추가
+          </Button>
+        </Card>
+      ) : (
+        // Provider별로 그룹화 대신 직접 모든 모델 표시
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">등록된 AI 모델</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">총 {models.length}개의 모델이 등록되어 있습니다.</p>
+            </div>
+            <IconRenderer 
+              icon="Bot" 
+              size={24} 
+              className="text-blue-600"
+              {...({} as any)}
+            />
+          </div>
+
+          <div className="space-y-3">
+            {models.map(model => (
+              <div 
+                key={model.id} 
+                className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 dark:bg-gray-800"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium">{model.display_name}</h4>
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                      {model.provider?.display_name || model.provider?.name || 'Unknown Provider'}
+                    </span>
+                    {model.is_default && (
+                      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                        기본값
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {model.description}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    모델 ID: {model.model_id}
+                  </p>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                    <span>컨텍스트: {model.context_window?.toLocaleString()}</span>
+                    <span>최대 출력: {model.max_output_tokens?.toLocaleString()}</span>
+                    {model.cost_per_1k_input_tokens && (
+                      <span>입력: ${model.cost_per_1k_input_tokens}/1K</span>
+                    )}
+                    {model.cost_per_1k_output_tokens && (
+                      <span>출력: ${model.cost_per_1k_output_tokens}/1K</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDefaultModel(model.id)}
+                    disabled={model.is_default}
+                  >
+                    기본값 설정
+                  </Button>
+                  <Button
+                    variant={model.is_active ? 'outline' : 'primary'}
+                    size="sm"
+                    onClick={() => toggleModelStatus(model.id, model.is_active)}
+                  >
+                    {model.is_active ? '비활성화' : '활성화'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Provider별 표시는 일단 주석 처리 */}
+      {false && providers.map(provider => {
+        // provider_id 또는 provider.id로 필터링 시도
+        const providerModels = models.filter(m => {
+          const modelProviderId = m.provider_id || (m.provider && m.provider.id)
+          return modelProviderId === provider.id
+        })
+        console.log(`Admin: Provider ${provider.display_name} (ID: ${provider.id}) has ${providerModels.length} models:`, providerModels) // 디버그용
         
         return (
           <Card key={provider.id} className="p-6">
