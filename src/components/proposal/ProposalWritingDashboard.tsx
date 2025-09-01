@@ -122,7 +122,7 @@ export default function ProposalWritingDashboard({
 
       return () => clearInterval(autoSaveInterval)
     }
-  }, [document, sections])
+  }, [document, sections]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTemplateSelect = (template: ProposalTemplateType) => {
     setSelectedTemplate(template)

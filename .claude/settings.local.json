@@ -54,7 +54,8 @@
       "Bash(done)",
       "Bash(if [ -f \"$file\" ])",
       "Bash(then)",
-      "Bash(fi)"
+      "Bash(fi)",
+      "mcp__github-mcp__git-flow"
     ],
     "deny": [],
     "ask": []
