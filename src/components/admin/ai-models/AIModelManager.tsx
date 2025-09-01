@@ -50,7 +50,9 @@ export function AIModelManager() {
         .order('display_name')
 
       if (error) throw error
-      setProviders((data as any) || [])
+      const providersData = (data as any) || []
+      console.log('Admin: Loaded providers:', providersData) // 디버그용
+      setProviders(providersData)
     } catch (error) {
       console.error('Error loading providers:', error)
     }
@@ -59,6 +61,7 @@ export function AIModelManager() {
   const loadModels = async () => {
     try {
       const models = await AIModelService.getActiveModels()
+      console.log('Admin: Loaded models:', models) // 디버그용
       setModels(models)
     } catch (error) {
       console.error('Error loading models:', error)
@@ -210,8 +213,13 @@ export function AIModelManager() {
           모델 추가
         </Button>
       </div>
-      {providers.map(provider => {
+      {providers.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-gray-600 dark:text-gray-400">제공자를 로드하는 중...</p>
+        </Card>
+      ) : providers.map(provider => {
         const providerModels = models.filter(m => m.provider_id === provider.id)
+        console.log(`Admin: Provider ${provider.display_name} has ${providerModels.length} models:`, providerModels) // 디버그용
         
         return (
           <Card key={provider.id} className="p-6">
