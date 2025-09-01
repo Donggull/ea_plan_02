@@ -6,14 +6,27 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     
-    // 사용자 인증 확인
+    // 사용자 인증 확인 - 더 자세한 로깅 추가
+    console.log('RFP Upload: Checking authentication...')
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    
+    if (authError) {
+      console.error('RFP Upload: Auth error:', authError)
       return NextResponse.json(
-        { message: '인증이 필요합니다.' },
+        { message: '인증 오류가 발생했습니다: ' + authError.message },
         { status: 401 }
       )
     }
+    
+    if (!user) {
+      console.error('RFP Upload: No user found')
+      return NextResponse.json(
+        { message: '로그인이 필요합니다. 다시 로그인해주세요.' },
+        { status: 401 }
+      )
+    }
+    
+    console.log('RFP Upload: User authenticated:', user.email)
 
     const formData = await request.formData()
     const file = formData.get('file') as File

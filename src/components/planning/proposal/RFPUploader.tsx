@@ -96,13 +96,19 @@ export function RFPUploader({
         formData.append('project_id', projectId)
       }
 
+      console.log('RFP Upload: Starting file upload...')
+      
       const response = await fetch('/api/rfp/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'include', // 쿠키 포함해서 전송
       })
+
+      console.log('RFP Upload: Response status:', response.status)
 
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('RFP Upload: Error response:', errorData)
         throw new Error(errorData.message || 'RFP 업로드 중 오류가 발생했습니다.')
       }
 

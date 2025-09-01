@@ -18,7 +18,9 @@ export async function createClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          const allCookies = cookieStore.getAll()
+          console.log('Server: Available cookies:', allCookies.map(c => c.name))
+          return allCookies
         },
         setAll(cookiesToSet) {
           try {
@@ -28,10 +30,15 @@ export async function createClient() {
                 ...options,
                 maxAge: undefined, // maxAge 제거하여 세션 쿠키로 설정
                 expires: undefined, // expires 제거하여 세션 쿠키로 설정
+                httpOnly: false, // 클라이언트에서도 접근 가능하도록 설정
+                secure: process.env.NODE_ENV === 'production', // HTTPS에서만 보안 쿠키
+                sameSite: 'lax' as const // CSRF 보호를 위한 SameSite 설정
               }
+              console.log('Server: Setting cookie:', name, sessionOptions)
               cookieStore.set(name, value, sessionOptions)
             })
-          } catch {
+          } catch (error) {
+            console.error('Server: Cookie setting error:', error)
             // SSR에서는 쿠키를 설정할 수 없음
           }
         },
