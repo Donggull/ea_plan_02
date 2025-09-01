@@ -9,63 +9,57 @@ export class AIModelService {
     console.log('AIModelService: getActiveModels 시작')
     
     try {
-      // 먼저 기본 모델 데이터만 가져오기
-      const { data: modelsData, error: modelsError } = await supabase
+      // 관계 쿼리를 사용하여 모델과 provider 정보를 한번에 가져오기
+      const { data, error } = await supabase
         .from('ai_models' as any)
-        .select('*')
+        .select(`
+          *,
+          provider:ai_model_providers(*)
+        `)
         .eq('is_active', true)
         .order('display_name')
       
-      console.log('AIModelService: 기본 모델 데이터:', modelsData)
-      console.log('AIModelService: 기본 모델 오류:', modelsError)
+      console.log('AIModelService: 쿼리 결과:', data)
+      console.log('AIModelService: 쿼리 오류:', error)
       
-      if (modelsError) {
-        console.error('Error fetching AI models (basic):', modelsError)
-        throw modelsError
+      if (error) {
+        console.error('Error fetching AI models:', error)
+        throw error
       }
 
-      if (!modelsData || modelsData.length === 0) {
+      if (!data || data.length === 0) {
         console.log('AIModelService: 모델 데이터가 비어있음')
         return []
       }
-
-      // Provider 정보를 별도로 가져와서 매핑
-      const { data: providersData, error: _providersError } = await supabase
-        .from('ai_model_providers' as any)
-        .select('*')
       
-      console.log('AIModelService: Provider 데이터:', providersData)
+      console.log('AIModelService: 최종 반환할 모델 수:', data.length)
+      console.log('AIModelService: 첫 번째 모델:', data[0])
       
-      // Provider 데이터를 맵으로 변환
-      const providersMap = new Map()
-      if (providersData) {
-        providersData.forEach((provider: any) => {
-          providersMap.set(provider.id, provider)
-        })
-      }
-
-      // 모델과 Provider 매핑
-      const enrichedModels = modelsData.map((model: any) => ({
-        ...model,
-        provider: providersMap.get(model.provider_id) || null
-      }))
-      
-      console.log('AIModelService: 최종 enriched models:', enrichedModels)
-      return enrichedModels
+      return data as unknown as AIModel[]
       
     } catch (error) {
       console.error('AIModelService: getActiveModels 전체 오류:', error)
-      // 에러가 발생해도 빈 배열 대신 기본 구조 반환 시도
+      
+      // 폴백: 기본 모델 데이터만이라도 가져오기
       try {
-        const { data: fallbackData, error: _fallbackError } = await supabase
+        console.log('AIModelService: 폴백 모드로 기본 데이터 시도')
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from('ai_models' as any)  
           .select('*')
           .eq('is_active', true)
+          .order('display_name')
         
         console.log('AIModelService: 폴백 데이터:', fallbackData)
+        console.log('AIModelService: 폴백 오류:', fallbackError)
+        
+        if (fallbackError) {
+          console.error('AIModelService: 폴백도 실패:', fallbackError)
+          return []
+        }
+        
         return (fallbackData as unknown as AIModel[]) || []
-      } catch (_fallbackError) {
-        console.error('AIModelService: 폴백도 실패:', _fallbackError)
+      } catch (fallbackError) {
+        console.error('AIModelService: 폴백 예외:', fallbackError)
         return []
       }
     }

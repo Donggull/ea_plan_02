@@ -55,53 +55,17 @@ export function AIModelManager() {
   const loadModels = useCallback(async () => {
     try {
       console.log('Admin: loadModels 시작')
+      const models = await AIModelService.getActiveModels()
+      console.log('Admin: 로드된 모델 수:', models.length)
       
-      // 먼저 AIModelService 사용
-      console.log('Admin: AIModelService.getActiveModels() 호출')
-      const serviceModels = await AIModelService.getActiveModels()
-      console.log('Admin: AIModelService 결과:', serviceModels)
-      
-      // 직접 supabase 쿼리도 시도
-      console.log('Admin: 직접 supabase 쿼리 시도')
-      const { data: directModels, error: directError } = await supabase
-        .from('ai_models' as any)
-        .select(`
-          *,
-          provider:ai_model_providers(*)
-        `)
-        .eq('is_active', true)
-        .order('display_name')
-      
-      console.log('Admin: 직접 쿼리 결과:', directModels)
-      console.log('Admin: 직접 쿼리 오류:', directError)
-      
-      // 사용할 데이터 결정
-      const models = serviceModels || directModels || []
-      console.log('Admin: 최종 사용할 models:', models)
-      console.log('Admin: models 배열 길이:', models.length)
-      
-      // 데이터 구조 확인
-      if (models && models.length > 0) {
-        console.log('Admin: 첫 번째 모델 전체 구조:', JSON.stringify(models[0], null, 2))
-        models.forEach((model, index) => {
-          console.log(`Admin: Model ${index + 1}:`, {
-            id: model.id,
-            model_id: model.model_id,
-            display_name: model.display_name,
-            provider_id: model.provider_id,
-            provider: model.provider,
-            is_active: model.is_active
-          })
-        })
-      } else {
-        console.log('Admin: models 배열이 비어있거나 null입니다')
+      if (models.length > 0) {
+        console.log('Admin: 첫 번째 모델:', models[0])
       }
       
-      console.log('Admin: setModels 호출 전')
       setModels(models)
-      console.log('Admin: setModels 호출 완료')
     } catch (error) {
       console.error('Admin: loadModels 오류:', error)
+      setModels([])
     }
   }, [])
 
@@ -247,13 +211,7 @@ export function AIModelManager() {
     }
   }
 
-  const renderModelsTab = () => {
-    console.log('Admin: renderModelsTab 실행')
-    console.log('Admin: 현재 providers.length:', providers.length)
-    console.log('Admin: 현재 models.length:', models.length)
-    console.log('Admin: 현재 models 상태:', models)
-    
-    return (
+  const renderModelsTab = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">AI 모델 관리</h3>
@@ -263,7 +221,6 @@ export function AIModelManager() {
         </Button>
       </div>
       
-      {/* 모델이 없는 경우만 체크, providers는 무시 */}
       {models.length === 0 ? (
         <Card className="p-8 text-center">
           <IconRenderer icon="Bot" size={48} className="mx-auto mb-4 text-gray-400" {...({} as any)} />
@@ -277,7 +234,6 @@ export function AIModelManager() {
           </Button>
         </Card>
       ) : (
-        // 모든 모델을 직접 표시 (Provider 무관)
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -302,7 +258,7 @@ export function AIModelManager() {
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium">{model.display_name}</h4>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {model.provider?.display_name || model.provider?.name || 'Anthropic'}
+                      {model.provider?.display_name || model.provider?.name || 'Unknown'}
                     </span>
                     {model.is_default && (
                       <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
@@ -350,87 +306,8 @@ export function AIModelManager() {
           </div>
         </Card>
       )}
-
-      {/* Provider별 표시는 일단 주석 처리 */}
-      {false && providers.map(provider => {
-        // provider_id 또는 provider.id로 필터링 시도
-        const providerModels = models.filter(m => {
-          const modelProviderId = m.provider_id || (m.provider && m.provider.id)
-          return modelProviderId === provider.id
-        })
-        console.log(`Admin: Provider ${provider.display_name} (ID: ${provider.id}) has ${providerModels.length} models:`, providerModels) // 디버그용
-        
-        return (
-          <Card key={provider.id} className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold">{provider.display_name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{provider.description}</p>
-              </div>
-              <IconRenderer 
-                icon={provider.name === 'anthropic' ? 'Brain' : 'Cpu'} 
-                size={24} 
-                className="text-blue-600"
-                {...({} as any)}
-              />
-            </div>
-
-            <div className="space-y-3">
-              {providerModels.map(model => (
-                <div 
-                  key={model.id} 
-                  className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 dark:bg-gray-800"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{model.display_name}</h4>
-                      {model.is_default && (
-                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                          기본값
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {model.description}
-                    </p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      <span>컨텍스트: {model.context_window?.toLocaleString()}</span>
-                      <span>최대 출력: {model.max_output_tokens?.toLocaleString()}</span>
-                      {model.cost_per_1k_input_tokens && (
-                        <span>입력: ${model.cost_per_1k_input_tokens}/1K</span>
-                      )}
-                      {model.cost_per_1k_output_tokens && (
-                        <span>출력: ${model.cost_per_1k_output_tokens}/1K</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDefaultModel(model.id)}
-                      disabled={model.is_default}
-                    >
-                      기본값 설정
-                    </Button>
-                    <Button
-                      variant={model.is_active ? 'outline' : 'primary'}
-                      size="sm"
-                      onClick={() => toggleModelStatus(model.id, model.is_active)}
-                    >
-                      {model.is_active ? '비활성화' : '활성화'}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )
-      })}
     </div>
-    )
-  }
+  )
 
   const renderAPIKeysTab = () => (
     <div className="space-y-4">
