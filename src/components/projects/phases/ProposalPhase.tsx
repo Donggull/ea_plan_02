@@ -12,6 +12,7 @@ import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
+import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
 import { 
   FileText, 
   Plus, 
@@ -28,17 +29,19 @@ import {
   Target
 } from 'lucide-react'
 import type { MarketResearch, PersonaGenerationGuidance } from '@/types/market-research'
+import type { DevelopmentPlanningGuidance } from '@/types/proposal'
 
 interface ProposalPhaseProps {
   projectId: string
 }
 
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
-  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'market_research' | 'persona'>('rfp')
+  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'market_research' | 'persona' | 'proposal_writing'>('rfp')
   const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
   const [_personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
+  const [developmentGuidance, setDevelopmentGuidance] = useState<DevelopmentPlanningGuidance | null>(null)
   
   const { data: rfpDocs = [], isLoading: rfpLoading } = useRfpDocuments(projectId, 'proposal')
   const { data: tasks = [], isLoading: tasksLoading } = useProposalTasks(projectId)
@@ -140,6 +143,13 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     // 페르소나 가이던스 완료 후 추가 작업 가능
   }
 
+  const handleDevelopmentReady = (guidance: DevelopmentPlanningGuidance) => {
+    setDevelopmentGuidance(guidance)
+    // 개발 가이던스를 구축 관리 단계로 전달 (실제 구현에서는 상위 컴포넌트나 상태 관리)
+    console.log('Development guidance ready:', guidance)
+    // 여기서 구축 관리 단계로 전환 로직 추가
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-100'
@@ -224,6 +234,24 @@ disabled={false}
               ) : (
                 <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
                   독립실행
+                </span>
+              )}
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('proposal_writing')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'proposal_writing'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <PenTool className="h-4 w-4" />
+              제안서 작성
+              {developmentGuidance && (
+                <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">
+                  구축준비
                 </span>
               )}
             </div>
@@ -409,6 +437,18 @@ disabled={false}
             marketResearch={currentResearch}
             projectId={projectId}
             onGuidanceComplete={handlePersonaGuidanceComplete}
+          />
+        </div>
+      )}
+
+      {/* 제안서 작성 탭 */}
+      {activeTab === 'proposal_writing' && (
+        <div className="space-y-6">
+          <ProposalWritingDashboard
+            projectId={projectId}
+            rfpAnalysis={rfpDocs.find(doc => doc.status === 'completed')}
+            marketResearch={currentResearch}
+            onDevelopmentReady={handleDevelopmentReady}
           />
         </div>
       )}
