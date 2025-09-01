@@ -60,18 +60,10 @@ export function RequirementExtractor({
         console.log('Requirements Extraction: Added Authorization header')
       }
 
-      const response = await fetch(`/api/rfp/${analysisId}/requirements/extract`, {
-        method: 'POST',
+      const response = await fetch(`/api/rfp/${analysisId}/analysis`, {
+        method: 'GET',
         headers,
         credentials: 'include', // 쿠키 포함해서 전송
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          extraction_options: {
-            categorize_by_priority: true,
-            include_acceptance_criteria: true,
-            estimate_effort: true
-          }
-        })
       })
 
       if (!response.ok) {
@@ -81,12 +73,17 @@ export function RequirementExtractor({
 
       const result = await response.json()
       
+      // analysis API 응답 구조에 맞게 수정
+      const analysis = result.analysis
       setExtractedRequirements({
-        functional: result.functional_requirements || [],
-        nonFunctional: result.non_functional_requirements || []
+        functional: analysis.functional_requirements || [],
+        nonFunctional: analysis.non_functional_requirements || []
       })
       
-      onExtractComplete?.(result)
+      onExtractComplete?.({
+        functional_requirements: analysis.functional_requirements || [],
+        non_functional_requirements: analysis.non_functional_requirements || []
+      })
       
     } catch (error) {
       console.error('Requirements extraction error:', error)
