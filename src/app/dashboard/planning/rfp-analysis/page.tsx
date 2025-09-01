@@ -478,11 +478,6 @@ export default function RFPAnalysisPage() {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* AI 모델 선택기 */}
-              <AIModelSelector 
-                onModelSelect={(model) => setSelectedAIModel(model)}
-                showSettings={true}
-              />
               
               {analysisData && (
                 <div className="flex items-center space-x-4">
@@ -502,6 +497,27 @@ export default function RFPAnalysisPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* AI 모델 선택 */}
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center space-x-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">AI 모델:</span>
+              <AIModelSelector 
+                onModelSelect={(model) => setSelectedAIModel(model)}
+                showSettings={false}
+                className="min-w-[200px]"
+              />
+            </div>
+            
+            {selectedAIModel && (
+              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                <span>선택된 모델:</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {selectedAIModel.display_name}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 프로세스 진행 표시 */}

@@ -62,7 +62,7 @@ export class AIModelService {
       return this.getDefaultModel()
     }
 
-    return (data as any).model
+    return (data as any).model.model
   }
 
   // 기본 모델 가져오기
@@ -83,7 +83,7 @@ export class AIModelService {
       return models[0] || null
     }
 
-    return (data as any)
+    return data as any
   }
 
   // 사용자 선호 모델 설정
@@ -131,7 +131,7 @@ export class AIModelService {
       return null
     }
 
-    return (data as any)
+    return data as any
   }
 
   // API 키 저장 (Admin용)
@@ -186,9 +186,9 @@ export class AIModelService {
       console.error('Error fetching model:', modelError)
       return null
     }
-    
-    const typedModel = model as any
 
+    const typedModel = model as any
+    
     // API 키 가져오기
     const apiKey = await this.getAPIKey(typedModel.provider_id, organizationId)
     

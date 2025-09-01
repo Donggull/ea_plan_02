@@ -190,8 +190,8 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
                       {model.description}
                     </p>
                     <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                      <span>컨텍스트: {model.context_window?.toLocaleString()}</span>
-                      <span>최대: {model.max_output_tokens?.toLocaleString()}</span>
+                      <span>컨텍스트: {model.context_window?.toLocaleString() || 'N/A'}</span>
+                      <span>최대: {model.max_output_tokens?.toLocaleString() || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
