@@ -39,26 +39,28 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       }
 
       try {
-        // 사용자의 super admin 권한 확인
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role, permissions')
-          .eq('id', user.id)
+        // 사용자의 관리자 권한 확인 (users 테이블 사용)
+        const { data: userProfile, error } = await supabase
+          .from('users')
+          .select('role, user_role, email')
+          .eq('email', user.email)
           .single()
 
-        if (error || !profile) {
-          console.error('프로필 조회 오류:', error)
+        if (error || !userProfile) {
+          console.error('사용자 조회 오류:', error)
           router.push('/')
           return
         }
 
-        // super admin 또는 admin 권한 확인
-        const isSuperAdmin = profile.role === 'super_admin'
-        const hasAdminPermission = profile.permissions?.includes('admin_access')
+        // owner, admin 또는 super_admin 권한 확인
+        const isOwner = userProfile.role === 'owner'
+        const isAdmin = userProfile.role === 'admin' || userProfile.role === 'super_admin'
+        const hasAdminUserRole = userProfile.user_role === 'admin' || userProfile.user_role === 'super_admin'
 
-        if (isSuperAdmin || hasAdminPermission) {
+        if (isOwner || isAdmin || hasAdminUserRole) {
           setIsAuthorized(true)
         } else {
+          console.log('관리자 권한 없음:', userProfile)
           router.push('/')
         }
       } catch (error) {
