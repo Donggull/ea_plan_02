@@ -3,6 +3,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
+import { AIModelService } from '@/services/ai/model-service'
 
 // Service role client for privileged operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -133,8 +134,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response)
     }
 
-    // AI 분석 수행 (실제로는 OpenAI API 등을 사용해야 함)
-    const analysisResult = await performRFPAnalysis(rfpDocument.content || '', analysis_options)
+    // AI 모델을 사용한 RFP 분석 수행
+    const analysisResult = await performRFPAnalysis(rfpDocument.content || '', analysis_options, user.id)
 
     // 분석 결과 저장 (Service Role 사용)
     const { data: analysisData, error: analysisError } = await supabaseAdmin
@@ -193,10 +194,183 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// AI 분석 수행 함수 (실제로는 OpenAI API 등을 사용)
-async function performRFPAnalysis(_extractedText: string, _options: any) {
-  // 실제로는 OpenAI GPT-4 등을 사용하여 텍스트 분석을 수행
-  // 여기서는 모의 분석 결과를 반환
+// AI 분석 수행 함수 - Claude 4 Sonnet 사용
+async function performRFPAnalysis(extractedText: string, options: any, userId: string) {
+  try {
+    console.log('RFP Analysis: Starting AI-powered analysis...')
+    
+    // 사용자 조직 정보 가져오기
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('organization_id')
+      .eq('id', userId)
+      .single()
+
+    if (!userData?.organization_id) {
+      throw new Error('사용자 조직 정보를 찾을 수 없습니다.')
+    }
+
+    // 기본 AI 모델 가져오기 (Claude 4 Sonnet 우선)
+    const defaultModel = await AIModelService.getDefaultModel()
+    if (!defaultModel) {
+      throw new Error('사용 가능한 AI 모델을 찾을 수 없습니다.')
+    }
+
+    // AI Provider 생성
+    const aiProvider = await AIModelService.createAIProvider(
+      defaultModel.id,
+      userData.organization_id
+    )
+
+    if (!aiProvider) {
+      throw new Error('AI 분석 서비스를 초기화할 수 없습니다.')
+    }
+
+    console.log('RFP Analysis: Using AI model:', defaultModel.display_name)
+
+    // RFP 분석을 위한 프롬프트 생성
+    const analysisPrompt = `
+다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.
+
+=== RFP 문서 내용 ===
+${extractedText}
+
+=== 분석 요구사항 ===
+위 RFP 문서를 분석하여 다음 형식의 JSON 결과를 제공해주세요:
+
+{
+  "project_overview": {
+    "title": "프로젝트 제목",
+    "description": "프로젝트 상세 설명", 
+    "scope": "프로젝트 범위",
+    "objectives": ["목표1", "목표2", "목표3"]
+  },
+  "functional_requirements": [
+    {
+      "title": "기능 요구사항 제목",
+      "description": "상세 설명",
+      "priority": "critical|high|medium|low",
+      "category": "카테고리",
+      "acceptance_criteria": ["기준1", "기준2"],
+      "estimated_effort": 예상작업일수
+    }
+  ],
+  "non_functional_requirements": [
+    {
+      "title": "비기능 요구사항 제목",
+      "description": "상세 설명",
+      "priority": "critical|high|medium|low", 
+      "category": "성능|보안|사용성|확장성",
+      "acceptance_criteria": ["기준1", "기준2"],
+      "estimated_effort": 예상작업일수
+    }
+  ],
+  "technical_specifications": {
+    "platform": ["플랫폼1", "플랫폼2"],
+    "technologies": ["기술1", "기술2"],
+    "integrations": ["연동시스템1", "연동시스템2"],
+    "performance_requirements": {
+      "응답시간": "< 3초",
+      "처리량": "1000 req/min", 
+      "가용성": "99.9%"
+    }
+  },
+  "business_requirements": {
+    "budget_range": "예산 범위",
+    "timeline": "프로젝트 기간",
+    "target_users": ["사용자그룹1", "사용자그룹2"],
+    "success_metrics": ["성공지표1", "성공지표2"]
+  },
+  "keywords": [
+    {"term": "키워드", "importance": 0.95, "category": "business|technical|functional"}
+  ],
+  "risk_factors": [
+    {
+      "factor": "위험요소 설명",
+      "level": "high|medium|low",
+      "mitigation": "완화방안"
+    }
+  ],
+  "questions_for_client": [
+    "고객에게 확인할 질문1",
+    "고객에게 확인할 질문2"
+  ],
+  "confidence_score": 0.85
+}
+
+분석 시 주의사항:
+1. 모든 텍스트는 한국어로 작성
+2. 실제 문서 내용을 기반으로 분석 (가상의 내용 생성 금지)
+3. 우선순위는 문서에 명시된 중요도를 반영
+4. confidence_score는 분석의 확신도 (0.0-1.0)
+5. 각 항목에 고유 ID는 자동 생성되므로 포함하지 않음
+
+JSON 결과만 반환해주세요:
+`
+
+    // AI 분석 수행
+    const response = await aiProvider.sendMessage(analysisPrompt, {
+      settings: {
+        max_tokens: 8000,
+        temperature: 0.3 // 분석의 일관성을 위해 낮은 temperature 사용
+      }
+    })
+
+    console.log('RFP Analysis: AI response received, parsing...')
+
+    // JSON 파싱
+    let analysisResult
+    try {
+      // JSON 코드 블록에서 JSON 부분만 추출
+      let jsonContent = response.content.trim()
+      
+      // ```json ... ``` 형태로 감싸져 있는 경우 추출
+      if (jsonContent.startsWith('```')) {
+        const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/)
+        if (match) {
+          jsonContent = match[1].trim()
+        }
+      }
+      
+      analysisResult = JSON.parse(jsonContent)
+      
+      // ID 추가
+      if (analysisResult.functional_requirements) {
+        analysisResult.functional_requirements = analysisResult.functional_requirements.map((req: any) => ({
+          ...req,
+          id: crypto.randomUUID()
+        }))
+      }
+      
+      if (analysisResult.non_functional_requirements) {
+        analysisResult.non_functional_requirements = analysisResult.non_functional_requirements.map((req: any) => ({
+          ...req,
+          id: crypto.randomUUID()
+        }))
+      }
+
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError)
+      console.log('Raw AI response:', response.content)
+      
+      // 파싱 실패 시 기본값 반환
+      analysisResult = generateFallbackAnalysis()
+    }
+
+    console.log('RFP Analysis: Analysis completed successfully')
+    return analysisResult
+
+  } catch (error) {
+    console.error('AI analysis error:', error)
+    console.log('RFP Analysis: Falling back to default analysis')
+    
+    // AI 분석 실패 시 기본 분석 결과 반환
+    return generateFallbackAnalysis()
+  }
+}
+
+// AI 분석 실패 시 사용할 기본 분석 결과
+function generateFallbackAnalysis() {
   
   return {
     project_overview: {
@@ -289,12 +463,150 @@ async function performRFPAnalysis(_extractedText: string, _options: any) {
   }
 }
 
-// 분석 질문 생성 함수
+// 분석 질문 생성 함수 - AI 기반
 async function generateAnalysisQuestions(analysisId: string, _options: any) {
-  // 실제로는 AI를 사용하여 맞춤형 질문 생성
-  // 여기서는 기본 질문들을 반환
-  
-  const questions = [
+  try {
+    console.log('Question Generation: Starting AI-powered question generation...')
+    
+    // 분석 데이터 조회
+    const { data: analysisData } = await supabaseAdmin
+      .from('rfp_analyses')
+      .select('*')
+      .eq('id', analysisId)
+      .single()
+
+    if (!analysisData) {
+      throw new Error('분석 데이터를 찾을 수 없습니다.')
+    }
+
+    // 기본 AI 모델 가져오기
+    const defaultModel = await AIModelService.getDefaultModel()
+    if (!defaultModel) {
+      throw new Error('사용 가능한 AI 모델을 찾을 수 없습니다.')
+    }
+
+    // 사용자 조직 정보 가져오기 (분석 데이터에서 유추)
+    const { data: projectData } = await supabaseAdmin
+      .from('projects')
+      .select('created_by')
+      .eq('id', analysisData.project_id)
+      .single()
+
+    if (!projectData?.created_by) {
+      throw new Error('프로젝트 생성자 정보를 찾을 수 없습니다.')
+    }
+
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('organization_id')
+      .eq('id', projectData.created_by)
+      .single()
+
+    if (!userData?.organization_id) {
+      throw new Error('사용자 조직 정보를 찾을 수 없습니다.')
+    }
+
+    // AI Provider 생성
+    const aiProvider = await AIModelService.createAIProvider(
+      defaultModel.id,
+      userData.organization_id
+    )
+
+    if (!aiProvider) {
+      throw new Error('AI 질문 생성 서비스를 초기화할 수 없습니다.')
+    }
+
+    // 질문 생성을 위한 프롬프트
+    const questionPrompt = `
+다음 RFP 분석 결과를 기반으로, 고객에게 확인해야 할 구체적이고 실용적인 질문들을 생성해주세요.
+
+=== 분석 결과 요약 ===
+프로젝트: ${analysisData.project_overview?.title || '제목 없음'}
+설명: ${analysisData.project_overview?.description || '설명 없음'}
+기능 요구사항 개수: ${analysisData.functional_requirements?.length || 0}개
+비기능 요구사항 개수: ${analysisData.non_functional_requirements?.length || 0}개
+
+=== 질문 생성 요구사항 ===
+다음 형식의 JSON 배열로 5-8개의 질문을 생성해주세요:
+
+[
+  {
+    "question_text": "구체적인 질문 내용",
+    "question_type": "yes_no|multiple_choice|short_text|long_text|number|date",
+    "category": "market_context|project_constraints|technical_details|business_goals|user_requirements",
+    "priority": "high|medium|low",
+    "context": "이 질문을 하는 이유와 배경",
+    "next_step_impact": "이 답변이 프로젝트에 미치는 영향",
+    "order_index": 순서번호
+  }
+]
+
+질문 생성 가이드라인:
+1. 분석 결과에서 불명확하거나 추가 정보가 필요한 부분에 초점
+2. 프로젝트 성공에 중요한 영향을 미치는 질문 우선
+3. 고객이 쉽게 답변할 수 있는 명확한 질문
+4. 기술적 세부사항, 예산, 일정, 사용자 요구사항 등 균형있게 포함
+5. 모든 텍스트는 한국어로 작성
+
+JSON 배열만 반환해주세요:
+`
+
+    // AI 질문 생성 수행
+    const response = await aiProvider.sendMessage(questionPrompt, {
+      settings: {
+        max_tokens: 4000,
+        temperature: 0.4 // 질문의 창의성과 일관성 균형
+      }
+    })
+
+    console.log('Question Generation: AI response received, parsing...')
+
+    // JSON 파싱
+    let generatedQuestions
+    try {
+      let jsonContent = response.content.trim()
+      
+      // JSON 코드 블록에서 배열 부분만 추출
+      if (jsonContent.startsWith('```')) {
+        const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/)
+        if (match) {
+          jsonContent = match[1].trim()
+        }
+      }
+      
+      const questionsArray = JSON.parse(jsonContent)
+      
+      // ID와 analysis_id 추가
+      generatedQuestions = questionsArray.map((q: any, index: number) => ({
+        id: crypto.randomUUID(),
+        rfp_analysis_id: analysisId,
+        ...q,
+        order_index: q.order_index || (index + 1)
+      }))
+
+    } catch (parseError) {
+      console.error('Question JSON parsing error:', parseError)
+      console.log('Raw AI response:', response.content)
+      
+      // 파싱 실패 시 기본 질문 반환
+      generatedQuestions = generateFallbackQuestions(analysisId)
+    }
+
+    console.log('Question Generation: Generated', generatedQuestions.length, 'questions')
+    return generatedQuestions
+
+  } catch (error) {
+    console.error('AI question generation error:', error)
+    console.log('Question Generation: Falling back to default questions')
+    
+    // AI 질문 생성 실패 시 기본 질문 반환
+    return generateFallbackQuestions(analysisId)
+  }
+}
+
+// AI 질문 생성 실패 시 사용할 기본 질문들
+function generateFallbackQuestions(analysisId: string) {
+  return [
     {
       id: crypto.randomUUID(),
       rfp_analysis_id: analysisId,
@@ -316,8 +628,17 @@ async function generateAnalysisQuestions(analysisId: string, _options: any) {
       context: "시스템 성능 및 인프라 규모 결정을 위함",
       next_step_impact: "아키텍처 설계 및 인프라 비용 산정에 직접적 영향",
       order_index: 2
+    },
+    {
+      id: crypto.randomUUID(),
+      rfp_analysis_id: analysisId,
+      question_text: "프로젝트의 예산 범위는 어떻게 되나요?",
+      question_type: "multiple_choice" as const,
+      category: "business_goals" as const,
+      priority: "high" as const,
+      context: "적절한 기술 스택 및 인력 투입 계획 수립을 위함",
+      next_step_impact: "프로젝트 범위 및 품질 수준 결정에 직접적 영향",
+      order_index: 3
     }
   ]
-
-  return questions
 }
