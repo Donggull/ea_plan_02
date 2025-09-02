@@ -476,29 +476,60 @@ JSON 결과만 반환해주세요:
     return analysisResult
 
   } catch (error) {
-    console.error('RFP Analysis: AI analysis failed with error:', error)
+    console.error('🚨 RFP Analysis: AI analysis failed with error:', error)
     console.error('RFP Analysis: Error type:', error?.constructor?.name)
     console.error('RFP Analysis: Error message:', error instanceof Error ? error.message : String(error))
     console.error('RFP Analysis: Error stack:', error instanceof Error ? error.stack : undefined)
     
-    // 구체적인 오류 원인 파악
+    // 더 상세한 오류 정보 로깅
+    console.error('RFP Analysis: Detailed error info:', {
+      name: error?.constructor?.name,
+      message: error instanceof Error ? error.message : String(error),
+      cause: (error as any)?.cause,
+      response: (error as any)?.response,
+      status: (error as any)?.status,
+      code: (error as any)?.code,
+    })
+    
+    // 구체적인 오류 원인 파악 및 분류
     if (error instanceof Error) {
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        console.error('RFP Analysis: AI API 키 인증 실패')
-        throw new Error('AI API 키 인증에 실패했습니다. 환경 변수를 확인해주세요.')
-      } else if (error.message.includes('quota') || error.message.includes('limit')) {
-        console.error('RFP Analysis: AI API 할당량 초과')
+      const errorMsg = error.message.toLowerCase()
+      
+      if (errorMsg.includes('401') || errorMsg.includes('unauthorized') || errorMsg.includes('invalid') || errorMsg.includes('api key')) {
+        console.error('🔑 RFP Analysis: AI API 키 인증 실패 - API 키가 없거나 유효하지 않음')
+        throw new Error('AI API 키 인증에 실패했습니다. Vercel 환경 변수에서 ANTHROPIC_API_KEY를 확인해주세요.')
+      } else if (errorMsg.includes('quota') || errorMsg.includes('limit') || errorMsg.includes('rate') || errorMsg.includes('429')) {
+        console.error('📊 RFP Analysis: AI API 할당량 또는 요청 한도 초과')
         throw new Error('AI API 사용 할당량을 초과했습니다. 잠시 후 다시 시도해주세요.')
-      } else if (error.message.includes('network') || error.message.includes('timeout')) {
-        console.error('RFP Analysis: 네트워크 오류')
-        throw new Error('네트워크 오류가 발생했습니다. 연결 상태를 확인해주세요.')
+      } else if (errorMsg.includes('network') || errorMsg.includes('timeout') || errorMsg.includes('econnreset') || errorMsg.includes('fetch')) {
+        console.error('🌐 RFP Analysis: 네트워크 연결 오류')
+        throw new Error('네트워크 오류가 발생했습니다. 인터넷 연결 상태를 확인해주세요.')
+      } else if (errorMsg.includes('no api key found') || errorMsg.includes('missing') || errorMsg.includes('undefined')) {
+        console.error('❌ RFP Analysis: API 키 환경 변수 누락')
+        throw new Error('AI API 키가 설정되지 않았습니다. Vercel Dashboard에서 ANTHROPIC_API_KEY 환경 변수를 설정해주세요.')
+      } else if (errorMsg.includes('model not found') || errorMsg.includes('provider')) {
+        console.error('🤖 RFP Analysis: AI 모델 또는 제공자 설정 오류')
+        throw new Error('AI 모델 설정에 문제가 있습니다. 모델 설정을 확인해주세요.')
       }
+      
+      console.error('❓ RFP Analysis: 분류되지 않은 오류:', errorMsg)
     }
     
-    console.log('RFP Analysis: Falling back to default analysis due to unknown error')
+    console.warn('⚠️ RFP Analysis: 알 수 없는 오류로 인해 목업 데이터를 반환합니다.')
+    console.warn('RFP Analysis: 실제 AI 분석을 위해 다음을 확인하세요:')
+    console.warn('1. Vercel Dashboard > Settings > Environment Variables > ANTHROPIC_API_KEY')
+    console.warn('2. API 키 형식: sk-ant-api03-...')
+    console.warn('3. API 키 유효성: https://console.anthropic.com에서 확인')
     
-    // 알 수 없는 오류 시에만 목업 데이터 반환 (임시)
-    return generateFallbackAnalysis()
+    // 목업 데이터에 오류 정보 포함
+    const fallback = generateFallbackAnalysis()
+    fallback._errorInfo = {
+      originalError: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+      suggestedAction: 'Vercel 환경 변수에서 ANTHROPIC_API_KEY를 확인하고 https://your-domain.vercel.app/api/ai/test-env 에서 환경 변수 상태를 확인하세요.'
+    }
+    
+    return fallback
   }
 }
 

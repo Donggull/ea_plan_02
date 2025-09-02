@@ -126,12 +126,38 @@ export function RequirementExtractor({
       
       if (hasMockData) {
         console.error('🚨 MOCK DATA DETECTED: AI 분석이 실패하여 목업 데이터가 반환되었습니다.')
-        console.error('가능한 원인:')
-        console.error('1. AI API 키 인증 문제')
-        console.error('2. AI API 할당량 초과')
-        console.error('3. 네트워크 연결 문제')
-        console.error('4. AI 응답 JSON 파싱 실패')
-        console.error('5. 실제 RFP 내용 분석 실패')
+        
+        // 서버에서 전달된 오류 정보가 있는지 확인
+        const errorInfo = analysis?._errorInfo
+        if (errorInfo) {
+          console.error('📋 서버 오류 정보:', {
+            originalError: errorInfo.originalError,
+            timestamp: errorInfo.timestamp,
+            suggestedAction: errorInfo.suggestedAction
+          })
+          console.error('🔧 권장 조치:', errorInfo.suggestedAction)
+        }
+        
+        console.error('🕵️ 가능한 원인 및 해결 방법:')
+        console.error('1. 🔑 AI API 키 인증 문제')
+        console.error('   ➤ Vercel Dashboard → Settings → Environment Variables → ANTHROPIC_API_KEY 확인')
+        console.error('   ➤ API 키 형식: sk-ant-api03-...')
+        console.error('   ➤ 테스트 URL: https://your-domain.vercel.app/api/ai/test-env')
+        console.error('2. 📊 AI API 할당량 초과')
+        console.error('   ➤ Anthropic Console에서 사용량 및 결제 상태 확인')
+        console.error('   ➤ URL: https://console.anthropic.com')
+        console.error('3. 🌐 네트워크 연결 문제')
+        console.error('   ➤ 인터넷 연결 상태 확인')
+        console.error('   ➤ Vercel 서버에서 외부 API 접근 가능한지 확인')
+        console.error('4. 🔧 AI 응답 JSON 파싱 실패')
+        console.error('   ➤ AI 모델 응답 형식이 예상과 다를 때 발생')
+        console.error('   ➤ 프롬프트 개선 또는 응답 파싱 로직 수정 필요')
+        console.error('5. 📄 실제 RFP 내용 분석 실패')
+        console.error('   ➤ RFP 문서가 너무 크거나 복잡할 때 발생')
+        console.error('   ➤ 문서 내용을 간소화하거나 분할 처리 고려')
+        
+        console.warn('⚠️ 현재 목업 데이터로 인해 요구사항이 표시되지 않습니다.')
+        console.warn('🛠️ 실제 AI 분석 결과를 보려면 위의 해결 방법을 시도해보세요.')
         
         // 목업 데이터인 경우 요구사항을 빈 상태로 유지
         setExtractedRequirements({
