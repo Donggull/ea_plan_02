@@ -19,7 +19,7 @@ interface RequirementExtractorProps {
 
 export function RequirementExtractor({
   analysisId,
-  analysis,
+  analysis: _analysis,
   onExtractComplete,
   onExtractError,
   className,

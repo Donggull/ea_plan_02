@@ -589,7 +589,7 @@ function generateFallbackAnalysis() {
 }
 
 // 분석 질문 생성 함수 - 환경변수 직접 사용으로 간소화
-async function generateAnalysisQuestions(analysisId: string, _options: any, selectedModelId?: string | null) {
+async function generateAnalysisQuestions(analysisId: string, _options: any, _selectedModelId?: string | null) {
   try {
     console.log('Question Generation: Starting AI-powered question generation...')
     
