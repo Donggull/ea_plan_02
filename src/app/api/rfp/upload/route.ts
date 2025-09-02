@@ -180,10 +180,8 @@ export async function POST(request: NextRequest) {
           const pdfData = await pdfParse(buffer, {
             // PDF 파싱 옵션 추가
             max: 0, // 페이지 수 제한 없음
-            version: 'v1.10.100', // 버전 명시
-            normalizeWhitespace: false,
-            disableCombineTextItems: false
-          })
+            version: 'v1.10.100' // 버전 명시
+          } as any)
           
           extractedText = pdfData.text || ''
           console.log('RFP Upload: PDF extracted successfully, pages:', pdfData.numpages, 'text length:', extractedText.length)

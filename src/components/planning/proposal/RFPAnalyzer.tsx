@@ -91,7 +91,7 @@ export function RFPAnalyzer({
         try {
           errorData = await response.json()
           console.error('RFP Analysis: Error data:', errorData)
-        } catch (e) {
+        } catch (_e) {
           console.error('RFP Analysis: Could not parse error response as JSON')
           const textError = await response.text()
           console.error('RFP Analysis: Error text:', textError)
