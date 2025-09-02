@@ -203,15 +203,29 @@ export async function POST(request: NextRequest) {
 async function performRFPAnalysis(extractedText: string, options: any, userId: string, selectedModelId?: string | null) {
   try {
     console.log('RFP Analysis: Starting AI-powered analysis...')
+    console.log('RFP Analysis: Input parameters:', {
+      extractedTextLength: extractedText.length,
+      userId,
+      selectedModelId,
+      hasOptions: !!options
+    })
     
     // 사용자 조직 정보 가져오기
-    const { data: userData } = await supabaseAdmin
+    console.log('RFP Analysis: Fetching user organization...')
+    const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .select('organization_id')
       .eq('id', userId)
       .single()
 
+    console.log('RFP Analysis: User data result:', {
+      userData,
+      userError,
+      hasOrgId: !!userData?.organization_id
+    })
+
     if (!userData?.organization_id) {
+      console.error('RFP Analysis: No organization ID found for user:', userId)
       throw new Error('사용자 조직 정보를 찾을 수 없습니다.')
     }
 
@@ -248,17 +262,21 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
     console.log('RFP Analysis: User organization ID:', userData.organization_id)
     console.log('RFP Analysis: Model details:', JSON.stringify({
       id: selectedModel.id,
+      model_id: selectedModel.model_id,
       display_name: selectedModel.display_name,
       provider: selectedModel.provider
     }, null, 2))
     
+    console.log('RFP Analysis: Calling AIModelService.createAIProvider...')
     const aiProvider = await AIModelService.createAIProvider(
       selectedModel.id,
       userData.organization_id
     )
 
+    console.log('RFP Analysis: AI Provider creation result:', !!aiProvider)
+
     if (!aiProvider) {
-      console.error('RFP Analysis: Failed to create AI Provider')
+      console.error('RFP Analysis: Failed to create AI Provider - aiProvider is null')
       throw new Error('AI 분석 서비스를 초기화할 수 없습니다.')
     }
 
@@ -352,6 +370,7 @@ JSON 결과만 반환해주세요:
       temperature: 0.3
     })
     
+    console.log('RFP Analysis: Calling aiProvider.sendMessage...')
     const response = await aiProvider.sendMessage(analysisPrompt, {
       settings: {
         max_tokens: 8000,
@@ -359,9 +378,13 @@ JSON 결과만 반환해주세요:
       }
     })
 
-    console.log('RFP Analysis: AI response received')
-    console.log('RFP Analysis: Response length:', response.content.length)
-    console.log('RFP Analysis: Response usage:', JSON.stringify(response.usage, null, 2))
+    console.log('RFP Analysis: AI response received successfully')
+    console.log('RFP Analysis: Response details:', {
+      contentLength: response.content.length,
+      usage: response.usage,
+      model: response.model,
+      finishReason: response.finish_reason
+    })
     console.log('RFP Analysis: Response content preview (first 500 chars):', response.content.substring(0, 500))
     console.log('RFP Analysis: Starting JSON parsing...')
 
@@ -430,7 +453,10 @@ JSON 결과만 반환해주세요:
     return analysisResult
 
   } catch (error) {
-    console.error('AI analysis error:', error)
+    console.error('RFP Analysis: AI analysis failed with error:', error)
+    console.error('RFP Analysis: Error type:', error?.constructor?.name)
+    console.error('RFP Analysis: Error message:', error?.message)
+    console.error('RFP Analysis: Error stack:', error?.stack)
     console.log('RFP Analysis: Falling back to default analysis')
     
     // AI 분석 실패 시 기본 분석 결과 반환
