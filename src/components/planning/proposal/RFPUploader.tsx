@@ -188,10 +188,17 @@ export function RFPUploader({
             <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
               <p>지원 형식: PDF, DOC, DOCX, TXT, MD, RTF</p>
               <p>최대 크기: 50MB</p>
-              <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded text-amber-700 dark:text-amber-300">
-                <p className="font-medium">💡 최적의 텍스트 추출을 위한 권장사항:</p>
-                <p>• 텍스트 파일(.txt) 또는 Word 문서(.docx) 권장</p>
-                <p>• PDF 사용 시 텍스트 기반 파일이어야 함 (이미지 스캔본 제외)</p>
+              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded text-blue-800 dark:text-blue-200">
+                <p className="font-medium mb-2">🚀 가장 확실한 방법 (권장):</p>
+                <div className="text-sm space-y-1">
+                  <p><strong>1. PDF → 텍스트 변환:</strong></p>
+                  <p className="ml-3">• PDF 열기 → 전체 선택(Ctrl+A) → 복사(Ctrl+C)</p>
+                  <p className="ml-3">• 메모장 열기 → 붙여넣기(Ctrl+V) → .txt로 저장</p>
+                  <p><strong>2. 또는 Word 문서(.docx) 사용</strong></p>
+                </div>
+              </div>
+              <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded text-amber-700 dark:text-amber-300">
+                <p className="text-xs">⚠️ PDF 업로드는 파일에 따라 텍스트 추출이 제한적일 수 있습니다.</p>
               </div>
             </div>
           )}

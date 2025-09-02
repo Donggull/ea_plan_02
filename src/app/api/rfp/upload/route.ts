@@ -185,46 +185,72 @@ export async function POST(request: NextRequest) {
             console.error('RFP Upload: File is not a valid PDF')
             extractedText = `[${file.name}] 유효한 PDF 파일이 아닙니다.`
           } else {
-            // pdf-parse 시도
+            // PDF 텍스트 추출 - pdf-parse 라이브러리 문제로 인해 우회 방법 사용
+            console.log('RFP Upload: Skipping pdf-parse due to compatibility issues, using alternative extraction')
+            
+            // 직접 텍스트 추출 시도
             try {
-              console.log('RFP Upload: Attempting pdf-parse...')
-              const pdfParse = (await import('pdf-parse')).default
+              // PDF 내용에서 텍스트 스트림 찾기
+              const pdfString = buffer.toString('binary')
               
-              // 최소한의 옵션으로 시도
-              const pdfData = await pdfParse(buffer)
+              // PDF 텍스트 객체 찾기 (간단한 방법)
+              const textStreams = []
               
-              if (pdfData && pdfData.text) {
-                extractedText = pdfData.text
-                console.log('RFP Upload: PDF parsed successfully, text length:', extractedText.length)
-                
-                // 추출된 텍스트가 너무 짧으면 경고
-                if (extractedText.length < 50) {
-                  console.warn('RFP Upload: Extracted text seems too short')
-                  extractedText = `[경고: 추출된 텍스트가 매우 짧습니다]\n\n${extractedText}\n\n원본 파일명: ${file.name}\n\n만약 내용이 부족하다면 다음을 시도해보세요:\n1. PDF를 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
+              // BT...ET (텍스트 블록) 패턴 찾기
+              const textBlocks = pdfString.match(/BT\s+.*?ET/gs)
+              if (textBlocks) {
+                for (const block of textBlocks) {
+                  // 텍스트 내용 추출
+                  const textContent = block.match(/\((.*?)\)/g)
+                  if (textContent) {
+                    for (const text of textContent) {
+                      const cleanText = text.replace(/[()]/g, '')
+                      if (cleanText.length > 2) {
+                        textStreams.push(cleanText)
+                      }
+                    }
+                  }
                 }
-              } else {
-                console.error('RFP Upload: pdf-parse returned no text')
-                extractedText = `[${file.name}] PDF 파싱은 성공했으나 텍스트를 찾을 수 없습니다. 이미지 기반 PDF일 수 있습니다.`
               }
-            } catch (parseError: any) {
-              console.error('RFP Upload: pdf-parse failed:', parseError?.message || parseError)
               
-              // 특정 오류 메시지 확인
-              if (parseError?.message?.includes('version') || parseError?.message?.includes('test/data')) {
-                console.log('RFP Upload: Known pdf-parse issue detected, using fallback')
-                extractedText = `[${file.name}] PDF 라이브러리 호환성 문제가 발생했습니다.\n\n권장 해결 방법:\n1. PDF를 텍스트 파일(.txt)로 저장하여 업로드\n2. PDF 내용을 복사하여 Word 문서(.docx)로 저장 후 업로드\n3. 온라인 PDF 변환 도구를 사용하여 텍스트로 변환 후 업로드\n\n원본 파일명: ${file.name}`
-              } else {
-                // 기본 텍스트 추출 시도
-                const textContent = buffer.toString('utf-8', 0, Math.min(buffer.length, 10000))
-                const cleanText = textContent.replace(/[^\x20-\x7E\n\r가-힣ㄱ-ㅎㅏ-ㅣ]/g, ' ').trim()
+              // 스트림 내 텍스트 찾기 (다른 방법)
+              if (textStreams.length === 0) {
+                const streamMatches = pdfString.match(/stream\s+(.*?)\s+endstream/gs)
+                if (streamMatches) {
+                  for (const stream of streamMatches) {
+                    // UTF-8로 디코딩 시도
+                    const utf8Text = stream.replace(/stream\s+|\s+endstream/g, '')
+                    const decoded = utf8Text.replace(/[^\x20-\x7E가-힣ㄱ-ㅎㅏ-ㅣ\s]/g, ' ')
+                    if (decoded.trim().length > 10) {
+                      textStreams.push(decoded.trim())
+                    }
+                  }
+                }
+              }
+              
+              if (textStreams.length > 0) {
+                extractedText = textStreams.join('\n').trim()
+                console.log('RFP Upload: Alternative PDF extraction successful, streams found:', textStreams.length, 'total length:', extractedText.length)
                 
-                if (cleanText.length > 100) {
-                  extractedText = `[부분 추출]\n${cleanText}\n\n[참고: PDF 전체 내용을 추출하지 못했을 수 있습니다]`
-                  console.log('RFP Upload: Partial text extraction, length:', cleanText.length)
+                // 추출된 텍스트 정리
+                extractedText = extractedText
+                  .replace(/\s+/g, ' ')  // 여러 공백을 하나로
+                  .replace(/(.)\1{5,}/g, '$1')  // 반복 문자 정리
+                  .trim()
+                
+                if (extractedText.length < 100) {
+                  extractedText = `[제한적 추출 성공]\n\n${extractedText}\n\n참고: PDF에서 일부 텍스트만 추출되었습니다.\n원본 파일명: ${file.name}\n\n더 완전한 추출을 위해:\n1. PDF를 열어서 텍스트를 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
                 } else {
-                  extractedText = `[${file.name}] PDF 텍스트 추출 실패\n\n오류: ${parseError?.message || '알 수 없는 오류'}\n\n해결 방법:\n1. PDF를 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. PDF 내용을 복사하여 텍스트 파일로 저장 후 업로드`
+                  extractedText = `[PDF 텍스트 추출 성공]\n\n${extractedText}\n\n원본 파일명: ${file.name}`
                 }
+              } else {
+                console.log('RFP Upload: No text streams found in PDF')
+                extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF\n• 암호화된 PDF\n• 특수 형식의 PDF\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n\n원본 파일명: ${file.name}`
               }
+              
+            } catch (extractError: any) {
+              console.error('RFP Upload: Alternative PDF extraction failed:', extractError)
+              extractedText = `[${file.name}] PDF 처리 실패\n\n현재 사용 중인 PDF 파일의 형식이 시스템과 호환되지 않습니다.\n\n즉시 해결 방법:\n1. **가장 쉬운 방법**: PDF를 열어서 모든 내용을 복사(Ctrl+A, Ctrl+C)한 후 메모장에 붙여넣기하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word(.docx)로 변환 후 업로드\n\n원본 파일명: ${file.name}`
             }
           }
         } catch (error: any) {
