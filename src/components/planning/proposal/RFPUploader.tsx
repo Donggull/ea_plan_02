@@ -234,176 +234,217 @@ export function RFPUploader({
         </div>
       </Card>
 
-      {/* 메타데이터 입력 */}
-      <div className="space-y-4">
-        <div>
-          <Input
-            label="RFP 제목 *"
-            placeholder="예: 전자정부 시스템 구축 RFP"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={disabled || uploading}
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            설명 (선택사항)
-          </label>
-          <textarea
-            className={cn(
-              'w-full h-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
-              'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'placeholder:text-gray-500 dark:placeholder:text-gray-400'
-            )}
-            placeholder="RFP에 대한 간단한 설명을 입력하세요"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={disabled || uploading}
-          />
-        </div>
-
-        {/* 분석 프롬프트 입력 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            분석 프롬프트 (선택사항)
-          </label>
-          <textarea
-            className={cn(
-              'w-full h-32 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
-              'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'placeholder:text-gray-500 dark:placeholder:text-gray-400'
-            )}
-            placeholder="AI가 RFP를 분석할 때 사용할 구체적인 지시사항을 입력하세요 (예: 특정 요구사항에 집중, 분석 관점 등)"
-            value={analysisPrompt}
-            onChange={(e) => setAnalysisPrompt(e.target.value)}
-            disabled={disabled || uploading}
-          />
-        </div>
-
-        {/* 지침 입력 (텍스트 또는 파일) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            분석 지침 (선택사항)
-          </label>
+      {/* 기본 정보 섹션 */}
+      <div className="space-y-6">
+        {/* RFP 기본 정보 */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <IconRenderer icon="FileText" size={20} className="mr-2" {...({} as any)} />
+            RFP 기본 정보
+          </h3>
           
-          {/* 텍스트 지침 */}
-          <div className="mb-3">
-            <textarea
-              className={cn(
-                'w-full h-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
-                'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                'placeholder:text-gray-500 dark:placeholder:text-gray-400'
-              )}
-              placeholder="분석에 참고할 지침이나 가이드라인을 입력하세요"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              disabled={disabled || uploading}
-            />
-          </div>
-
-          {/* 또는 파일 첨부 */}
-          <div className="space-y-2">
-            <div className="text-sm text-gray-600 dark:text-gray-400 text-center">또는</div>
-            
-            <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.md,.rtf"
-                onChange={(e) => e.target.files && handleInstructionFileUpload(e.target.files)}
+          <div className="space-y-4">
+            <div>
+              <Input
+                label="RFP 제목 *"
+                placeholder="예: 전자정부 시스템 구축 RFP"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 disabled={disabled || uploading}
-                className="hidden"
-                id="instruction-file-input"
               />
-              <label 
-                htmlFor="instruction-file-input"
-                className={cn(
-                  'flex flex-col items-center justify-center cursor-pointer space-y-2',
-                  (disabled || uploading) && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <IconRenderer icon="Paperclip" size={16} className="text-gray-500 dark:text-gray-400" {...({} as any)} />
-                </div>
-                <div className="text-center">
-                  {instructionFile ? (
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {instructionFile.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatFileSize(instructionFile.size)}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setInstructionFile(null)
-                        }}
-                        className="text-xs text-red-600 hover:text-red-700"
-                        disabled={disabled || uploading}
-                      >
-                        파일 제거
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        지침 파일 첨부
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        PDF, DOC, DOCX, TXT, MD, RTF
-                      </p>
-                    </div>
-                  )}
-                </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                설명 (선택사항)
               </label>
+              <textarea
+                className={cn(
+                  'w-full h-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
+                  'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  'placeholder:text-gray-500 dark:placeholder:text-gray-400'
+                )}
+                placeholder="RFP에 대한 간단한 설명을 입력하세요"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={disabled || uploading}
+              />
             </div>
           </div>
-        </div>
+        </Card>
+
+        {/* AI 분석 설정 */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <IconRenderer icon="Brain" size={20} className="mr-2" {...({} as any)} />
+            AI 분석 설정
+          </h3>
+
+          <div className="space-y-6">
+            {/* 분석 프롬프트 입력 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                분석 프롬프트 (선택사항)
+              </label>
+              <div className="mb-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  AI가 RFP를 분석할 때 사용할 구체적인 지시사항을 입력하세요
+                </p>
+              </div>
+              <textarea
+                className={cn(
+                  'w-full h-32 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
+                  'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  'placeholder:text-gray-500 dark:placeholder:text-gray-400'
+                )}
+                placeholder="예: 특정 요구사항에 집중, 분석 관점 등"
+                value={analysisPrompt}
+                onChange={(e) => setAnalysisPrompt(e.target.value)}
+                disabled={disabled || uploading}
+              />
+            </div>
+
+            {/* 분석 지침 섹션 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                분석 지침 (선택사항)
+              </label>
+              <div className="mb-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  분석에 참고할 지침이나 가이드라인을 텍스트로 입력하거나 파일로 첨부하세요
+                </p>
+              </div>
+              
+              {/* 텍스트 지침 */}
+              <div className="mb-4">
+                <textarea
+                  className={cn(
+                    'w-full h-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
+                    'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                    'placeholder:text-gray-500 dark:placeholder:text-gray-400'
+                  )}
+                  placeholder="분석에 참고할 지침이나 가이드라인을 입력하세요"
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  disabled={disabled || uploading}
+                />
+              </div>
+
+              {/* 파일 첨부 옵션 */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">또는</span>
+                  </div>
+                </div>
+                
+                <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt,.md,.rtf"
+                    onChange={(e) => e.target.files && handleInstructionFileUpload(e.target.files)}
+                    disabled={disabled || uploading}
+                    className="hidden"
+                    id="instruction-file-input"
+                  />
+                  <label 
+                    htmlFor="instruction-file-input"
+                    className={cn(
+                      'flex flex-col items-center justify-center cursor-pointer space-y-2',
+                      (disabled || uploading) && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                      <IconRenderer icon="Paperclip" size={20} className="text-gray-500 dark:text-gray-400" {...({} as any)} />
+                    </div>
+                    <div className="text-center">
+                      {instructionFile ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {instructionFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatFileSize(instructionFile.size)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setInstructionFile(null)
+                            }}
+                            className="text-sm text-red-600 hover:text-red-700 font-medium"
+                            disabled={disabled || uploading}
+                          >
+                            파일 제거
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            지침 파일 첨부
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            PDF, DOC, DOCX, TXT, MD, RTF
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* 업로드 버튼 */}
-      <div className="flex justify-end space-x-3">
-        {selectedFile && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSelectedFile(null)
-              setTitle('')
-              setDescription('')
-              setAnalysisPrompt('')
-              setInstructions('')
-              setInstructionFile(null)
-            }}
-            disabled={disabled || uploading}
-          >
-            취소
-          </Button>
-        )}
-        
-        <Button
-          onClick={handleUpload}
-          disabled={!selectedFile || !title.trim() || disabled || uploading}
-        >
-          {uploading ? (
-            <>
-              <IconRenderer icon="Loader2" size={16} className="mr-2 animate-spin" {...({} as any)} />
-              업로드 중...
-            </>
-          ) : (
-            <>
-              <IconRenderer icon="Upload" size={16} className="mr-2" {...({} as any)} />
-              RFP 업로드
-            </>
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 mt-8 -mx-6 -mb-6">
+        <div className="flex justify-end space-x-3">
+          {selectedFile && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedFile(null)
+                setTitle('')
+                setDescription('')
+                setAnalysisPrompt('')
+                setInstructions('')
+                setInstructionFile(null)
+              }}
+              disabled={disabled || uploading}
+            >
+              <IconRenderer icon="X" size={16} className="mr-2" {...({} as any)} />
+              취소
+            </Button>
           )}
-        </Button>
+          
+          <Button
+            onClick={handleUpload}
+            disabled={!selectedFile || !title.trim() || disabled || uploading}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2"
+          >
+            {uploading ? (
+              <>
+                <IconRenderer icon="Loader2" size={16} className="mr-2 animate-spin" {...({} as any)} />
+                업로드 중...
+              </>
+            ) : (
+              <>
+                <IconRenderer icon="Upload" size={16} className="mr-2" {...({} as any)} />
+                RFP 업로드
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   )

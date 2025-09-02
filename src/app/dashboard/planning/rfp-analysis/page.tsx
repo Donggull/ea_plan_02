@@ -534,36 +534,6 @@ export default function RFPAnalysisPage() {
             )}
           </div>
 
-          {/* 프로세스 진행 표시 */}
-          <div className="flex items-center space-x-4 mt-6">
-            {tabs.map((tab, index) => (
-              <div key={tab.key} className="flex items-center">
-                <div className={cn(
-                  'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  activeTab === tab.key
-                    ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : tab.disabled
-                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                )}>
-                  <IconRenderer 
-                    icon={tab.icon} 
-                    size={16} 
-                    {...({} as any)} 
-                  />
-                  <span>{tab.label}</span>
-                </div>
-                {index < tabs.length - 1 && (
-                  <IconRenderer 
-                    icon="ChevronRight" 
-                    size={16} 
-                    className="mx-2 text-gray-400" 
-                    {...({} as any)} 
-                  />
-                )}
-              </div>
-            ))}
-          </div>
 
           {/* 탭 메뉴 */}
           <div className="flex space-x-1 mt-6">
@@ -591,8 +561,10 @@ export default function RFPAnalysisPage() {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="px-6 py-6">
-        {renderTabContent()}
+      <div className="px-6 py-6 pb-12">
+        <div className="max-w-6xl mx-auto">
+          {renderTabContent()}
+        </div>
       </div>
     </div>
   )
