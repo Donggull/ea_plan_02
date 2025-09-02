@@ -28,21 +28,26 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
 
   const loadModels = useCallback(async () => {
     try {
+      console.log('AIModelSelector: Loading models...')
       const activeModels = await AIModelService.getActiveModels()
+      console.log('AIModelSelector: Loaded models:', activeModels.length)
       setModels(activeModels)
       
-      // 기본 모델 선택
-      const defaultModel = activeModels.find(m => m.is_default) || activeModels[0]
-      if (defaultModel && !selectedModel) {
-        setSelectedModel(defaultModel)
-        onModelSelect?.(defaultModel)
+      // 기본 모델 선택 (selectedModel이 없을 때만)
+      if (!selectedModel) {
+        const defaultModel = activeModels.find(m => m.is_default) || activeModels[0]
+        if (defaultModel) {
+          console.log('AIModelSelector: Setting default model:', defaultModel.display_name)
+          setSelectedModel(defaultModel)
+          onModelSelect?.(defaultModel)
+        }
       }
     } catch (error) {
       console.error('Error loading models:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [selectedModel, onModelSelect])
+  }, []) // 의존성 배열에서 selectedModel, onModelSelect 제거
 
   const loadUserPreference = useCallback(async () => {
     if (!user?.id || !(user as any)?.organization_id) return
@@ -73,8 +78,13 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
 
   useEffect(() => {
     loadModels()
-    loadUserPreference()
-  }, [user, loadModels, loadUserPreference])
+  }, [loadModels])
+
+  useEffect(() => {
+    if (user) {
+      loadUserPreference()
+    }
+  }, [user, loadUserPreference])
 
   const handleModelSelect = async (model: AIModel) => {
     setSelectedModel(model)

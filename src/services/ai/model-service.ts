@@ -17,6 +17,7 @@ export class AIModelService {
           provider:ai_model_providers(*)
         `)
         .eq('is_active', true)
+        .order('is_default', { ascending: false })
         .order('display_name')
       
       console.log('AIModelService: 쿼리 결과:', data)
@@ -47,7 +48,8 @@ export class AIModelService {
           .from('ai_models' as any)  
           .select('*')
           .eq('is_active', true)
-          .order('display_name')
+          .order('is_default', { ascending: false })
+        .order('display_name')
         
         console.log('AIModelService: 폴백 데이터:', fallbackData)
         console.log('AIModelService: 폴백 오류:', fallbackError)

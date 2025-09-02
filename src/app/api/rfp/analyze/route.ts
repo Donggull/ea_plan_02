@@ -455,8 +455,8 @@ JSON 결과만 반환해주세요:
   } catch (error) {
     console.error('RFP Analysis: AI analysis failed with error:', error)
     console.error('RFP Analysis: Error type:', error?.constructor?.name)
-    console.error('RFP Analysis: Error message:', error?.message)
-    console.error('RFP Analysis: Error stack:', error?.stack)
+    console.error('RFP Analysis: Error message:', error instanceof Error ? error.message : String(error))
+    console.error('RFP Analysis: Error stack:', error instanceof Error ? error.stack : undefined)
     console.log('RFP Analysis: Falling back to default analysis')
     
     // AI 분석 실패 시 기본 분석 결과 반환
