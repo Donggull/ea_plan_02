@@ -101,6 +101,8 @@ export function RFPAnalyzer({
       }
 
       const result: RFPAnalysisResponse = await response.json()
+      console.log('RFP Analysis: Response data received:', result)
+      console.log('RFP Analysis: Analysis data:', result.analysis)
       
       setAnalysis(result.analysis)
       setProgress({
