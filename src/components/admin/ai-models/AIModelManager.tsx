@@ -70,10 +70,27 @@ export function AIModelManager() {
   }, [])
 
   const loadAPIKeys = useCallback(async () => {
-    const organizationId = (user as any)?.organization_id
-    if (!organizationId) return
+    if (!user?.id) return
 
     try {
+      // 먼저 사용자의 organization_id 가져오기
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
+
+      if (userError) {
+        console.error('Error fetching user organization:', userError)
+        return
+      }
+
+      const organizationId = userData?.organization_id
+      if (!organizationId) {
+        console.log('No organization_id found for user')
+        return
+      }
+
       const { data, error } = await supabase
         .from('ai_model_api_keys' as any)
         .select(`
@@ -97,38 +114,62 @@ export function AIModelManager() {
   }, [loadProviders, loadModels, loadAPIKeys])
 
   const handleSaveAPIKey = async () => {
-    if (!selectedProvider || !newApiKey || !(user as any)?.organization_id) return
+    if (!selectedProvider || !newApiKey || !user?.id) {
+      alert('필수 정보가 누락되었습니다.')
+      return
+    }
 
     setIsLoading(true)
     try {
-      await AIModelService.saveAPIKey(
-        selectedProvider,
-        (user as any)?.organization_id,
-        newApiKey,
-        selectedEnvironment,
-        user?.id || ''
-      )
+      // 먼저 사용자의 organization_id 가져오기
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
 
-      // API 키 유효성 검증
+      if (userError || !userData?.organization_id) {
+        console.error('Error fetching user organization:', userError)
+        alert('조직 정보를 찾을 수 없습니다.')
+        return
+      }
+
+      // API 키 유효성 검증 (저장 전에 먼저 검증)
       const provider = providers.find(p => p.id === selectedProvider)
       if (provider) {
-        const { AIProviderFactory } = await import('@/services/ai/factory')
-        const aiProvider = AIProviderFactory.createProvider(provider.name, newApiKey)
-        const isValid = await aiProvider.validateApiKey(newApiKey)
-        
-        if (!isValid) {
-          alert('API 키가 유효하지 않습니다. 다시 확인해주세요.')
-          return
+        try {
+          const { AIProviderFactory } = await import('@/services/ai/factory')
+          const aiProvider = AIProviderFactory.createProvider(provider.name, newApiKey)
+          const isValid = await aiProvider.validateApiKey(newApiKey)
+          
+          if (!isValid) {
+            alert('API 키가 유효하지 않습니다. 다시 확인해주세요.')
+            return
+          }
+        } catch (validationError) {
+          console.error('API key validation error:', validationError)
+          // 검증 실패해도 저장은 진행 (일부 API는 검증 엔드포인트가 없을 수 있음)
+          console.log('API 키 검증을 건너뛰고 저장을 진행합니다.')
         }
       }
+
+      // API 키 저장
+      await AIModelService.saveAPIKey(
+        selectedProvider,
+        userData.organization_id,
+        newApiKey,
+        selectedEnvironment,
+        user.id
+      )
 
       await loadAPIKeys()
       setShowApiKeyModal(false)
       setNewApiKey('')
+      setSelectedProvider(null)
       alert('API 키가 성공적으로 저장되었습니다.')
     } catch (error) {
       console.error('Error saving API key:', error)
-      alert('API 키 저장 중 오류가 발생했습니다.')
+      alert('API 키 저장 중 오류가 발생했습니다: ' + (error as any).message)
     } finally {
       setIsLoading(false)
     }
