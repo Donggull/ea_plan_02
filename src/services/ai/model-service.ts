@@ -320,15 +320,25 @@ export class AIModelService {
     }
   }
 
-  // 환경변수에서 API 키 가져오기
+  // 환경변수에서 API 키 가져오기 (Vercel 서버사이드 환경변수 우선)
   private static getAPIKeyFromEnv(providerName: string): string | null {
+    console.log('AIModelService: Getting API key from environment for provider:', providerName)
+    
     const envMap: { [key: string]: string } = {
-      'anthropic': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '',
-      'openai': process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-      'google': process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY || ''
+      // Vercel 서버사이드 환경변수를 우선적으로 사용 (보안상 더 안전)
+      'anthropic': process.env.ANTHROPIC_API_KEY || process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
+      'openai': process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
+      'google': process.env.GOOGLE_AI_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY || ''
     }
 
-    return envMap[providerName.toLowerCase()] || null
+    const apiKey = envMap[providerName.toLowerCase()] || null
+    console.log('AIModelService: Environment variables check for', providerName + ':', {
+      server_side: process.env.ANTHROPIC_API_KEY ? 'Found' : 'Not found',
+      client_side: process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ? 'Found' : 'Not found',
+      final_key: apiKey ? `Found (${apiKey.substring(0, 15)}...)` : 'Not found'
+    })
+    
+    return apiKey
   }
 
   // API 키 암호화 (실제로는 더 안전한 방법 사용 필요)
