@@ -318,3 +318,171 @@ src/
 - **GitHub 연동**: 모든 변경사항 커밋 및 푸시 완료
 
 이제 사용자는 다양한 AI 모델을 선택하여 RFP 분석을 수행할 수 있으며, 관리자는 중앙집중식으로 AI 모델과 API 키를 관리할 수 있습니다.
+
+## RFP 분석 자동화 AI 연동 오류 해결 및 안정화 완료 (2025-09-02)
+
+### 문제 상황
+RFP 분석 자동화 시스템에서 요구사항 추출이 정상적으로 작동하지 않는 문제가 발생했습니다. 사용자가 단계별 진단을 요청하여 체계적인 문제 해결을 진행했습니다.
+
+### 진단 과정 및 발견된 문제점
+
+#### 1. 초기 진단: Mock 데이터 문제 발견
+**문제**: RFP 분석 시 실제 AI 분석 대신 Mock 데이터가 생성됨
+**원인**: AnthropicProvider 클래스의 API 호출 실패로 인한 fallback 로직 실행
+**파일**: `src/app/api/rfp/analyze/route.ts`
+
+#### 2. AnthropicProvider 클래스 문제
+**문제**: AnthropicProvider 클래스를 통한 API 호출이 지속적으로 실패
+**해결**: Provider 클래스 사용 중단하고 직접 fetch() API 호출로 전환
+```typescript
+// 문제가 있던 기존 방식
+const aiProvider = new AnthropicProvider(apiKey)
+const response = await aiProvider.sendMessage(analysisPrompt, {...})
+
+// 해결된 새로운 방식
+const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01'
+  },
+  body: JSON.stringify({
+    model: 'claude-3-5-sonnet-20241022',
+    messages: [{ role: 'user', content: analysisPrompt }],
+    max_tokens: 8000,
+    temperature: 0.3
+  })
+})
+```
+
+#### 3. 오류 메시지 가시성 문제
+**문제**: 500 서버 오류 시 실제 오류 내용이 클라이언트에 전달되지 않음
+**해결**: 상세한 오류 로깅 및 실제 오류 메시지 클라이언트 반환
+```typescript
+catch (error) {
+  console.error('❌ RFP 분석 실패:', error)
+  return NextResponse.json({
+    success: false,
+    error: error instanceof Error ? error.message : String(error),
+    details: 'RFP 분석 중 오류가 발생했습니다.',
+    timestamp: new Date().toISOString()
+  }, { status: 500 })
+}
+```
+
+#### 4. 구버전 모델명 404 오류
+**문제**: Anthropic API에서 404 오류 발생 - `claude-3-sonnet-20240229` 모델이 더 이상 지원되지 않음
+**해결**: 모든 관련 파일에서 최신 모델명으로 업데이트
+
+### 해결된 주요 변경사항
+
+#### 1. 메인 RFP 분석 API 완전 개선 
+**파일**: `src/app/api/rfp/analyze/route.ts`
+- AnthropicProvider 클래스 사용 중단
+- 직접 Anthropic API 호출로 전환
+- AbortController 제거 (Vercel 호환성 문제)
+- 입력 텍스트 길이 제한 (240,000 chars ≈ 60,000 tokens)
+- 상세한 오류 로깅 및 실제 오류 메시지 반환
+- 모델명 업데이트: `claude-3-sonnet-20240229` → `claude-3-5-sonnet-20241022`
+
+#### 2. 디버그 API 생성
+**파일**: `src/app/api/debug/ai-analysis/route.ts` (신규 생성)
+- AI 분석 단계별 진단 API
+- 환경변수 확인, API 호출, 응답 파싱 테스트
+- 실시간 오류 진단 및 상세 로깅
+- 모델명 업데이트 완료
+
+#### 3. AI 제공자 클래스 업데이트
+**파일**: `src/services/ai/providers/anthropic.ts`
+- 기본 모델명 업데이트: `claude-3-5-sonnet-20241022`
+- 상세한 오류 처리 및 로깅 개선
+- API 키 유효성 검증 강화
+
+#### 4. AI 테스트 API 업데이트
+**파일**: `src/app/api/ai/test-call/route.ts`
+- GET/POST 엔드포인트 모든 모델명 업데이트
+- 포괄적인 오류 카테고리화 (AUTH_ERROR, QUOTA_ERROR, NETWORK_ERROR)
+- 상세한 해결 방안 제시
+
+### 기술적 개선 사항
+
+#### 1. 오류 처리 강화
+- 실제 오류 메시지를 클라이언트에 전달
+- 오류 타입별 구체적인 해결 방안 제시
+- 상세한 서버 사이드 로깅 구현
+
+#### 2. Vercel 환경 최적화
+- AbortController 제거로 서버리스 환경 호환성 개선
+- 토큰 제한을 통한 비용 및 성능 최적화
+- 환경변수 기반 API 키 관리 강화
+
+#### 3. AI 모델 버전 관리
+- 최신 Claude 3.5 Sonnet 모델 적용
+- 향후 모델 업데이트를 위한 중앙집중식 관리 준비
+- 모델별 설정 최적화 (max_tokens: 8000, temperature: 0.3)
+
+### API 연동 안정성 확보
+
+#### 검증된 작업 플로우
+1. **RFP 업로드** → 정상 작동 ✅
+2. **AI 분석 단계** → 실제 Claude API 연동 성공 ✅  
+3. **분석 데이터 DB 저장** → 정상 저장 확인 ✅
+4. **요구사항 추출** → DB 데이터 정상 반영 ✅
+
+#### 성능 최적화
+- 입력 토큰 제한으로 API 비용 절감
+- 직접 API 호출로 오버헤드 최소화
+- 오류 발생 시 즉시 진단 가능한 로깅 시스템
+
+### AI 모델 API 연동 작업 시 참조사항
+
+#### 1. 모델명 관리
+- **최신 모델**: `claude-3-5-sonnet-20241022` 사용 권장
+- **구버전 모델**: `claude-3-sonnet-20240229` 등은 404 오류 발생
+- **모델별 특성**: Sonnet(균형), Opus(고품질), Haiku(고속)
+
+#### 2. 직접 API 호출 패턴
+```typescript
+const response = await fetch('https://api.anthropic.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': process.env.ANTHROPIC_API_KEY,
+    'anthropic-version': '2023-06-01'
+  },
+  body: JSON.stringify({
+    model: 'claude-3-5-sonnet-20241022',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 8000,
+    temperature: 0.3
+  })
+})
+```
+
+#### 3. 오류 처리 베스트 프랙티스
+```typescript
+if (!response.ok) {
+  const errorData = await response.json()
+  console.error('Anthropic API 오류:', errorData)
+  throw new Error(`Anthropic API error (${response.status}): ${errorData.error?.message}`)
+}
+```
+
+#### 4. 환경변수 설정
+- `ANTHROPIC_API_KEY`: 서버 사이드 전용 (보안)
+- `NEXT_PUBLIC_ANTHROPIC_API_KEY`: 클라이언트 사이드 (선택사항)
+- API 키 형식: `sk-ant-api03-...`로 시작
+
+### 배포 및 검증 완료
+- **GitHub 커밋**: d3f926d - "fix: Anthropic 모델명 404 오류 해결"
+- **Vercel 배포**: 자동 배포 완료
+- **실제 테스트**: https://ea-plan-new-02.vercel.app/ 에서 정상 작동 확인
+- **사용자 검증**: "이제 RFP 분석 자동화는 정상적으로 진행되고 있어" 확인받음
+
+### 향후 AI 연동 작업 시 주의사항
+1. **AnthropicProvider 클래스 사용 지양**: 직접 API 호출 권장
+2. **모델명 최신 버전 확인**: 정기적인 모델 버전 업데이트 필요
+3. **오류 로깅 필수**: 실제 오류 내용을 클라이언트에 전달
+4. **토큰 제한 설정**: 비용 및 성능 최적화
+5. **환경변수 보안**: API 키 서버 사이드 관리 원칙 준수
