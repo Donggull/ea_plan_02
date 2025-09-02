@@ -3,7 +3,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
-import { AIModelService } from '@/services/ai/model-service'
+// import { AIModelService } from '@/services/ai/model-service' // 환경변수 직접 사용으로 임시 비활성화
 
 // Service role client for privileged operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// AI 분석 수행 함수 - 사용자 선택 AI 모델 사용
+// AI 분석 수행 함수 - 환경변수를 직접 사용하여 간소화
 async function performRFPAnalysis(extractedText: string, options: any, userId: string, selectedModelId?: string | null) {
   try {
     console.log('RFP Analysis: Starting AI-powered analysis...')
@@ -220,90 +220,29 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       hasOptions: !!options
     })
     
-    // 사용자 조직 정보 가져오기
-    console.log('RFP Analysis: Fetching user organization...')
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('organization_id')
-      .eq('id', userId)
-      .single()
-
-    console.log('RFP Analysis: User data result:', {
-      userData,
-      userError,
-      hasOrgId: !!userData?.organization_id
+    // 환경변수에서 직접 API 키 가져오기
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    console.log('RFP Analysis: API key check:', {
+      hasAPIKey: !!apiKey,
+      keyPrefix: apiKey ? apiKey.substring(0, 15) : 'NO_KEY'
     })
-
-    if (!userData?.organization_id) {
-      console.error('RFP Analysis: No organization ID found for user:', userId)
-      throw new Error('사용자 조직 정보를 찾을 수 없습니다.')
-    }
-
-    // 사용자가 선택한 AI 모델이 있으면 해당 모델 사용, 없으면 기본 모델 사용
-    let selectedModel
-    if (selectedModelId) {
-      // 선택된 모델 가져오기
-      const { data: modelData, error: modelError } = await supabaseAdmin
-        .from('ai_models' as any)
-        .select(`
-          *,
-          provider:ai_model_providers(*)
-        `)
-        .eq('id', selectedModelId)
-        .eq('is_active', true)
-        .single()
-      
-      if (modelError || !modelData) {
-        console.log('RFP Analysis: Selected model not found, using default:', modelError)
-        selectedModel = await AIModelService.getDefaultModel()
-      } else {
-        selectedModel = modelData as any
-      }
-    } else {
-      selectedModel = await AIModelService.getDefaultModel()
-    }
     
-    if (!selectedModel) {
-      throw new Error('사용 가능한 AI 모델을 찾을 수 없습니다.')
-    }
-
-    // AI Provider 생성
-    console.log('RFP Analysis: Creating AI Provider with model ID:', selectedModel.id)
-    console.log('RFP Analysis: User organization ID:', userData.organization_id)
-    console.log('RFP Analysis: Model details:', JSON.stringify({
-      id: selectedModel.id,
-      model_id: selectedModel.model_id,
-      display_name: selectedModel.display_name,
-      provider: selectedModel.provider
-    }, null, 2))
-    
-    console.log('RFP Analysis: Calling AIModelService.createAIProvider...')
-    let aiProvider
-    try {
-      aiProvider = await AIModelService.createAIProvider(
-        selectedModel.id,
-        userData.organization_id
-      )
-    } catch (aiProviderError: any) {
-      console.error('RFP Analysis: AI Provider creation failed:', aiProviderError)
+    if (!apiKey) {
+      console.error('🚨 API KEY ERROR: ANTHROPIC_API_KEY not found in environment variables')
+      throw new Error(`AI 분석을 위한 API 키가 설정되지 않았습니다. 
       
-      // API 키 관련 오류인지 확인
-      if (aiProviderError.message.includes('API key') || aiProviderError.message.includes('ANTHROPIC_API_KEY')) {
-        console.error('🚨 API KEY ERROR: ANTHROPIC_API_KEY not configured in Vercel')
-        throw new Error(`AI 분석을 위한 API 키가 설정되지 않았습니다. 
-        
 관리자에게 다음 사항을 요청하세요:
 1. Vercel Dashboard → Project Settings → Environment Variables
 2. ANTHROPIC_API_KEY 환경 변수 추가 (sk-ant-api03-로 시작하는 값)
 3. Anthropic Console(console.anthropic.com)에서 API 키 발급
 
-현재 상태: ${aiProviderError.message}`)
-      }
-      
-      throw new Error(`AI 분석 서비스 초기화 실패: ${aiProviderError.message}`)
+현재 상태: 환경 변수가 설정되지 않았습니다`)
     }
 
-    console.log('RFP Analysis: AI Provider creation result:', !!aiProvider)
+    // Anthropic Provider 직접 생성 (데이터베이스 우회)
+    console.log('RFP Analysis: Creating Anthropic Provider directly from environment...')
+    const { AnthropicProvider } = await import('@/services/ai/providers/anthropic')
+    const aiProvider = new AnthropicProvider(apiKey)
 
     if (!aiProvider) {
       console.error('RFP Analysis: Failed to create AI Provider - aiProvider is null')
@@ -311,7 +250,7 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
     }
 
     console.log('RFP Analysis: AI Provider created successfully')
-    console.log('RFP Analysis: Using AI model:', selectedModel.display_name)
+    console.log('RFP Analysis: Using direct Anthropic provider')
 
     // RFP 분석을 위한 프롬프트 생성
     const analysisPrompt = `
@@ -649,7 +588,7 @@ function generateFallbackAnalysis() {
   }
 }
 
-// 분석 질문 생성 함수 - AI 기반 (사용자 선택 모델 사용)
+// 분석 질문 생성 함수 - 환경변수 직접 사용으로 간소화
 async function generateAnalysisQuestions(analysisId: string, _options: any, selectedModelId?: string | null) {
   try {
     console.log('Question Generation: Starting AI-powered question generation...')
@@ -665,60 +604,18 @@ async function generateAnalysisQuestions(analysisId: string, _options: any, sele
       throw new Error('분석 데이터를 찾을 수 없습니다.')
     }
 
-    // 사용자가 선택한 AI 모델이 있으면 해당 모델 사용, 없으면 기본 모델 사용
-    let selectedModel
-    if (selectedModelId) {
-      // 선택된 모델 가져오기
-      const { data: modelData, error: modelError } = await supabaseAdmin
-        .from('ai_models' as any)
-        .select(`
-          *,
-          provider:ai_model_providers(*)
-        `)
-        .eq('id', selectedModelId)
-        .eq('is_active', true)
-        .single()
-      
-      if (modelError || !modelData) {
-        console.log('Question Generation: Selected model not found, using default:', modelError)
-        selectedModel = await AIModelService.getDefaultModel()
-      } else {
-        selectedModel = modelData as any
-      }
-    } else {
-      selectedModel = await AIModelService.getDefaultModel()
-    }
+    // 환경변수에서 직접 API 키 가져오기
+    const apiKey = process.env.ANTHROPIC_API_KEY
     
-    if (!selectedModel) {
-      throw new Error('사용 가능한 AI 모델을 찾을 수 없습니다.')
+    if (!apiKey) {
+      console.error('Question Generation: ANTHROPIC_API_KEY not found in environment variables')
+      throw new Error('AI 질문 생성을 위한 API 키가 설정되지 않았습니다.')
     }
 
-    // 사용자 조직 정보 가져오기 (분석 데이터에서 유추)
-    const { data: projectData } = await supabaseAdmin
-      .from('projects')
-      .select('created_by')
-      .eq('id', analysisData.project_id)
-      .single()
-
-    if (!projectData?.created_by) {
-      throw new Error('프로젝트 생성자 정보를 찾을 수 없습니다.')
-    }
-
-    const { data: userData } = await supabaseAdmin
-      .from('users')
-      .select('organization_id')
-      .eq('id', projectData.created_by)
-      .single()
-
-    if (!userData?.organization_id) {
-      throw new Error('사용자 조직 정보를 찾을 수 없습니다.')
-    }
-
-    // AI Provider 생성
-    const aiProvider = await AIModelService.createAIProvider(
-      selectedModel.id,
-      userData.organization_id
-    )
+    // Anthropic Provider 직접 생성
+    console.log('Question Generation: Creating Anthropic Provider directly from environment...')
+    const { AnthropicProvider } = await import('@/services/ai/providers/anthropic')
+    const aiProvider = new AnthropicProvider(apiKey)
 
     if (!aiProvider) {
       throw new Error('AI 질문 생성 서비스를 초기화할 수 없습니다.')
