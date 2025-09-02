@@ -244,15 +244,25 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
     }
 
     // AI Provider 생성
+    console.log('RFP Analysis: Creating AI Provider with model ID:', selectedModel.id)
+    console.log('RFP Analysis: User organization ID:', userData.organization_id)
+    console.log('RFP Analysis: Model details:', JSON.stringify({
+      id: selectedModel.id,
+      display_name: selectedModel.display_name,
+      provider: selectedModel.provider
+    }, null, 2))
+    
     const aiProvider = await AIModelService.createAIProvider(
       selectedModel.id,
       userData.organization_id
     )
 
     if (!aiProvider) {
+      console.error('RFP Analysis: Failed to create AI Provider')
       throw new Error('AI 분석 서비스를 초기화할 수 없습니다.')
     }
 
+    console.log('RFP Analysis: AI Provider created successfully')
     console.log('RFP Analysis: Using AI model:', selectedModel.display_name)
 
     // RFP 분석을 위한 프롬프트 생성
@@ -336,6 +346,12 @@ JSON 결과만 반환해주세요:
 `
 
     // AI 분석 수행
+    console.log('RFP Analysis: Sending message to AI with prompt length:', analysisPrompt.length)
+    console.log('RFP Analysis: AI Provider settings:', {
+      max_tokens: 8000,
+      temperature: 0.3
+    })
+    
     const response = await aiProvider.sendMessage(analysisPrompt, {
       settings: {
         max_tokens: 8000,
@@ -343,23 +359,45 @@ JSON 결과만 반환해주세요:
       }
     })
 
-    console.log('RFP Analysis: AI response received, parsing...')
+    console.log('RFP Analysis: AI response received')
+    console.log('RFP Analysis: Response length:', response.content.length)
+    console.log('RFP Analysis: Response usage:', JSON.stringify(response.usage, null, 2))
+    console.log('RFP Analysis: Response content preview (first 500 chars):', response.content.substring(0, 500))
+    console.log('RFP Analysis: Starting JSON parsing...')
 
     // JSON 파싱
     let analysisResult
     try {
       // JSON 코드 블록에서 JSON 부분만 추출
       let jsonContent = response.content.trim()
+      console.log('RFP Analysis: Original content length:', jsonContent.length)
       
       // ```json ... ``` 형태로 감싸져 있는 경우 추출
       if (jsonContent.startsWith('```')) {
+        console.log('RFP Analysis: Found code block, extracting JSON...')
         const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/)
         if (match) {
           jsonContent = match[1].trim()
+          console.log('RFP Analysis: Extracted JSON content length:', jsonContent.length)
+        } else {
+          console.warn('RFP Analysis: Code block found but no match pattern')
         }
       }
       
+      console.log('RFP Analysis: JSON content preview (first 300 chars):', jsonContent.substring(0, 300))
+      console.log('RFP Analysis: JSON content preview (last 300 chars):', jsonContent.substring(Math.max(0, jsonContent.length - 300)))
+      
       analysisResult = JSON.parse(jsonContent)
+      console.log('RFP Analysis: JSON parsing successful')
+      
+      // 파싱된 결과의 구조 확인
+      console.log('RFP Analysis: Parsed result structure:', {
+        has_project_overview: !!analysisResult.project_overview,
+        functional_requirements_count: analysisResult.functional_requirements?.length || 0,
+        non_functional_requirements_count: analysisResult.non_functional_requirements?.length || 0,
+        keywords_count: analysisResult.keywords?.length || 0,
+        risk_factors_count: analysisResult.risk_factors?.length || 0
+      })
       
       // ID 추가
       if (analysisResult.functional_requirements) {
@@ -367,6 +405,7 @@ JSON 결과만 반환해주세요:
           ...req,
           id: crypto.randomUUID()
         }))
+        console.log('RFP Analysis: Added IDs to', analysisResult.functional_requirements.length, 'functional requirements')
       }
       
       if (analysisResult.non_functional_requirements) {
@@ -374,13 +413,16 @@ JSON 결과만 반환해주세요:
           ...req,
           id: crypto.randomUUID()
         }))
+        console.log('RFP Analysis: Added IDs to', analysisResult.non_functional_requirements.length, 'non-functional requirements')
       }
 
     } catch (parseError) {
-      console.error('JSON parsing error:', parseError)
-      console.log('Raw AI response:', response.content)
+      console.error('RFP Analysis: JSON parsing error:', parseError)
+      console.error('RFP Analysis: Raw AI response (first 1000 chars):', response.content.substring(0, 1000))
+      console.error('RFP Analysis: Raw AI response (last 1000 chars):', response.content.substring(Math.max(0, response.content.length - 1000)))
       
       // 파싱 실패 시 기본값 반환
+      console.log('RFP Analysis: Using fallback analysis due to parsing failure')
       analysisResult = generateFallbackAnalysis()
     }
 

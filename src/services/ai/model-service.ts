@@ -214,6 +214,8 @@ export class AIModelService {
     modelId: string,
     organizationId: string
   ): Promise<AIProvider | null> {
+    console.log('AIModelService: createAIProvider called with:', { modelId, organizationId })
+    
     // 모델 정보 가져오기
     const { data: model, error: modelError } = await supabase
       .from('ai_models' as any)
@@ -225,22 +227,35 @@ export class AIModelService {
       .single()
 
     if (modelError || !model) {
-      console.error('Error fetching model:', modelError)
+      console.error('AIModelService: Error fetching model:', modelError)
       return null
     }
 
     const typedModel = model as any
+    console.log('AIModelService: Model fetched:', {
+      model_id: typedModel.model_id,
+      display_name: typedModel.display_name,
+      provider_name: typedModel.provider.name,
+      provider_id: typedModel.provider_id
+    })
     
     // API 키 가져오기
+    console.log('AIModelService: Attempting to get API key from database...')
     const apiKey = await this.getAPIKey(typedModel.provider_id, organizationId)
     
     if (!apiKey) {
+      console.log('AIModelService: No API key found in database, trying environment variables...')
+      
       // 환경변수에서 API 키 가져오기 (fallback)
       const envKey = this.getAPIKeyFromEnv(typedModel.provider.name)
+      console.log('AIModelService: Environment key for provider', typedModel.provider.name, ':', envKey ? 'Found' : 'Not found')
+      
       if (!envKey) {
+        console.error(`AIModelService: No API key found for provider: ${typedModel.provider.name}`)
         throw new Error(`No API key found for provider: ${typedModel.provider.name}`)
       }
 
+      console.log('AIModelService: Creating provider with environment key')
       return AIProviderFactory.createProvider(
         typedModel.provider.name,
         envKey,
@@ -252,8 +267,11 @@ export class AIModelService {
       )
     }
 
+    console.log('AIModelService: Using API key from database')
+    
     // API 키 복호화
     const decryptedKey = await this.decryptAPIKey(apiKey.api_key_encrypted)
+    console.log('AIModelService: API key decrypted successfully')
 
     return AIProviderFactory.createProvider(
       typedModel.provider.name,

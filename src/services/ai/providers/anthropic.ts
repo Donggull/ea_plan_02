@@ -34,7 +34,30 @@ export class AnthropicProvider extends BaseAIProvider {
     const mergedConfig = this.mergeConfig(config)
     const model = mergedConfig.model || 'claude-3-sonnet-20240229'
     
+    console.log('AnthropicProvider: Sending messages:', {
+      model,
+      messageCount: messages.length,
+      totalContentLength: messages.reduce((sum, m) => sum + m.content.length, 0),
+      maxTokens: mergedConfig.settings?.max_tokens || 4096,
+      temperature: mergedConfig.settings?.temperature || 0.7,
+      apiKeyPrefix: this.apiKey?.substring(0, 15) + '...'
+    })
+    
     try {
+      const requestBody = {
+        model,
+        messages: messages.map(m => ({
+          role: m.role === 'system' ? 'user' : m.role,
+          content: m.role === 'system' ? `System: ${m.content}` : m.content
+        })),
+        max_tokens: mergedConfig.settings?.max_tokens || 4096,
+        temperature: mergedConfig.settings?.temperature || 0.7,
+        ...(mergedConfig.settings?.top_p && { top_p: mergedConfig.settings.top_p }),
+        ...(mergedConfig.settings?.top_k && { top_k: mergedConfig.settings.top_k }),
+      }
+      
+      console.log('AnthropicProvider: Request body prepared, sending to:', `${this.baseUrl}/v1/messages`)
+      
       const response = await fetch(`${this.baseUrl}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -42,25 +65,30 @@ export class AnthropicProvider extends BaseAIProvider {
           'x-api-key': this.apiKey,
           'anthropic-version': this.apiVersion
         },
-        body: JSON.stringify({
-          model,
-          messages: messages.map(m => ({
-            role: m.role === 'system' ? 'user' : m.role,
-            content: m.role === 'system' ? `System: ${m.content}` : m.content
-          })),
-          max_tokens: mergedConfig.settings?.max_tokens || 4096,
-          temperature: mergedConfig.settings?.temperature || 0.7,
-          ...(mergedConfig.settings?.top_p && { top_p: mergedConfig.settings.top_p }),
-          ...(mergedConfig.settings?.top_k && { top_k: mergedConfig.settings.top_k }),
-        })
+        body: JSON.stringify(requestBody)
+      })
+
+      console.log('AnthropicProvider: Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
       })
 
       if (!response.ok) {
         const error = await response.json()
+        console.error('AnthropicProvider: API error response:', error)
         throw new Error(error.error?.message || `Anthropic API error: ${response.status}`)
       }
 
       const data: AnthropicResponse = await response.json()
+      
+      console.log('AnthropicProvider: Successful response:', {
+        contentLength: data.content[0]?.text?.length || 0,
+        inputTokens: data.usage.input_tokens,
+        outputTokens: data.usage.output_tokens,
+        model: data.model,
+        stopReason: data.stop_reason
+      })
       
       return {
         content: data.content[0]?.text || '',
@@ -73,7 +101,7 @@ export class AnthropicProvider extends BaseAIProvider {
         finish_reason: data.stop_reason || undefined
       }
     } catch (error) {
-      console.error('Anthropic API error:', error)
+      console.error('AnthropicProvider: Error occurred:', error)
       throw error
     }
   }

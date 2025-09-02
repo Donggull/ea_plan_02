@@ -15,13 +15,28 @@ export class AIProviderFactory {
     baseUrl?: string,
     defaultConfig?: any
   ): AIProvider {
+    console.log('AIProviderFactory: Creating provider:', {
+      providerName,
+      hasApiKey: !!apiKey,
+      apiKeyPrefix: apiKey?.substring(0, 10) + '...',
+      baseUrl,
+      hasDefaultConfig: !!defaultConfig
+    })
+    
     const ProviderClass = this.providers.get(providerName.toLowerCase())
+    console.log('AIProviderFactory: Provider class found:', !!ProviderClass)
     
     if (!ProviderClass) {
+      console.error('AIProviderFactory: Unknown provider:', providerName)
+      console.error('AIProviderFactory: Available providers:', Array.from(this.providers.keys()))
       throw new Error(`Unknown AI provider: ${providerName}`)
     }
 
-    return new ProviderClass(apiKey, baseUrl, defaultConfig)
+    console.log('AIProviderFactory: Instantiating provider...')
+    const provider = new ProviderClass(apiKey, baseUrl, defaultConfig)
+    console.log('AIProviderFactory: Provider created successfully:', provider.name)
+    
+    return provider
   }
 
   static registerProvider(

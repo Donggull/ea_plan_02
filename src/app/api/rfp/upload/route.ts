@@ -158,18 +158,62 @@ export async function POST(request: NextRequest) {
       .from('rfp-documents')
       .getPublicUrl(fileName)
 
-    // 텍스트 추출 (실제로는 AI 서비스나 PDF 파서를 사용해야 함)
+    // 실제 파일에서 텍스트 추출
     let extractedText = ''
     try {
+      console.log('RFP Upload: Extracting text from file type:', file.type)
+      
       if (file.type === 'text/plain' || file.type === 'text/markdown') {
+        // 텍스트 파일 처리
         extractedText = await file.text()
+        console.log('RFP Upload: Text file extracted, length:', extractedText.length)
+        
+      } else if (file.type === 'application/pdf') {
+        // PDF 파일 처리
+        console.log('RFP Upload: Processing PDF file...')
+        const pdfParse = (await import('pdf-parse')).default
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+        const pdfData = await pdfParse(buffer)
+        extractedText = pdfData.text
+        console.log('RFP Upload: PDF extracted, length:', extractedText.length)
+        
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        // DOCX 파일 처리
+        console.log('RFP Upload: Processing DOCX file...')
+        const mammoth = await import('mammoth')
+        const arrayBuffer = await file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+        const result = await mammoth.extractRawText({ buffer })
+        extractedText = result.value
+        console.log('RFP Upload: DOCX extracted, length:', extractedText.length)
+        
+      } else if (file.type === 'application/msword') {
+        // DOC 파일 - mammoth는 DOCX만 지원하므로 제한적
+        console.log('RFP Upload: DOC files require manual conversion to DOCX for full support')
+        extractedText = `[${file.name}] DOC 파일은 DOCX로 변환 후 업로드를 권장합니다. 텍스트 추출이 제한적일 수 있습니다.`
+        
+      } else if (file.type === 'application/rtf') {
+        // RTF 파일 - 기본적인 텍스트 추출 시도
+        const rawText = await file.text()
+        // RTF 태그 제거 (간단한 방식)
+        extractedText = rawText.replace(/\{\\.*?\}/g, '').replace(/\\.../g, ' ').trim()
+        console.log('RFP Upload: RTF extracted, length:', extractedText.length)
+        
       } else {
-        // PDF, DOC 등의 경우 실제로는 별도의 텍스트 추출 서비스 필요
-        extractedText = `[${file.name}] 파일에서 텍스트를 추출했습니다. 실제 구현에서는 PDF/DOC 파서가 필요합니다.`
+        extractedText = `[${file.name}] 지원되지 않는 파일 형식입니다.`
+        console.log('RFP Upload: Unsupported file type:', file.type)
       }
+
+      // 추출된 텍스트가 너무 짧으면 경고
+      if (extractedText.length < 100) {
+        console.warn('RFP Upload: Extracted text is very short:', extractedText.length, 'characters')
+        extractedText += '\n\n[경고: 추출된 텍스트가 매우 짧습니다. 파일 내용을 확인해주세요.]'
+      }
+      
     } catch (error) {
       console.error('Text extraction error:', error)
-      extractedText = '[텍스트 추출 실패]'
+      extractedText = `[${file.name}] 텍스트 추출 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`
     }
 
     // RFP 문서 메타데이터 저장 (Service Role 사용)
