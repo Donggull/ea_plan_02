@@ -80,6 +80,13 @@ export class AnthropicProvider extends BaseAIProvider {
 
   async validateApiKey(apiKey: string): Promise<boolean> {
     try {
+      // API 키 형식 검사 (sk-ant-api03-로 시작하는지 확인)
+      if (!apiKey || !apiKey.startsWith('sk-ant-api03-')) {
+        console.log('Invalid API key format')
+        return false
+      }
+
+      // 실제 API 검증을 위한 최소한의 요청
       const response = await fetch(`${this.baseUrl}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -89,16 +96,30 @@ export class AnthropicProvider extends BaseAIProvider {
         },
         body: JSON.stringify({
           model: 'claude-3-haiku-20240307',
-          messages: [{ role: 'user', content: 'test' }],
-          max_tokens: 1
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 5
         })
       })
 
-      // 401은 인증 실패, 그 외는 API 키는 유효하지만 다른 문제
-      return response.status !== 401
+      console.log('API validation response status:', response.status)
+
+      // 200 (성공) 또는 400대 오류 중 401(인증 실패)가 아닌 경우는 API 키 유효
+      // 401만 API 키 무효, 나머지는 유효한 키로 간주
+      if (response.status === 200) {
+        console.log('API key validation successful')
+        return true
+      } else if (response.status === 401) {
+        console.log('API key validation failed - invalid key')
+        return false
+      } else {
+        // 400, 403, 429 등 다른 오류는 API 키는 유효하지만 요청에 문제
+        console.log('API key valid but request failed with status:', response.status)
+        return true
+      }
     } catch (error) {
       console.error('API key validation error:', error)
-      return false
+      // 네트워크 오류 등의 경우 API 키가 유효할 수도 있으므로 true 반환
+      return true
     }
   }
 }

@@ -161,6 +161,9 @@ export function AIModelManager() {
 
       // API 키 유효성 검증 (저장 전에 먼저 검증)
       const provider = providers.find(p => p.id === selectedProvider)
+      let validationPassed = true
+      let validationMessage = ''
+
       if (provider) {
         try {
           const { AIProviderFactory } = await import('@/services/ai/factory')
@@ -168,13 +171,23 @@ export function AIModelManager() {
           const isValid = await aiProvider.validateApiKey(newApiKey)
           
           if (!isValid) {
-            alert('API 키가 유효하지 않습니다. 다시 확인해주세요.')
-            return
+            validationPassed = false
+            validationMessage = `API 키 검증에 실패했습니다. 계속 진행하시겠습니까?\n\n키 형식: ${provider.name === 'anthropic' ? 'sk-ant-api03-...' : 'sk-...'}`
+          } else {
+            console.log('API 키 검증 성공')
           }
         } catch (validationError) {
           console.error('API key validation error:', validationError)
-          // 검증 실패해도 저장은 진행 (일부 API는 검증 엔드포인트가 없을 수 있음)
-          console.log('API 키 검증을 건너뛰고 저장을 진행합니다.')
+          validationMessage = 'API 키 검증 중 오류가 발생했습니다. 계속 진행하시겠습니까?'
+          validationPassed = false
+        }
+      }
+
+      // 검증 실패 시 사용자에게 확인 요청
+      if (!validationPassed) {
+        const userConfirmed = confirm(validationMessage)
+        if (!userConfirmed) {
+          return
         }
       }
 
