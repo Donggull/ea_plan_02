@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: RFPAnalysisRequest = await request.json()
-    const { rfp_document_id, analysis_options } = body
+    const { rfp_document_id, analysis_options, selected_model_id } = body
 
     if (!rfp_document_id) {
       return NextResponse.json(
@@ -134,8 +134,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response)
     }
 
-    // AI 모델을 사용한 RFP 분석 수행
-    const analysisResult = await performRFPAnalysis(rfpDocument.content || '', analysis_options, user.id)
+    // AI 모델을 사용한 RFP 분석 수행 (사용자 선택 모델 반영)
+    const analysisResult = await performRFPAnalysis(
+      rfpDocument.content || '', 
+      analysis_options, 
+      user.id,
+      selected_model_id
+    )
 
     // 분석 결과 저장 (Service Role 사용)
     const { data: analysisData, error: analysisError } = await supabaseAdmin
@@ -170,7 +175,7 @@ export async function POST(request: NextRequest) {
     let generatedQuestions = undefined
     if (analysis_options?.include_questions) {
       try {
-        generatedQuestions = await generateAnalysisQuestions(analysisData.id, analysis_options)
+        generatedQuestions = await generateAnalysisQuestions(analysisData.id, analysis_options, selected_model_id)
       } catch (error) {
         console.error('Question generation error:', error)
         // 질문 생성 실패는 전체 분석을 실패시키지 않음
@@ -194,8 +199,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// AI 분석 수행 함수 - Claude 4 Sonnet 사용
-async function performRFPAnalysis(extractedText: string, options: any, userId: string) {
+// AI 분석 수행 함수 - 사용자 선택 AI 모델 사용
+async function performRFPAnalysis(extractedText: string, options: any, userId: string, selectedModelId?: string | null) {
   try {
     console.log('RFP Analysis: Starting AI-powered analysis...')
     
@@ -210,15 +215,37 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       throw new Error('사용자 조직 정보를 찾을 수 없습니다.')
     }
 
-    // 기본 AI 모델 가져오기 (Claude 4 Sonnet 우선)
-    const defaultModel = await AIModelService.getDefaultModel()
-    if (!defaultModel) {
+    // 사용자가 선택한 AI 모델이 있으면 해당 모델 사용, 없으면 기본 모델 사용
+    let selectedModel
+    if (selectedModelId) {
+      // 선택된 모델 가져오기
+      const { data: modelData, error: modelError } = await supabaseAdmin
+        .from('ai_models' as any)
+        .select(`
+          *,
+          provider:ai_model_providers(*)
+        `)
+        .eq('id', selectedModelId)
+        .eq('is_active', true)
+        .single()
+      
+      if (modelError || !modelData) {
+        console.log('RFP Analysis: Selected model not found, using default:', modelError)
+        selectedModel = await AIModelService.getDefaultModel()
+      } else {
+        selectedModel = modelData as any
+      }
+    } else {
+      selectedModel = await AIModelService.getDefaultModel()
+    }
+    
+    if (!selectedModel) {
       throw new Error('사용 가능한 AI 모델을 찾을 수 없습니다.')
     }
 
     // AI Provider 생성
     const aiProvider = await AIModelService.createAIProvider(
-      defaultModel.id,
+      selectedModel.id,
       userData.organization_id
     )
 
@@ -226,7 +253,7 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       throw new Error('AI 분석 서비스를 초기화할 수 없습니다.')
     }
 
-    console.log('RFP Analysis: Using AI model:', defaultModel.display_name)
+    console.log('RFP Analysis: Using AI model:', selectedModel.display_name)
 
     // RFP 분석을 위한 프롬프트 생성
     const analysisPrompt = `
@@ -463,8 +490,8 @@ function generateFallbackAnalysis() {
   }
 }
 
-// 분석 질문 생성 함수 - AI 기반
-async function generateAnalysisQuestions(analysisId: string, _options: any) {
+// 분석 질문 생성 함수 - AI 기반 (사용자 선택 모델 사용)
+async function generateAnalysisQuestions(analysisId: string, _options: any, selectedModelId?: string | null) {
   try {
     console.log('Question Generation: Starting AI-powered question generation...')
     
@@ -479,9 +506,31 @@ async function generateAnalysisQuestions(analysisId: string, _options: any) {
       throw new Error('분석 데이터를 찾을 수 없습니다.')
     }
 
-    // 기본 AI 모델 가져오기
-    const defaultModel = await AIModelService.getDefaultModel()
-    if (!defaultModel) {
+    // 사용자가 선택한 AI 모델이 있으면 해당 모델 사용, 없으면 기본 모델 사용
+    let selectedModel
+    if (selectedModelId) {
+      // 선택된 모델 가져오기
+      const { data: modelData, error: modelError } = await supabaseAdmin
+        .from('ai_models' as any)
+        .select(`
+          *,
+          provider:ai_model_providers(*)
+        `)
+        .eq('id', selectedModelId)
+        .eq('is_active', true)
+        .single()
+      
+      if (modelError || !modelData) {
+        console.log('Question Generation: Selected model not found, using default:', modelError)
+        selectedModel = await AIModelService.getDefaultModel()
+      } else {
+        selectedModel = modelData as any
+      }
+    } else {
+      selectedModel = await AIModelService.getDefaultModel()
+    }
+    
+    if (!selectedModel) {
       throw new Error('사용 가능한 AI 모델을 찾을 수 없습니다.')
     }
 
@@ -508,7 +557,7 @@ async function generateAnalysisQuestions(analysisId: string, _options: any) {
 
     // AI Provider 생성
     const aiProvider = await AIModelService.createAIProvider(
-      defaultModel.id,
+      selectedModel.id,
       userData.organization_id
     )
 

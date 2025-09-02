@@ -23,7 +23,8 @@ export function RFPAnalyzer({
   onAnalysisComplete,
   onAnalysisError,
   className,
-  autoStart = false
+  autoStart = false,
+  selectedModel
 }: RFPAnalyzerProps) {
   const [analysis, setAnalysis] = useState<RFPAnalysis | null>(null)
   const [progress, setProgress] = useState<AnalysisProgress>({
@@ -52,7 +53,8 @@ export function RFPAnalyzer({
         analysis_options: {
           include_questions: true,
           depth_level: 'comprehensive'
-        }
+        },
+        selected_model_id: selectedModel?.id || null
       }
 
       console.log('RFP Analysis: Starting analysis...')
@@ -108,7 +110,7 @@ export function RFPAnalyzer({
     } finally {
       setIsAnalyzing(false)
     }
-  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError])
+  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError, selectedModel])
 
   useEffect(() => {
     if (autoStart && rfpDocumentId) {

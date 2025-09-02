@@ -161,6 +161,7 @@ export interface RFPAnalysisRequest {
     focus_areas?: string[];
     depth_level: 'basic' | 'detailed' | 'comprehensive';
   };
+  selected_model_id?: string | null;
 }
 
 export interface RFPAnalysisResponse {
