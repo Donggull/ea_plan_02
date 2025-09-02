@@ -103,17 +103,25 @@ export function RequirementExtractor({
       console.log('Requirements Extraction: Functional requirements:', analysis?.functional_requirements)
       console.log('Requirements Extraction: Non-functional requirements:', analysis?.non_functional_requirements)
       
-      // 목업 데이터 여부 확인
+      // 목업 데이터 여부 확인 (더 강화된 검사)
       const hasMockData = analysis?._isMockData || 
         analysis?.functional_requirements?.some((req: any) => 
           req.title?.includes('[목업]') || req.title?.includes('목업') || req.title?.includes('Mock')
-        ) || false
+        ) ||
+        analysis?.non_functional_requirements?.some((req: any) => 
+          req.title?.includes('[목업]') || req.title?.includes('목업') || req.title?.includes('Mock')
+        ) ||
+        analysis?.project_overview?.title?.includes('[목업]') ||
+        analysis?.project_overview?.title?.includes('AI 기반 RFP 분석 시스템 구축') ||
+        false
       
       console.log('Requirements Extraction: Has mock data:', hasMockData)
       console.log('Requirements Extraction: Mock data indicators:', {
         _isMockData: analysis?._isMockData,
-        titleHasMock: analysis?.functional_requirements?.some((req: any) => req.title?.includes('[목업]')),
-        projectTitleHasMock: analysis?.project_overview?.title?.includes('[목업]')
+        functionalTitleHasMock: analysis?.functional_requirements?.some((req: any) => req.title?.includes('[목업]')),
+        nonFunctionalTitleHasMock: analysis?.non_functional_requirements?.some((req: any) => req.title?.includes('[목업]')),
+        projectTitleHasMock: analysis?.project_overview?.title?.includes('[목업]'),
+        projectTitleIsDefault: analysis?.project_overview?.title?.includes('AI 기반 RFP 분석 시스템 구축')
       })
       
       if (hasMockData) {
@@ -123,11 +131,36 @@ export function RequirementExtractor({
         console.error('2. AI API 할당량 초과')
         console.error('3. 네트워크 연결 문제')
         console.error('4. AI 응답 JSON 파싱 실패')
+        console.error('5. 실제 RFP 내용 분석 실패')
+        
+        // 목업 데이터인 경우 요구사항을 빈 상태로 유지
+        setExtractedRequirements({
+          functional: [],
+          nonFunctional: []
+        })
         
         // 사용자에게 목업 데이터임을 알리는 에러 전달
-        onExtractError?.('⚠️ AI 분석에 실패하여 목업 데이터가 표시되고 있습니다. 실제 RFP 내용이 분석되지 않았습니다. 새로고침 후 다시 시도해주세요.')
+        onExtractError?.(`🚨 AI 분석 실패: 목업 데이터가 반환되었습니다
+        
+실제 RFP 내용이 분석되지 않았습니다.
+
+가능한 원인:
+• AI API 키 인증 문제
+• AI API 사용량 한도 초과  
+• 네트워크 연결 문제
+• AI 응답 파싱 오류
+• RFP 내용 분석 실패
+
+해결 방법:
+1. 새로고침 후 다시 시도
+2. 다른 AI 모델 선택
+3. 관리자에게 API 키 상태 확인 요청`)
+
+        return // 목업 데이터인 경우 여기서 중단
       }
       
+      // 실제 AI 분석 데이터인 경우에만 설정
+      console.log('Requirements Extraction: 실제 AI 분석 데이터 설정 중...')
       setExtractedRequirements({
         functional: analysis.functional_requirements || [],
         nonFunctional: analysis.non_functional_requirements || []
@@ -155,18 +188,27 @@ export function RequirementExtractor({
       analysisId,
       functionalLength: extractedRequirements.functional.length,
       nonFunctionalLength: extractedRequirements.nonFunctional.length,
-      shouldExtract: autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length
+      shouldExtract: autoExtract && analysisId
     })
     
-    if (autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length) {
+    // 새로운 분석 ID가 오면 무조건 API를 호출하여 실제 AI 분석 데이터 로드
+    if (autoExtract && analysisId) {
       console.log('Requirements Extraction: Conditions met, calling handleExtractRequirements...')
+      console.log('Requirements Extraction: 기존 데이터와 상관없이 새로운 분석 시작')
+      
+      // 먼저 기존 데이터를 초기화
+      setExtractedRequirements({
+        functional: [],
+        nonFunctional: []
+      })
+      
       handleExtractRequirements()
     } else {
       console.log('Requirements Extraction: Conditions not met, skipping extraction')
     }
     // handleExtractRequirements 의존성 제거하여 무한루프 방지
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoExtract, analysisId, extractedRequirements.functional.length, extractedRequirements.nonFunctional.length])
+  }, [autoExtract, analysisId])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
