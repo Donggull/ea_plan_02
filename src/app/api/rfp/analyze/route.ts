@@ -25,6 +25,12 @@ const supabaseAdmin = createClient(
   }
 )
 
+// 테스트용 GET 엔드포인트 추가
+export async function GET() {
+  console.log('🔥 RFP ANALYZE API GET TEST! 🔥')
+  return NextResponse.json({ message: 'RFP Analyze API is working!', timestamp: new Date().toISOString() })
+}
+
 export async function POST(request: NextRequest) {
   console.log('='.repeat(80))
   console.log('🔥 RFP ANALYZE API CALLED! 🔥')

@@ -72,6 +72,9 @@ export function RFPAnalyzer({
         console.log('RFP Analysis: Added Authorization header')
       }
 
+      console.log('RFP Analysis: Sending request to:', '/api/rfp/analyze')
+      console.log('RFP Analysis: Request body:', JSON.stringify(request, null, 2))
+      
       const response = await fetch('/api/rfp/analyze', {
         method: 'POST',
         headers,
@@ -79,8 +82,21 @@ export function RFPAnalyzer({
         body: JSON.stringify(request)
       })
 
+      console.log('RFP Analysis: Response status:', response.status)
+      console.log('RFP Analysis: Response headers:', Object.fromEntries(response.headers.entries()))
+      
       if (!response.ok) {
-        const errorData = await response.json()
+        console.error('RFP Analysis: Response not ok, status:', response.status)
+        let errorData;
+        try {
+          errorData = await response.json()
+          console.error('RFP Analysis: Error data:', errorData)
+        } catch (e) {
+          console.error('RFP Analysis: Could not parse error response as JSON')
+          const textError = await response.text()
+          console.error('RFP Analysis: Error text:', textError)
+          throw new Error(`HTTP ${response.status}: ${textError}`)
+        }
         throw new Error(errorData.message || 'RFP 분석 중 오류가 발생했습니다.')
       }
 
