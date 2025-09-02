@@ -21,6 +21,7 @@ export function AIModelManager() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
   const [newApiKey, setNewApiKey] = useState('')
   const [selectedEnvironment, setSelectedEnvironment] = useState<'production' | 'staging' | 'development'>('production')
+  const [userOrganizationId, setUserOrganizationId] = useState<string | null>(null)
   
   // 모델 추가 관련 상태
   const [showModelModal, setShowModelModal] = useState(false)
@@ -70,34 +71,19 @@ export function AIModelManager() {
   }, [])
 
   const loadAPIKeys = useCallback(async () => {
-    if (!user?.id) return
+    if (!userOrganizationId) {
+      console.log('No organization_id available yet')
+      return
+    }
 
     try {
-      // 먼저 사용자의 organization_id 가져오기
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single()
-
-      if (userError) {
-        console.error('Error fetching user organization:', userError)
-        return
-      }
-
-      const organizationId = userData?.organization_id
-      if (!organizationId) {
-        console.log('No organization_id found for user')
-        return
-      }
-
       const { data, error } = await supabase
         .from('ai_model_api_keys' as any)
         .select(`
           *,
           provider:ai_model_providers(*)
         `)
-        .eq('organization_id', organizationId)
+        .eq('organization_id', userOrganizationId)
         .eq('is_active', true)
 
       if (error) throw error
@@ -105,34 +91,73 @@ export function AIModelManager() {
     } catch (error) {
       console.error('Error loading API keys:', error)
     }
+  }, [userOrganizationId])
+
+  // 사용자의 organization_id 가져오기
+  useEffect(() => {
+    const fetchUserOrganization = async () => {
+      if (!user?.id) return
+
+      try {
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+
+        if (error) {
+          console.error('Error fetching user organization:', error)
+          // 에러 발생 시 새로운 organization_id 생성
+          const newOrgId = crypto.randomUUID()
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ organization_id: newOrgId })
+            .eq('id', user.id)
+          
+          if (!updateError) {
+            setUserOrganizationId(newOrgId)
+            console.log('Created new organization_id:', newOrgId)
+          }
+        } else if (userData?.organization_id) {
+          setUserOrganizationId(userData.organization_id)
+          console.log('Found organization_id:', userData.organization_id)
+        } else {
+          // organization_id가 null인 경우 새로 생성
+          const newOrgId = crypto.randomUUID()
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ organization_id: newOrgId })
+            .eq('id', user.id)
+          
+          if (!updateError) {
+            setUserOrganizationId(newOrgId)
+            console.log('Created new organization_id:', newOrgId)
+          }
+        }
+      } catch (error) {
+        console.error('Unexpected error:', error)
+      }
+    }
+
+    fetchUserOrganization()
   }, [user])
 
   useEffect(() => {
-    loadProviders()
-    loadModels()
-    loadAPIKeys()
-  }, [loadProviders, loadModels, loadAPIKeys])
+    if (userOrganizationId) {
+      loadProviders()
+      loadModels()
+      loadAPIKeys()
+    }
+  }, [userOrganizationId, loadProviders, loadModels, loadAPIKeys])
 
   const handleSaveAPIKey = async () => {
-    if (!selectedProvider || !newApiKey || !user?.id) {
-      alert('필수 정보가 누락되었습니다.')
+    if (!selectedProvider || !newApiKey || !userOrganizationId) {
+      alert('필수 정보가 누락되었습니다. 잠시 후 다시 시도해주세요.')
       return
     }
 
     setIsLoading(true)
     try {
-      // 먼저 사용자의 organization_id 가져오기
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single()
-
-      if (userError || !userData?.organization_id) {
-        console.error('Error fetching user organization:', userError)
-        alert('조직 정보를 찾을 수 없습니다.')
-        return
-      }
 
       // API 키 유효성 검증 (저장 전에 먼저 검증)
       const provider = providers.find(p => p.id === selectedProvider)
@@ -156,10 +181,10 @@ export function AIModelManager() {
       // API 키 저장
       await AIModelService.saveAPIKey(
         selectedProvider,
-        userData.organization_id,
+        userOrganizationId,
         newApiKey,
         selectedEnvironment,
-        user.id
+        user?.id || ''
       )
 
       await loadAPIKeys()
