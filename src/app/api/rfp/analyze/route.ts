@@ -454,8 +454,21 @@ JSON 결과만 반환해주세요:
       console.error('RFP Analysis: Raw AI response (first 1000 chars):', response.content.substring(0, 1000))
       console.error('RFP Analysis: Raw AI response (last 1000 chars):', response.content.substring(Math.max(0, response.content.length - 1000)))
       
-      // 파싱 실패 시 기본값 반환
-      console.log('RFP Analysis: Using fallback analysis due to parsing failure')
+      // JSON 파싱 실패에 대한 상세한 오류 정보
+      console.error('RFP Analysis: JSON parsing failed - AI response may be malformed')
+      console.error('RFP Analysis: Response structure analysis:')
+      console.log('- Response length:', response.content.length)
+      console.log('- First 200 chars:', response.content.substring(0, 200))
+      console.log('- Last 200 chars:', response.content.substring(response.content.length - 200))
+      console.log('- Contains JSON markers:', {
+        hasJsonStart: response.content.includes('{'),
+        hasJsonEnd: response.content.includes('}'),
+        hasCodeBlock: response.content.includes('```'),
+        hasJsonKeyword: response.content.includes('"functional_requirements"')
+      })
+      
+      // 파싱 실패 시 명확한 오류 메시지와 함께 기본값 반환
+      console.log('RFP Analysis: Using fallback analysis due to JSON parsing failure - AI may need better prompting')
       analysisResult = generateFallbackAnalysis()
     }
 
@@ -467,19 +480,36 @@ JSON 결과만 반환해주세요:
     console.error('RFP Analysis: Error type:', error?.constructor?.name)
     console.error('RFP Analysis: Error message:', error instanceof Error ? error.message : String(error))
     console.error('RFP Analysis: Error stack:', error instanceof Error ? error.stack : undefined)
-    console.log('RFP Analysis: Falling back to default analysis')
     
-    // AI 분석 실패 시 기본 분석 결과 반환
+    // 구체적인 오류 원인 파악
+    if (error instanceof Error) {
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        console.error('RFP Analysis: AI API 키 인증 실패')
+        throw new Error('AI API 키 인증에 실패했습니다. 환경 변수를 확인해주세요.')
+      } else if (error.message.includes('quota') || error.message.includes('limit')) {
+        console.error('RFP Analysis: AI API 할당량 초과')
+        throw new Error('AI API 사용 할당량을 초과했습니다. 잠시 후 다시 시도해주세요.')
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        console.error('RFP Analysis: 네트워크 오류')
+        throw new Error('네트워크 오류가 발생했습니다. 연결 상태를 확인해주세요.')
+      }
+    }
+    
+    console.log('RFP Analysis: Falling back to default analysis due to unknown error')
+    
+    // 알 수 없는 오류 시에만 목업 데이터 반환 (임시)
     return generateFallbackAnalysis()
   }
 }
 
 // AI 분석 실패 시 사용할 기본 분석 결과
 function generateFallbackAnalysis() {
+  console.warn('🚨 MOCK DATA: Returning fallback analysis data - AI analysis failed')
   
   return {
+    _isMockData: true, // 목업 데이터 식별자
     project_overview: {
-      title: "AI 기반 RFP 분석 시스템 구축",
+      title: "[목업] AI 기반 RFP 분석 시스템 구축",
       description: "기업의 제안요청서(RFP)를 자동으로 분석하여 요구사항을 추출하고 위험요소를 식별하는 AI 시스템을 구축합니다.",
       scope: "RFP 문서 업로드, AI 분석, 요구사항 추출, 키워드 분석, 질문 생성 기능을 포함한 웹 애플리케이션 개발",
       objectives: [
@@ -491,7 +521,7 @@ function generateFallbackAnalysis() {
     functional_requirements: [
       {
         id: crypto.randomUUID(),
-        title: "RFP 파일 업로드 기능",
+        title: "[목업] RFP 파일 업로드 기능",
         description: "PDF, DOC, DOCX 등 다양한 형식의 RFP 파일을 업로드할 수 있어야 합니다.",
         priority: "high" as const,
         category: "파일 처리",
@@ -500,7 +530,7 @@ function generateFallbackAnalysis() {
       },
       {
         id: crypto.randomUUID(),
-        title: "AI 기반 텍스트 분석",
+        title: "[목업] AI 기반 텍스트 분석",
         description: "업로드된 RFP 문서에서 핵심 내용을 자동으로 추출하고 분석해야 합니다.",
         priority: "critical" as const,
         category: "AI 분석",

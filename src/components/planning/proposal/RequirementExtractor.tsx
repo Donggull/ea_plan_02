@@ -30,8 +30,8 @@ export function RequirementExtractor({
     functional: Requirement[]
     nonFunctional: Requirement[]
   }>({
-    functional: analysis?.functional_requirements || [],
-    nonFunctional: analysis?.non_functional_requirements || []
+    functional: [],
+    nonFunctional: []
   })
   const [selectedCategory, setSelectedCategory] = useState<'functional' | 'non_functional'>('functional')
   const [_editingRequirement, _setEditingRequirement] = useState<string | null>(null)
@@ -102,6 +102,31 @@ export function RequirementExtractor({
       console.log('Requirements Extraction: Analysis data:', analysis)
       console.log('Requirements Extraction: Functional requirements:', analysis?.functional_requirements)
       console.log('Requirements Extraction: Non-functional requirements:', analysis?.non_functional_requirements)
+      
+      // 목업 데이터 여부 확인
+      const hasMockData = analysis?._isMockData || 
+        analysis?.functional_requirements?.some((req: any) => 
+          req.title?.includes('[목업]') || req.title?.includes('목업') || req.title?.includes('Mock')
+        ) || false
+      
+      console.log('Requirements Extraction: Has mock data:', hasMockData)
+      console.log('Requirements Extraction: Mock data indicators:', {
+        _isMockData: analysis?._isMockData,
+        titleHasMock: analysis?.functional_requirements?.some((req: any) => req.title?.includes('[목업]')),
+        projectTitleHasMock: analysis?.project_overview?.title?.includes('[목업]')
+      })
+      
+      if (hasMockData) {
+        console.error('🚨 MOCK DATA DETECTED: AI 분석이 실패하여 목업 데이터가 반환되었습니다.')
+        console.error('가능한 원인:')
+        console.error('1. AI API 키 인증 문제')
+        console.error('2. AI API 할당량 초과')
+        console.error('3. 네트워크 연결 문제')
+        console.error('4. AI 응답 JSON 파싱 실패')
+        
+        // 사용자에게 목업 데이터임을 알리는 에러 전달
+        onExtractError?.('⚠️ AI 분석에 실패하여 목업 데이터가 표시되고 있습니다. 실제 RFP 내용이 분석되지 않았습니다. 새로고침 후 다시 시도해주세요.')
+      }
       
       setExtractedRequirements({
         functional: analysis.functional_requirements || [],
