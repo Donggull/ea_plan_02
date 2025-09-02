@@ -29,6 +29,9 @@ export function RFPUploader({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [analysisPrompt, setAnalysisPrompt] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const [instructionFile, setInstructionFile] = useState<File | null>(null)
 
   const acceptedFileTypes = useMemo(() => ({
     'application/pdf': ['.pdf'],
@@ -53,6 +56,20 @@ export function RFPUploader({
 
     return null
   }, [acceptedFileTypes])
+
+  const handleInstructionFileUpload = useCallback((files: FileList) => {
+    if (disabled || files.length === 0) return
+
+    const file = files[0]
+    const error = validateFile(file)
+    
+    if (error) {
+      onUploadError?.(error)
+      return
+    }
+
+    setInstructionFile(file)
+  }, [disabled, validateFile, onUploadError])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (disabled || acceptedFiles.length === 0) return
@@ -96,6 +113,15 @@ export function RFPUploader({
       if (projectId) {
         formData.append('project_id', projectId)
       }
+      if (analysisPrompt.trim()) {
+        formData.append('analysis_prompt', analysisPrompt.trim())
+      }
+      if (instructions.trim()) {
+        formData.append('instructions', instructions.trim())
+      }
+      if (instructionFile) {
+        formData.append('instruction_file', instructionFile)
+      }
 
       console.log('RFP Upload: Starting file upload...')
       
@@ -130,6 +156,9 @@ export function RFPUploader({
       setSelectedFile(null)
       setTitle('')
       setDescription('')
+      setAnalysisPrompt('')
+      setInstructions('')
+      setInstructionFile(null)
       onUploadSuccess?.(result)
       
     } catch (error) {
@@ -235,6 +264,109 @@ export function RFPUploader({
             disabled={disabled || uploading}
           />
         </div>
+
+        {/* 분석 프롬프트 입력 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            분석 프롬프트 (선택사항)
+          </label>
+          <textarea
+            className={cn(
+              'w-full h-32 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
+              'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
+              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'placeholder:text-gray-500 dark:placeholder:text-gray-400'
+            )}
+            placeholder="AI가 RFP를 분석할 때 사용할 구체적인 지시사항을 입력하세요 (예: 특정 요구사항에 집중, 분석 관점 등)"
+            value={analysisPrompt}
+            onChange={(e) => setAnalysisPrompt(e.target.value)}
+            disabled={disabled || uploading}
+          />
+        </div>
+
+        {/* 지침 입력 (텍스트 또는 파일) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            분석 지침 (선택사항)
+          </label>
+          
+          {/* 텍스트 지침 */}
+          <div className="mb-3">
+            <textarea
+              className={cn(
+                'w-full h-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg',
+                'text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
+                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'placeholder:text-gray-500 dark:placeholder:text-gray-400'
+              )}
+              placeholder="분석에 참고할 지침이나 가이드라인을 입력하세요"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              disabled={disabled || uploading}
+            />
+          </div>
+
+          {/* 또는 파일 첨부 */}
+          <div className="space-y-2">
+            <div className="text-sm text-gray-600 dark:text-gray-400 text-center">또는</div>
+            
+            <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.md,.rtf"
+                onChange={(e) => e.target.files && handleInstructionFileUpload(e.target.files)}
+                disabled={disabled || uploading}
+                className="hidden"
+                id="instruction-file-input"
+              />
+              <label 
+                htmlFor="instruction-file-input"
+                className={cn(
+                  'flex flex-col items-center justify-center cursor-pointer space-y-2',
+                  (disabled || uploading) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <IconRenderer icon="Paperclip" size={16} className="text-gray-500 dark:text-gray-400" {...({} as any)} />
+                </div>
+                <div className="text-center">
+                  {instructionFile ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {instructionFile.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatFileSize(instructionFile.size)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setInstructionFile(null)
+                        }}
+                        className="text-xs text-red-600 hover:text-red-700"
+                        disabled={disabled || uploading}
+                      >
+                        파일 제거
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        지침 파일 첨부
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        PDF, DOC, DOCX, TXT, MD, RTF
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 업로드 버튼 */}
@@ -246,6 +378,9 @@ export function RFPUploader({
               setSelectedFile(null)
               setTitle('')
               setDescription('')
+              setAnalysisPrompt('')
+              setInstructions('')
+              setInstructionFile(null)
             }}
             disabled={disabled || uploading}
           >

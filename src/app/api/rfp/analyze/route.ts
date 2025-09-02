@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     // AI 모델을 사용한 RFP 분석 수행 (사용자 선택 모델 반영)
     const analysisResult = await performRFPAnalysis(
-      rfpDocument.content || '', 
+      rfpDocument, // 전체 문서 데이터 전달 (metadata 포함)
       analysis_options, 
       user.id,
       selected_model_id
@@ -225,14 +225,24 @@ export async function POST(request: NextRequest) {
 }
 
 // AI 분석 수행 함수 - 환경변수를 직접 사용하여 간소화
-async function performRFPAnalysis(extractedText: string, options: any, userId: string, selectedModelId?: string | null) {
+async function performRFPAnalysis(rfpDocument: any, options: any, userId: string, selectedModelId?: string | null) {
   try {
     console.log('RFP Analysis: Starting AI-powered analysis...')
+    
+    const extractedText = rfpDocument.content || ''
+    const metadata = rfpDocument.metadata || {}
+    const analysisPrompt = metadata.analysis_prompt || null
+    const instructions = metadata.instructions || null
+    const instructionFile = metadata.instruction_file || null
+    
     console.log('RFP Analysis: Input parameters:', {
       extractedTextLength: extractedText.length,
       userId,
       selectedModelId,
-      hasOptions: !!options
+      hasOptions: !!options,
+      hasCustomPrompt: !!analysisPrompt,
+      hasInstructions: !!instructions,
+      hasInstructionFile: !!instructionFile
     })
     
     // 환경변수에서 직접 API 키 가져오기
@@ -275,9 +285,37 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       estimatedTokens: Math.ceil(processedText.length / 4)
     })
 
-    // RFP 분석을 위한 프롬프트 생성
-    const analysisPrompt = `
-다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.
+    // 사용자 지정 프롬프트와 지침을 활용한 분석 프롬프트 생성
+    let finalPrompt = ''
+    
+    // 사용자 지정 프롬프트가 있는 경우 우선 사용
+    if (analysisPrompt?.trim()) {
+      console.log('RFP Analysis: Using custom analysis prompt')
+      finalPrompt = `${analysisPrompt.trim()}\n\n=== RFP 문서 내용 ===\n${processedText}`
+    } else {
+      // 기본 프롬프트 사용
+      console.log('RFP Analysis: Using default analysis prompt')
+      finalPrompt = `다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.\n\n=== RFP 문서 내용 ===\n${processedText}`
+    }
+    
+    // 지침 추가 (텍스트 지침)
+    if (instructions?.trim()) {
+      console.log('RFP Analysis: Adding text instructions')
+      finalPrompt += `\n\n=== 분석 지침 ===\n${instructions.trim()}`
+    }
+    
+    // 지침 파일 내용 추가
+    if (instructionFile?.extracted_text?.trim()) {
+      console.log('RFP Analysis: Adding instruction file content')
+      finalPrompt += `\n\n=== 첨부 지침 파일 (${instructionFile.original_name}) ===\n${instructionFile.extracted_text.trim()}`
+    }
+    
+    // 기본 분석 요구사항은 항상 추가 (사용자 프롬프트가 없는 경우에만)
+    if (!analysisPrompt?.trim()) {
+      finalPrompt += `
+
+=== 분석 요구사항 ===
+위 RFP 문서를 분석하여 다음 형식의 JSON 결과를 제공해주세요:
 
 === RFP 문서 내용 ===
 ${processedText}
@@ -374,7 +412,7 @@ JSON 결과만 반환해주세요:
       },
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
-        messages: [{ role: 'user', content: analysisPrompt }],
+        messages: [{ role: 'user', content: finalPrompt }],
         max_tokens: 8000,
         temperature: 0.3
       })
