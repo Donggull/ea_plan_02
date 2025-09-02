@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
-// import { AIModelService } from '@/services/ai/model-service' // 환경변수 직접 사용으로 임시 비활성화
+// import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
+
+// 임시 타입 정의
+interface RFPAnalysisRequest {
+  rfp_document_id: string
+  analysis_options?: any
+  selected_model_id?: string | null
+}
+
+interface RFPAnalysisResponse {
+  analysis: any
+  questions?: any
+  estimated_duration: number
+}
 
 // Service role client for privileged operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -48,58 +60,36 @@ export async function POST(request: NextRequest) {
       const token = authorization.replace('Bearer ', '')
       const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
       
-      if (tokenError || !tokenUser) {
-        console.error('RFP Analysis: Token validation failed:', tokenError)
-        return NextResponse.json(
-          { message: '유효하지 않은 토큰입니다: ' + (tokenError?.message || 'Unknown error') },
-          { status: 401 }
-        )
-      }
-      
-      user = tokenUser
-      console.log('RFP Analysis: User authenticated via token:', user.email)
-    } else {
-      // 쿠키 기반 세션 확인 (동일한 방식 사용)
-      console.log('RFP Analysis: Using cookie-based authentication')
-      
-      try {
-        const supabase = createRouteHandlerClient({ cookies })
-        
-        // Get the current user from the session
-        console.log('RFP Analysis: Getting user from session...')
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError) {
-          console.error('RFP Analysis: Session error:', sessionError)
-          return NextResponse.json(
-            { message: '세션 오류가 발생했습니다: ' + sessionError.message },
-            { status: 401 }
-          )
-        }
-        
-        if (!session?.user) {
-          console.log('RFP Analysis: No session user found')
-          return NextResponse.json(
-            { message: '인증된 세션을 찾을 수 없습니다. 다시 로그인해주세요.' },
-            { status: 401 }
-          )
-        }
-        
-        user = session.user
-        console.log('RFP Analysis: User authenticated via session:', user.email)
-      } catch (cookieError) {
-        console.error('RFP Analysis: Cookie access failed:', cookieError)
-        return NextResponse.json(
-          { message: '쿠키 인증 오류가 발생했습니다.' },
-          { status: 401 }
-        )
+      if (tokenError) {
+        console.error('RFP Analysis: Token authentication error:', tokenError)
+      } else {
+        user = tokenUser
+        console.log('RFP Analysis: Token authentication successful:', user?.id)
       }
     }
     
+    // 헤더 기반 인증이 실패한 경우 쿠키 기반 인증 시도 (fallback)
     if (!user) {
-      console.log('RFP Analysis: No user found')
+      console.log('RFP Analysis: Trying cookie-based authentication...')
+      try {
+        const supabase = createRouteHandlerClient({ cookies })
+        const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
+        
+        if (cookieError) {
+          console.error('RFP Analysis: Cookie authentication error:', cookieError)
+        } else {
+          user = cookieUser
+          console.log('RFP Analysis: Cookie authentication successful:', user?.id)
+        }
+      } catch (cookieError) {
+        console.error('RFP Analysis: Cookie authentication failed:', cookieError)
+      }
+    }
+
+    if (!user) {
+      console.error('RFP Analysis: No valid authentication found')
       return NextResponse.json(
-        { message: '인증된 사용자를 찾을 수 없습니다.' },
+        { message: '인증되지 않은 사용자입니다. 로그인 후 다시 시도해주세요.' },
         { status: 401 }
       )
     }
@@ -107,44 +97,36 @@ export async function POST(request: NextRequest) {
     const body: RFPAnalysisRequest = await request.json()
     const { rfp_document_id, analysis_options, selected_model_id } = body
 
-    if (!rfp_document_id) {
-      return NextResponse.json(
-        { message: 'RFP 문서 ID가 필요합니다.' },
-        { status: 400 }
-      )
-    }
+    console.log('RFP Analysis: Request data:', {
+      rfp_document_id,
+      analysis_options,
+      selected_model_id,
+      userId: user.id
+    })
 
-    // RFP 문서 조회 (Service Role 사용)
+    // RFP 문서 정보 가져오기 (Service Role 사용)
     const { data: rfpDocument, error: rfpError } = await supabaseAdmin
       .from('rfp_documents')
       .select('*')
       .eq('id', rfp_document_id)
       .single()
 
-    if (rfpError || !rfpDocument) {
+    if (rfpError) {
+      console.error('RFP document fetch error:', rfpError)
       return NextResponse.json(
         { message: 'RFP 문서를 찾을 수 없습니다.' },
         { status: 404 }
       )
     }
 
-    // 이미 분석된 문서인지 확인 (Service Role 사용)
-    const { data: existingAnalysis } = await supabaseAdmin
-      .from('rfp_analyses')
-      .select('*')
-      .eq('rfp_document_id', rfp_document_id)
-      .single()
+    console.log('RFP Analysis: Document found:', {
+      id: rfpDocument.id,
+      title: rfpDocument.title,
+      contentLength: rfpDocument.content?.length || 0,
+      hasMetadata: !!rfpDocument.metadata
+    })
 
-    if (existingAnalysis) {
-      // 기존 분석 결과 반환
-      const response: RFPAnalysisResponse = {
-        analysis: existingAnalysis as any,
-        estimated_duration: 0
-      }
-      return NextResponse.json(response)
-    }
-
-    // AI 모델을 사용한 RFP 분석 수행 (사용자 선택 모델 반영)
+    // AI 분석 수행
     const analysisResult = await performRFPAnalysis(
       rfpDocument, // 전체 문서 데이터 전달 (metadata 포함)
       analysis_options, 
@@ -255,7 +237,7 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
     if (!apiKey) {
       console.error('🚨 API KEY ERROR: ANTHROPIC_API_KEY not found in environment variables')
       throw new Error(`AI 분석을 위한 API 키가 설정되지 않았습니다. 
-      
+
 관리자에게 다음 사항을 요청하세요:
 1. Vercel Dashboard → Project Settings → Environment Variables
 2. ANTHROPIC_API_KEY 환경 변수 추가 (sk-ant-api03-로 시작하는 값)
@@ -266,24 +248,14 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
 
     console.log('RFP Analysis: Using direct Anthropic API call (bypassing provider class)...')
 
-    // 입력 텍스트 길이 확인 및 제한
-    console.log('RFP Analysis: Input text analysis:', {
-      originalLength: extractedText.length,
-      wordCount: extractedText.split(/\s+/).length,
-      estimatedTokens: Math.ceil(extractedText.length / 4) // 대략적 토큰 추정
-    })
+    // 텍스트 길이 제한 (Claude 토큰 한도 고려)
+    const maxTextLength = 240000 // 대략 60,000 토큰 (4:1 비율)
+    let processedText = extractedText
     
-    // 토큰 제한을 고려한 텍스트 자르기 (약 60,000 토큰 = 240,000 문자)
-    const maxInputLength = 240000
-    const processedText = extractedText.length > maxInputLength 
-      ? extractedText.substring(0, maxInputLength) + '\n\n[문서가 길어 일부만 분석됨]'
-      : extractedText
-    
-    console.log('RFP Analysis: Processed text info:', {
-      processedLength: processedText.length,
-      wasTruncated: extractedText.length > maxInputLength,
-      estimatedTokens: Math.ceil(processedText.length / 4)
-    })
+    if (extractedText.length > maxTextLength) {
+      console.warn(`RFP Analysis: Text truncated from ${extractedText.length} to ${maxTextLength} characters`)
+      processedText = extractedText.substring(0, maxTextLength) + '\n\n[텍스트가 너무 길어 일부가 생략되었습니다]'
+    }
 
     // 사용자 지정 프롬프트와 지침을 활용한 분석 프롬프트 생성
     let finalPrompt = ''
@@ -295,7 +267,51 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
     } else {
       // 기본 프롬프트 사용
       console.log('RFP Analysis: Using default analysis prompt')
-      finalPrompt = `다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.\n\n=== RFP 문서 내용 ===\n${processedText}`
+      finalPrompt = `다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.
+
+분석 결과는 반드시 다음 JSON 형식을 따라야 합니다:
+{
+  "project_overview": {
+    "title": "프로젝트 제목",
+    "description": "프로젝트 설명",
+    "scope": "프로젝트 범위",
+    "objectives": ["목표1", "목표2"]
+  },
+  "functional_requirements": [
+    {
+      "title": "요구사항 제목",
+      "description": "상세 설명",
+      "priority": "high|medium|low",
+      "category": "카테고리",
+      "acceptance_criteria": ["기준1", "기준2"],
+      "estimated_effort": 숫자
+    }
+  ],
+  "non_functional_requirements": [
+    {
+      "title": "비기능 요구사항 제목",
+      "description": "상세 설명",
+      "category": "성능|보안|호환성|사용성",
+      "priority": "high|medium|low",
+      "metric": "측정 기준",
+      "target_value": "목표 값"
+    }
+  ],
+  "keywords": ["키워드1", "키워드2"],
+  "risk_factors": [
+    {
+      "title": "위험 요소 제목",
+      "description": "설명",
+      "probability": "high|medium|low",
+      "impact": "high|medium|low",
+      "mitigation": "대응 방안"
+    }
+  ],
+  "confidence_score": 0.95
+}
+
+=== RFP 문서 내용 ===
+${processedText}`
     }
     
     // 지침 추가 (텍스트 지침)
@@ -309,101 +325,12 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
       console.log('RFP Analysis: Adding instruction file content')
       finalPrompt += `\n\n=== 첨부 지침 파일 (${instructionFile.original_name}) ===\n${instructionFile.extracted_text.trim()}`
     }
-    
-    // 기본 분석 요구사항은 항상 추가 (사용자 프롬프트가 없는 경우에만)
-    if (!analysisPrompt?.trim()) {
-      finalPrompt += `
 
-=== 분석 요구사항 ===
-위 RFP 문서를 분석하여 다음 형식의 JSON 결과를 제공해주세요:
+    console.log('RFP Analysis: Final prompt length:', finalPrompt.length)
+    console.log('RFP Analysis: Making API request to Anthropic...')
 
-=== RFP 문서 내용 ===
-${processedText}
-
-=== 분석 요구사항 ===
-위 RFP 문서를 분석하여 다음 형식의 JSON 결과를 제공해주세요:
-
-{
-  "project_overview": {
-    "title": "프로젝트 제목",
-    "description": "프로젝트 상세 설명", 
-    "scope": "프로젝트 범위",
-    "objectives": ["목표1", "목표2", "목표3"]
-  },
-  "functional_requirements": [
-    {
-      "title": "기능 요구사항 제목",
-      "description": "상세 설명",
-      "priority": "critical|high|medium|low",
-      "category": "카테고리",
-      "acceptance_criteria": ["기준1", "기준2"],
-      "estimated_effort": 예상작업일수
-    }
-  ],
-  "non_functional_requirements": [
-    {
-      "title": "비기능 요구사항 제목",
-      "description": "상세 설명",
-      "priority": "critical|high|medium|low", 
-      "category": "성능|보안|사용성|확장성",
-      "acceptance_criteria": ["기준1", "기준2"],
-      "estimated_effort": 예상작업일수
-    }
-  ],
-  "technical_specifications": {
-    "platform": ["플랫폼1", "플랫폼2"],
-    "technologies": ["기술1", "기술2"],
-    "integrations": ["연동시스템1", "연동시스템2"],
-    "performance_requirements": {
-      "응답시간": "< 3초",
-      "처리량": "1000 req/min", 
-      "가용성": "99.9%"
-    }
-  },
-  "business_requirements": {
-    "budget_range": "예산 범위",
-    "timeline": "프로젝트 기간",
-    "target_users": ["사용자그룹1", "사용자그룹2"],
-    "success_metrics": ["성공지표1", "성공지표2"]
-  },
-  "keywords": [
-    {"term": "키워드", "importance": 0.95, "category": "business|technical|functional"}
-  ],
-  "risk_factors": [
-    {
-      "factor": "위험요소 설명",
-      "level": "high|medium|low",
-      "mitigation": "완화방안"
-    }
-  ],
-  "questions_for_client": [
-    "고객에게 확인할 질문1",
-    "고객에게 확인할 질문2"
-  ],
-  "confidence_score": 0.85
-}
-
-분석 시 주의사항:
-1. 모든 텍스트는 한국어로 작성
-2. 실제 문서 내용을 기반으로 분석 (가상의 내용 생성 금지)
-3. 우선순위는 문서에 명시된 중요도를 반영
-4. confidence_score는 분석의 확신도 (0.0-1.0)
-5. 각 항목에 고유 ID는 자동 생성되므로 포함하지 않음
-
-JSON 결과만 반환해주세요:
-`
-
-    // AI 분석 수행 - 직접 API 호출
-    console.log('RFP Analysis: Sending direct API request to Anthropic...')
-    console.log('RFP Analysis: Prompt length:', analysisPrompt.length)
-    console.log('RFP Analysis: Request settings:', {
-      max_tokens: 8000,
-      temperature: 0.3,
-      model: 'claude-3-5-sonnet-20241022'
-    })
-    
-    // Anthropic API 호출 (타임아웃 제거 - Vercel 자체 타임아웃 사용)
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    // 직접 API 호출
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -411,54 +338,56 @@ JSON 결과만 반환해주세요:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: [{ role: 'user', content: finalPrompt }],
-        max_tokens: 8000,
-        temperature: 0.3
+        model: 'claude-3-5-sonnet-20241022', // 최신 모델 사용
+        messages: [
+          {
+            role: 'user',
+            content: finalPrompt
+          }
+        ],
+        max_tokens: 8192,
+        temperature: 0.7
       })
     })
-    
-    console.log('RFP Analysis: Anthropic API response status:', anthropicResponse.status)
-    
-    if (!anthropicResponse.ok) {
-      const errorText = await anthropicResponse.text()
-      console.error('RFP Analysis: Anthropic API error:', errorText)
-      throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorText}`)
-    }
-    
-    const anthropicData = await anthropicResponse.json()
-    console.log('RFP Analysis: Anthropic API response received:', {
-      contentLength: anthropicData.content[0]?.text?.length || 0,
-      inputTokens: anthropicData.usage.input_tokens,
-      outputTokens: anthropicData.usage.output_tokens
+
+    console.log('RFP Analysis: API response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: 'Response headers logged separately'
     })
-    
-    const response = {
-      content: anthropicData.content[0]?.text || '',
-      usage: {
-        input_tokens: anthropicData.usage.input_tokens,
-        output_tokens: anthropicData.usage.output_tokens,
-        total_tokens: anthropicData.usage.input_tokens + anthropicData.usage.output_tokens
-      },
-      model: anthropicData.model,
-      finish_reason: anthropicData.stop_reason
+
+    if (!response.ok) {
+      let errorText = ''
+      try {
+        const error = await response.json()
+        errorText = JSON.stringify(error)
+        console.error('RFP Analysis: API error response:', error)
+        throw new Error(`Anthropic API error (${response.status}): ${error.error?.message || error.message || response.statusText}`)
+      } catch (parseError) {
+        errorText = await response.text()
+        console.error('RFP Analysis: Raw error response:', errorText)
+        throw new Error(`Anthropic API error (${response.status}): ${response.statusText} - ${errorText}`)
+      }
     }
 
-    console.log('RFP Analysis: AI response received successfully')
-    console.log('RFP Analysis: Response details:', {
-      contentLength: response.content.length,
-      usage: response.usage,
-      model: response.model,
-      finishReason: response.finish_reason
+    const data = await response.json()
+    
+    console.log('RFP Analysis: Successful response received:', {
+      contentLength: data.content[0]?.text?.length || 0,
+      inputTokens: data.usage.input_tokens,
+      outputTokens: data.usage.output_tokens,
+      model: data.model,
+      stopReason: data.stop_reason
     })
-    console.log('RFP Analysis: Response content preview (first 500 chars):', response.content.substring(0, 500))
+    console.log('RFP Analysis: Response content preview (first 500 chars):', data.content[0]?.text?.substring(0, 500))
     console.log('RFP Analysis: Starting JSON parsing...')
 
     // JSON 파싱
     let analysisResult
     try {
       // JSON 코드 블록에서 JSON 부분만 추출
-      let jsonContent = response.content.trim()
+      let jsonContent = data.content[0]?.text?.trim() || ''
       console.log('RFP Analysis: Original content length:', jsonContent.length)
       
       // ```json ... ``` 형태로 감싸져 있는 경우 추출
@@ -507,20 +436,20 @@ JSON 결과만 반환해주세요:
 
     } catch (parseError) {
       console.error('RFP Analysis: JSON parsing error:', parseError)
-      console.error('RFP Analysis: Raw AI response (first 1000 chars):', response.content.substring(0, 1000))
-      console.error('RFP Analysis: Raw AI response (last 1000 chars):', response.content.substring(Math.max(0, response.content.length - 1000)))
+      console.error('RFP Analysis: Raw AI response (first 1000 chars):', data.content[0]?.text?.substring(0, 1000))
+      console.error('RFP Analysis: Raw AI response (last 1000 chars):', data.content[0]?.text?.substring(Math.max(0, (data.content[0]?.text?.length || 0) - 1000)))
       
       // JSON 파싱 실패에 대한 상세한 오류 정보
       console.error('RFP Analysis: JSON parsing failed - AI response may be malformed')
       console.error('RFP Analysis: Response structure analysis:')
-      console.log('- Response length:', response.content.length)
-      console.log('- First 200 chars:', response.content.substring(0, 200))
-      console.log('- Last 200 chars:', response.content.substring(response.content.length - 200))
+      console.log('- Response length:', data.content[0]?.text?.length || 0)
+      console.log('- First 200 chars:', data.content[0]?.text?.substring(0, 200) || 'NO_CONTENT')
+      console.log('- Last 200 chars:', data.content[0]?.text?.substring((data.content[0]?.text?.length || 0) - 200) || 'NO_CONTENT')
       console.log('- Contains JSON markers:', {
-        hasJsonStart: response.content.includes('{'),
-        hasJsonEnd: response.content.includes('}'),
-        hasCodeBlock: response.content.includes('```'),
-        hasJsonKeyword: response.content.includes('"functional_requirements"')
+        hasJsonStart: data.content[0]?.text?.includes('{') || false,
+        hasJsonEnd: data.content[0]?.text?.includes('}') || false,
+        hasCodeBlock: data.content[0]?.text?.includes('```') || false,
+        hasJsonKeyword: data.content[0]?.text?.includes('"functional_requirements"') || false
       })
       
       // 파싱 실패 시 명확한 오류 메시지와 함께 기본값 반환
@@ -612,248 +541,66 @@ function generateFallbackAnalysis() {
       },
       {
         id: crypto.randomUUID(),
-        title: "[목업] AI 기반 텍스트 분석",
-        description: "업로드된 RFP 문서에서 핵심 내용을 자동으로 추출하고 분석해야 합니다.",
-        priority: "critical" as const,
+        title: "[목업] AI 기반 요구사항 자동 추출",
+        description: "업로드된 RFP 문서에서 기능적 요구사항과 비기능적 요구사항을 자동으로 추출합니다.",
+        priority: "high" as const,
         category: "AI 분석",
-        acceptance_criteria: ["자동 텍스트 추출", "키워드 식별", "요구사항 분류"],
-        estimated_effort: 15
+        acceptance_criteria: ["95% 이상 정확도", "실시간 분석", "구조화된 결과 제공"],
+        estimated_effort: 8
       }
     ],
     non_functional_requirements: [
       {
         id: crypto.randomUUID(),
-        title: "성능 요구사항",
-        description: "대용량 파일 처리 시에도 원활한 성능을 유지해야 합니다.",
-        priority: "medium" as const,
+        title: "[목업] 시스템 성능 요구사항",
+        description: "대용량 문서 처리 시에도 5초 이내 응답 시간을 보장해야 합니다.",
         category: "성능",
-        acceptance_criteria: ["50MB 파일 5분 이내 분석", "동시 사용자 100명 지원"],
-        estimated_effort: 8
+        priority: "high" as const,
+        metric: "응답시간",
+        target_value: "< 5초"
       }
     ],
-    technical_specifications: {
-      platform: ["웹 애플리케이션", "클라우드 기반"],
-      technologies: ["Next.js", "TypeScript", "Supabase", "AI/ML API"],
-      integrations: ["OpenAI API", "문서 파싱 서비스", "클라우드 스토리지"],
-      performance_requirements: {
-        "응답시간": "< 3초",
-        "처리량": "100 req/min",
-        "가용성": "99.9%"
-      }
-    },
-    business_requirements: {
-      budget_range: "5,000만원 ~ 1억원",
-      timeline: "6개월",
-      target_users: ["제안 담당자", "사업 개발팀", "프로젝트 매니저"],
-      success_metrics: [
-        "RFP 분석 시간 단축률",
-        "요구사항 추출 정확도",
-        "사용자 만족도"
-      ]
-    },
-    keywords: [
-      { term: "RFP 분석", importance: 0.95, category: "business" },
-      { term: "AI 자동화", importance: 0.90, category: "technical" },
-      { term: "요구사항 추출", importance: 0.85, category: "functional" },
-      { term: "위험 관리", importance: 0.75, category: "business" },
-      { term: "문서 처리", importance: 0.70, category: "technical" }
-    ],
+    keywords: ["AI 분석", "RFP 처리", "요구사항 추출", "문서 분석", "자동화"],
     risk_factors: [
       {
-        factor: "AI 분석 정확도 문제",
-        level: "medium" as const,
-        mitigation: "충분한 테스트 데이터 확보 및 지속적인 모델 개선"
-      },
-      {
-        factor: "대용량 파일 처리 성능",
-        level: "low" as const,
-        mitigation: "클라우드 스케일링 및 비동기 처리 구현"
-      }
-    ],
-    questions_for_client: [
-      "현재 사용하고 있는 RFP 분석 도구나 프로세스가 있나요?",
-      "특별히 중요하게 생각하는 분석 항목이 있나요?",
-      "기존 시스템과의 연동이 필요한가요?",
-      "사용자 권한 및 접근 제어 요구사항이 있나요?"
-    ],
-    confidence_score: 0.82
-  }
-}
-
-// 분석 질문 생성 함수 - 환경변수 직접 사용으로 간소화
-async function generateAnalysisQuestions(analysisId: string, _options: any, _selectedModelId?: string | null) {
-  try {
-    console.log('Question Generation: Starting AI-powered question generation...')
-    
-    // 분석 데이터 조회
-    const { data: analysisData } = await supabaseAdmin
-      .from('rfp_analyses')
-      .select('*')
-      .eq('id', analysisId)
-      .single()
-
-    if (!analysisData) {
-      throw new Error('분석 데이터를 찾을 수 없습니다.')
-    }
-
-    // 환경변수에서 직접 API 키 가져오기
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    
-    if (!apiKey) {
-      console.error('Question Generation: ANTHROPIC_API_KEY not found in environment variables')
-      throw new Error('AI 질문 생성을 위한 API 키가 설정되지 않았습니다.')
-    }
-
-    console.log('Question Generation: Using direct Anthropic API call (bypassing provider class)...')
-
-    // 질문 생성을 위한 프롬프트
-    const questionPrompt = `
-다음 RFP 분석 결과를 기반으로, 고객에게 확인해야 할 구체적이고 실용적인 질문들을 생성해주세요.
-
-=== 분석 결과 요약 ===
-프로젝트: ${analysisData.project_overview?.title || '제목 없음'}
-설명: ${analysisData.project_overview?.description || '설명 없음'}
-기능 요구사항 개수: ${analysisData.functional_requirements?.length || 0}개
-비기능 요구사항 개수: ${analysisData.non_functional_requirements?.length || 0}개
-
-=== 질문 생성 요구사항 ===
-다음 형식의 JSON 배열로 5-8개의 질문을 생성해주세요:
-
-[
-  {
-    "question_text": "구체적인 질문 내용",
-    "question_type": "yes_no|multiple_choice|short_text|long_text|number|date",
-    "category": "market_context|project_constraints|technical_details|business_goals|user_requirements",
-    "priority": "high|medium|low",
-    "context": "이 질문을 하는 이유와 배경",
-    "next_step_impact": "이 답변이 프로젝트에 미치는 영향",
-    "order_index": 순서번호
-  }
-]
-
-질문 생성 가이드라인:
-1. 분석 결과에서 불명확하거나 추가 정보가 필요한 부분에 초점
-2. 프로젝트 성공에 중요한 영향을 미치는 질문 우선
-3. 고객이 쉽게 답변할 수 있는 명확한 질문
-4. 기술적 세부사항, 예산, 일정, 사용자 요구사항 등 균형있게 포함
-5. 모든 텍스트는 한국어로 작성
-
-JSON 배열만 반환해주세요:
-`
-
-    // AI 질문 생성 수행 - 직접 API 호출
-    console.log('Question Generation: Sending direct API request to Anthropic...')
-    console.log('Question Generation: Prompt length:', questionPrompt.length)
-    
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: [{ role: 'user', content: questionPrompt }],
-        max_tokens: 4000,
-        temperature: 0.4
-      })
-    })
-    
-    console.log('Question Generation: Anthropic API response status:', anthropicResponse.status)
-    
-    if (!anthropicResponse.ok) {
-      const errorText = await anthropicResponse.text()
-      console.error('Question Generation: Anthropic API error:', errorText)
-      throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorText}`)
-    }
-    
-    const anthropicData = await anthropicResponse.json()
-    console.log('Question Generation: Anthropic API response received:', {
-      contentLength: anthropicData.content[0]?.text?.length || 0,
-      inputTokens: anthropicData.usage.input_tokens,
-      outputTokens: anthropicData.usage.output_tokens
-    })
-    
-    const response = {
-      content: anthropicData.content[0]?.text || '',
-      usage: {
-        input_tokens: anthropicData.usage.input_tokens,
-        output_tokens: anthropicData.usage.output_tokens,
-        total_tokens: anthropicData.usage.input_tokens + anthropicData.usage.output_tokens
-      },
-      model: anthropicData.model,
-      finish_reason: anthropicData.stop_reason
-    }
-
-    console.log('Question Generation: AI response received, parsing...')
-
-    // JSON 파싱
-    let generatedQuestions
-    try {
-      let jsonContent = response.content.trim()
-      
-      // JSON 코드 블록에서 배열 부분만 추출
-      if (jsonContent.startsWith('```')) {
-        const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (match) {
-          jsonContent = match[1].trim()
-        }
-      }
-      
-      const questionsArray = JSON.parse(jsonContent)
-      
-      // ID와 analysis_id 추가
-      generatedQuestions = questionsArray.map((q: any, index: number) => ({
         id: crypto.randomUUID(),
-        rfp_analysis_id: analysisId,
-        ...q,
-        order_index: q.order_index || (index + 1)
-      }))
-
-    } catch (parseError) {
-      console.error('Question JSON parsing error:', parseError)
-      console.log('Raw AI response:', response.content)
-      
-      // 파싱 실패 시 기본 질문 반환
-      generatedQuestions = generateFallbackQuestions(analysisId)
-    }
-
-    console.log('Question Generation: Generated', generatedQuestions.length, 'questions')
-    return generatedQuestions
-
-  } catch (error) {
-    console.error('AI question generation error:', error)
-    console.log('Question Generation: Falling back to default questions')
-    
-    // AI 질문 생성 실패 시 기본 질문 반환
-    return generateFallbackQuestions(analysisId)
+        title: "[목업] AI 분석 정확도 위험",
+        description: "AI 모델의 분석 결과가 부정확할 수 있는 위험성이 존재합니다.",
+        probability: "medium" as const,
+        impact: "high" as const,
+        mitigation: "인간 검토자의 최종 검증 단계 추가 및 신뢰도 점수 표시"
+      }
+    ],
+    confidence_score: 0.85
   }
 }
 
-// AI 질문 생성 실패 시 사용할 기본 질문들
-function generateFallbackQuestions(analysisId: string) {
+// 질문 생성 함수 (간소화된 버전)
+async function generateAnalysisQuestions(analysisId: string, options: any, selectedModelId?: string | null) {
+  console.log('RFP Analysis: Generating analysis questions...')
+  
+  // 기본 질문들만 반환 (AI 생성은 별도 구현)
   return [
     {
       id: crypto.randomUUID(),
       rfp_analysis_id: analysisId,
-      question_text: "현재 사용 중인 유사한 시스템이 있나요?",
-      question_type: "yes_no" as const,
-      category: "market_context" as const,
+      question_text: "프로젝트의 예상 사용자 수는 얼마나 되나요?",
+      question_type: "open_ended" as const,
+      category: "technical_requirements" as const,
       priority: "high" as const,
-      context: "기존 시스템 파악을 통해 마이그레이션 전략을 수립하기 위함",
-      next_step_impact: "시스템 설계 및 데이터 마이그레이션 계획에 영향",
+      context: "시스템 아키텍처 및 인프라 설계를 위한 핵심 정보",
+      next_step_impact: "서버 용량, 데이터베이스 설계, 성능 최적화 전략 수립에 직접 영향",
       order_index: 1
     },
     {
       id: crypto.randomUUID(),
       rfp_analysis_id: analysisId,
-      question_text: "예상 동시 사용자 수는 얼마나 됩니까?",
-      question_type: "number" as const,
-      category: "project_constraints" as const,
+      question_text: "기존 시스템과의 연동이 필요한가요?",
+      question_type: "yes_no" as const,
+      category: "technical_requirements" as const,
       priority: "high" as const,
-      context: "시스템 성능 및 인프라 규모 결정을 위함",
-      next_step_impact: "아키텍처 설계 및 인프라 비용 산정에 직접적 영향",
+      context: "시스템 통합 및 데이터 마이그레이션 계획 수립",
+      next_step_impact: "개발 일정, 기술 스택 선택, 프로젝트 복잡도에 영향",
       order_index: 2
     },
     {
