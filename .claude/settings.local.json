@@ -61,7 +61,8 @@
       "Bash(timeout 120 npm run build)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(timeout 300 npm run build)"
     ],
     "deny": [],
     "ask": []

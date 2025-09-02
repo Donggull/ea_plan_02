@@ -99,6 +99,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // RFP 분석 결과 조회 (Service Role 사용)
+    console.log('RFP Analysis GET: Querying rfp_analyses for id:', id)
+    
     const { data: analysis, error: analysisError } = await supabaseAdmin
       .from('rfp_analyses')
       .select(`
@@ -112,7 +114,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .single()
 
+    console.log('RFP Analysis GET: Query result:', analysis ? 'found' : 'not found')
+    console.log('RFP Analysis GET: Query error:', analysisError)
+
     if (analysisError || !analysis) {
+      console.error('RFP Analysis GET: Analysis not found or error:', analysisError)
       return NextResponse.json(
         { message: 'RFP 분석 결과를 찾을 수 없습니다.' },
         { status: 404 }
@@ -151,6 +157,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           Math.round((responses?.length || 0) / (questions?.length || 1) * 100) : 0
       }
     }
+
+    console.log('RFP Analysis GET: Returning result with analysis id:', analysis.id)
+    console.log('RFP Analysis GET: Functional requirements count:', analysis.functional_requirements?.length || 0)
+    console.log('RFP Analysis GET: Non-functional requirements count:', analysis.non_functional_requirements?.length || 0)
+    console.log('RFP Analysis GET: Questions count:', questions?.length || 0)
 
     return NextResponse.json(result)
 

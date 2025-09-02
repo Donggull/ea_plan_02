@@ -60,21 +60,41 @@ export function RequirementExtractor({
         console.log('Requirements Extraction: Added Authorization header')
       }
 
+      console.log('Requirements Extraction: Making API request to:', `/api/rfp/${analysisId}/analysis`)
+      
       const response = await fetch(`/api/rfp/${analysisId}/analysis`, {
         method: 'GET',
         headers,
         credentials: 'include', // 쿠키 포함해서 전송
       })
 
+      console.log('Requirements Extraction: Response status:', response.status)
+      console.log('Requirements Extraction: Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
-        const errorData = await response.json()
+        console.error('Requirements Extraction: Response not ok, status:', response.status)
+        let errorData;
+        try {
+          errorData = await response.json()
+          console.error('Requirements Extraction: Error data:', errorData)
+        } catch (_e) {
+          console.error('Requirements Extraction: Could not parse error response as JSON')
+          const textError = await response.text()
+          console.error('Requirements Extraction: Error text:', textError)
+          throw new Error(`HTTP ${response.status}: ${textError}`)
+        }
         throw new Error(errorData.message || '요구사항 추출 중 오류가 발생했습니다.')
       }
 
       const result = await response.json()
+      console.log('Requirements Extraction: Response data received:', result)
       
       // analysis API 응답 구조에 맞게 수정
       const analysis = result.analysis
+      console.log('Requirements Extraction: Analysis data:', analysis)
+      console.log('Requirements Extraction: Functional requirements:', analysis?.functional_requirements)
+      console.log('Requirements Extraction: Non-functional requirements:', analysis?.non_functional_requirements)
+      
       setExtractedRequirements({
         functional: analysis.functional_requirements || [],
         nonFunctional: analysis.non_functional_requirements || []
