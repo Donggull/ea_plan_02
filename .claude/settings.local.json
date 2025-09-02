@@ -65,7 +65,13 @@
       "Bash(timeout 300 npm run build)",
       "Read(\\/**)",
       "mcp__playwright-stealth__playwright_get_visible_text",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "WebFetch(domain:ea-plan-02.vercel.app)",
+      "WebFetch(domain:ea-plan-02-donggulls-projects.vercel.app)",
+      "WebFetch(domain:localhost)",
+      "Bash(timeout:*)",
+      "mcp__github-mcp__git-remove",
+      "WebFetch(domain:ea-plan-new-02.vercel.app)"
     ],
     "deny": [],
     "ask": []

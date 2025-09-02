@@ -636,14 +636,7 @@ async function generateAnalysisQuestions(analysisId: string, _options: any, _sel
       throw new Error('AI 질문 생성을 위한 API 키가 설정되지 않았습니다.')
     }
 
-    // Anthropic Provider 직접 생성
-    console.log('Question Generation: Creating Anthropic Provider directly from environment...')
-    const { AnthropicProvider } = await import('@/services/ai/providers/anthropic')
-    const aiProvider = new AnthropicProvider(apiKey)
-
-    if (!aiProvider) {
-      throw new Error('AI 질문 생성 서비스를 초기화할 수 없습니다.')
-    }
+    console.log('Question Generation: Using direct Anthropic API call (bypassing provider class)...')
 
     // 질문 생성을 위한 프롬프트
     const questionPrompt = `
@@ -680,13 +673,50 @@ async function generateAnalysisQuestions(analysisId: string, _options: any, _sel
 JSON 배열만 반환해주세요:
 `
 
-    // AI 질문 생성 수행
-    const response = await aiProvider.sendMessage(questionPrompt, {
-      settings: {
+    // AI 질문 생성 수행 - 직접 API 호출
+    console.log('Question Generation: Sending direct API request to Anthropic...')
+    console.log('Question Generation: Prompt length:', questionPrompt.length)
+    
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-sonnet-20240229',
+        messages: [{ role: 'user', content: questionPrompt }],
         max_tokens: 4000,
-        temperature: 0.4 // 질문의 창의성과 일관성 균형
-      }
+        temperature: 0.4
+      })
     })
+    
+    console.log('Question Generation: Anthropic API response status:', anthropicResponse.status)
+    
+    if (!anthropicResponse.ok) {
+      const errorText = await anthropicResponse.text()
+      console.error('Question Generation: Anthropic API error:', errorText)
+      throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorText}`)
+    }
+    
+    const anthropicData = await anthropicResponse.json()
+    console.log('Question Generation: Anthropic API response received:', {
+      contentLength: anthropicData.content[0]?.text?.length || 0,
+      inputTokens: anthropicData.usage.input_tokens,
+      outputTokens: anthropicData.usage.output_tokens
+    })
+    
+    const response = {
+      content: anthropicData.content[0]?.text || '',
+      usage: {
+        input_tokens: anthropicData.usage.input_tokens,
+        output_tokens: anthropicData.usage.output_tokens,
+        total_tokens: anthropicData.usage.input_tokens + anthropicData.usage.output_tokens
+      },
+      model: anthropicData.model,
+      finish_reason: anthropicData.stop_reason
+    }
 
     console.log('Question Generation: AI response received, parsing...')
 
