@@ -178,12 +178,12 @@ export function RFPUploader({
   }
 
   return (
-    <div className={cn('w-full space-y-4', className)}>
+    <div className={cn('w-full space-y-6 max-w-none', className)}>
       {/* 파일 드롭존 */}
       <Card
         {...getRootProps()}
         className={cn(
-          'border-2 border-dashed transition-all duration-200 cursor-pointer p-8',
+          'border-2 border-dashed transition-all duration-200 cursor-pointer p-12',
           isDragActive 
             ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
             : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500',
@@ -194,19 +194,19 @@ export function RFPUploader({
         
         <div className="text-center">
           <div className={cn(
-            'w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors',
+            'w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors',
             isDragActive 
               ? 'bg-blue-500 text-white' 
               : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
           )}>
-            <IconRenderer icon="Upload" size={32} {...({} as any)} />
+            <IconRenderer icon="Upload" size={40} {...({} as any)} />
           </div>
           
-          <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
+          <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
             {selectedFile ? '파일 선택 완료' : 'RFP 파일을 업로드하세요'}
           </h3>
           
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-base text-gray-600 dark:text-gray-400 mb-6">
             {selectedFile 
               ? `${selectedFile.name} (${formatFileSize(selectedFile.size)})`
               : '파일을 드래그하거나 클릭하여 선택하세요'
@@ -237,7 +237,7 @@ export function RFPUploader({
       {/* 기본 정보 섹션 */}
       <div className="space-y-6">
         {/* RFP 기본 정보 */}
-        <Card className="p-6">
+        <Card className="p-8">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <IconRenderer icon="FileText" size={20} className="mr-2" {...({} as any)} />
             RFP 기본 정보
@@ -276,7 +276,7 @@ export function RFPUploader({
         </Card>
 
         {/* AI 분석 설정 */}
-        <Card className="p-6">
+        <Card className="p-8">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <IconRenderer icon="Brain" size={20} className="mr-2" {...({} as any)} />
             AI 분석 설정
@@ -347,7 +347,7 @@ export function RFPUploader({
                   </div>
                 </div>
                 
-                <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+                <div className="bg-gray-50 dark:bg-gray-800/50 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-all duration-200">
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx,.txt,.md,.rtf"
@@ -407,8 +407,8 @@ export function RFPUploader({
       </div>
 
       {/* 업로드 버튼 */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-6 mt-8 -mx-6 -mb-6">
-        <div className="flex justify-end space-x-3">
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-8 mt-8 -mx-8 -mb-8">
+        <div className="flex justify-end space-x-4">
           {selectedFile && (
             <Button
               variant="outline"
@@ -421,6 +421,7 @@ export function RFPUploader({
                 setInstructionFile(null)
               }}
               disabled={disabled || uploading}
+              className="px-6 py-3"
             >
               <IconRenderer icon="X" size={16} className="mr-2" {...({} as any)} />
               취소
@@ -430,7 +431,7 @@ export function RFPUploader({
           <Button
             onClick={handleUpload}
             disabled={!selectedFile || !title.trim() || disabled || uploading}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 py-3"
           >
             {uploading ? (
               <>

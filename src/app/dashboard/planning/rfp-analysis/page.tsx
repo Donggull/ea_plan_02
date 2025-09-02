@@ -562,7 +562,7 @@ export default function RFPAnalysisPage() {
 
       {/* 메인 컨텐츠 */}
       <div className="px-6 py-6 pb-12">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-full mx-auto">
           {renderTabContent()}
         </div>
       </div>
