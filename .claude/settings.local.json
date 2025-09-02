@@ -58,7 +58,9 @@
       "mcp__github-mcp__git-flow",
       "Bash(New-Item -ItemType File -Path \"D:\\ea_plan_02\\src\\app\\api\\ai\\analyze\\route.ts\" -Force)",
       "Bash(timeout 30 npm run build)",
-      "Bash(timeout 120 npm run build)"
+      "Bash(timeout 120 npm run build)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": [],
     "ask": []
