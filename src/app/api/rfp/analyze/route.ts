@@ -239,18 +239,7 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
 현재 상태: 환경 변수가 설정되지 않았습니다`)
     }
 
-    // Anthropic Provider 직접 생성 (데이터베이스 우회)
-    console.log('RFP Analysis: Creating Anthropic Provider directly from environment...')
-    const { AnthropicProvider } = await import('@/services/ai/providers/anthropic')
-    const aiProvider = new AnthropicProvider(apiKey)
-
-    if (!aiProvider) {
-      console.error('RFP Analysis: Failed to create AI Provider - aiProvider is null')
-      throw new Error('AI 분석 서비스를 초기화할 수 없습니다.')
-    }
-
-    console.log('RFP Analysis: AI Provider created successfully')
-    console.log('RFP Analysis: Using direct Anthropic provider')
+    console.log('RFP Analysis: Using direct Anthropic API call (bypassing provider class)...')
 
     // RFP 분석을 위한 프롬프트 생성
     const analysisPrompt = `
@@ -332,20 +321,55 @@ ${extractedText}
 JSON 결과만 반환해주세요:
 `
 
-    // AI 분석 수행
-    console.log('RFP Analysis: Sending message to AI with prompt length:', analysisPrompt.length)
-    console.log('RFP Analysis: AI Provider settings:', {
+    // AI 분석 수행 - 직접 API 호출
+    console.log('RFP Analysis: Sending direct API request to Anthropic...')
+    console.log('RFP Analysis: Prompt length:', analysisPrompt.length)
+    console.log('RFP Analysis: Request settings:', {
       max_tokens: 8000,
-      temperature: 0.3
+      temperature: 0.3,
+      model: 'claude-3-sonnet-20240229'
     })
     
-    console.log('RFP Analysis: Calling aiProvider.sendMessage...')
-    const response = await aiProvider.sendMessage(analysisPrompt, {
-      settings: {
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-sonnet-20240229',
+        messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 8000,
-        temperature: 0.3 // 분석의 일관성을 위해 낮은 temperature 사용
-      }
+        temperature: 0.3
+      })
     })
+    
+    console.log('RFP Analysis: Anthropic API response status:', anthropicResponse.status)
+    
+    if (!anthropicResponse.ok) {
+      const errorText = await anthropicResponse.text()
+      console.error('RFP Analysis: Anthropic API error:', errorText)
+      throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorText}`)
+    }
+    
+    const anthropicData = await anthropicResponse.json()
+    console.log('RFP Analysis: Anthropic API response received:', {
+      contentLength: anthropicData.content[0]?.text?.length || 0,
+      inputTokens: anthropicData.usage.input_tokens,
+      outputTokens: anthropicData.usage.output_tokens
+    })
+    
+    const response = {
+      content: anthropicData.content[0]?.text || '',
+      usage: {
+        input_tokens: anthropicData.usage.input_tokens,
+        output_tokens: anthropicData.usage.output_tokens,
+        total_tokens: anthropicData.usage.input_tokens + anthropicData.usage.output_tokens
+      },
+      model: anthropicData.model,
+      finish_reason: anthropicData.stop_reason
+    }
 
     console.log('RFP Analysis: AI response received successfully')
     console.log('RFP Analysis: Response details:', {
