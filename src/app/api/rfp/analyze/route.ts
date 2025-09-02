@@ -241,12 +241,31 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
 
     console.log('RFP Analysis: Using direct Anthropic API call (bypassing provider class)...')
 
+    // 입력 텍스트 길이 확인 및 제한
+    console.log('RFP Analysis: Input text analysis:', {
+      originalLength: extractedText.length,
+      wordCount: extractedText.split(/\s+/).length,
+      estimatedTokens: Math.ceil(extractedText.length / 4) // 대략적 토큰 추정
+    })
+    
+    // 토큰 제한을 고려한 텍스트 자르기 (약 60,000 토큰 = 240,000 문자)
+    const maxInputLength = 240000
+    const processedText = extractedText.length > maxInputLength 
+      ? extractedText.substring(0, maxInputLength) + '\n\n[문서가 길어 일부만 분석됨]'
+      : extractedText
+    
+    console.log('RFP Analysis: Processed text info:', {
+      processedLength: processedText.length,
+      wasTruncated: extractedText.length > maxInputLength,
+      estimatedTokens: Math.ceil(processedText.length / 4)
+    })
+
     // RFP 분석을 위한 프롬프트 생성
     const analysisPrompt = `
 다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.
 
 === RFP 문서 내용 ===
-${extractedText}
+${processedText}
 
 === 분석 요구사항 ===
 위 RFP 문서를 분석하여 다음 형식의 JSON 결과를 제공해주세요:
@@ -330,6 +349,10 @@ JSON 결과만 반환해주세요:
       model: 'claude-3-sonnet-20240229'
     })
     
+    // 타임아웃과 함께 fetch 수행
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 120000) // 2분 타임아웃
+    
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -342,8 +365,11 @@ JSON 결과만 반환해주세요:
         messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 8000,
         temperature: 0.3
-      })
+      }),
+      signal: controller.signal
     })
+    
+    clearTimeout(timeoutId)
     
     console.log('RFP Analysis: Anthropic API response status:', anthropicResponse.status)
     
@@ -498,21 +524,16 @@ JSON 결과만 반환해주세요:
       console.error('❓ RFP Analysis: 분류되지 않은 오류:', errorMsg)
     }
     
-    console.warn('⚠️ RFP Analysis: 알 수 없는 오류로 인해 목업 데이터를 반환합니다.')
-    console.warn('RFP Analysis: 실제 AI 분석을 위해 다음을 확인하세요:')
-    console.warn('1. Vercel Dashboard > Settings > Environment Variables > ANTHROPIC_API_KEY')
-    console.warn('2. API 키 형식: sk-ant-api03-...')
-    console.warn('3. API 키 유효성: https://console.anthropic.com에서 확인')
+    console.error('🚨 RFP Analysis: 디버깅을 위해 실제 오류를 던집니다 - Mock 데이터 대신 오류 반환')
+    console.error('RFP Analysis: 오류 정보:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined,
+      name: error?.constructor?.name,
+      cause: (error as any)?.cause
+    })
     
-    // 목업 데이터에 오류 정보 포함
-    const fallback = generateFallbackAnalysis()
-    ;(fallback as any)._errorInfo = {
-      originalError: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
-      suggestedAction: 'Vercel 환경 변수에서 ANTHROPIC_API_KEY를 확인하고 https://your-domain.vercel.app/api/ai/test-env 에서 환경 변수 상태를 확인하세요.'
-    }
-    
-    return fallback
+    // 실제 오류를 던져서 정확한 문제 파악
+    throw error
   }
 }
 
