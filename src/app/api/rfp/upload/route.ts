@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
               const textStreams = []
               
               // BT...ET (텍스트 블록) 패턴 찾기
-              const textBlocks = pdfString.match(/BT\s+.*?ET/gs)
+              const textBlocks = pdfString.match(/BT\s+[\s\S]*?ET/g)
               if (textBlocks) {
                 for (const block of textBlocks) {
                   // 텍스트 내용 추출
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
               
               // 스트림 내 텍스트 찾기 (다른 방법)
               if (textStreams.length === 0) {
-                const streamMatches = pdfString.match(/stream\s+(.*?)\s+endstream/gs)
+                const streamMatches = pdfString.match(/stream\s+([\s\S]*?)\s+endstream/g)
                 if (streamMatches) {
                   for (const stream of streamMatches) {
                     // UTF-8로 디코딩 시도

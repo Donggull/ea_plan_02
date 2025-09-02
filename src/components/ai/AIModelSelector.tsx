@@ -34,7 +34,7 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
       setModels(activeModels)
       
       // 기본 모델 선택 (selectedModel이 없을 때만)
-      if (!selectedModel) {
+      if (!selectedModel && activeModels.length > 0) {
         const defaultModel = activeModels.find(m => m.is_default) || activeModels[0]
         if (defaultModel) {
           console.log('AIModelSelector: Setting default model:', defaultModel.display_name)
@@ -47,7 +47,9 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
     } finally {
       setIsLoading(false)
     }
-  }, []) // 의존성 배열에서 selectedModel, onModelSelect 제거
+    // ESLint: selectedModel을 의존성에 포함하지만 조건문으로 무한 루프 방지
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onModelSelect])
 
   const loadUserPreference = useCallback(async () => {
     if (!user?.id || !(user as any)?.organization_id) return
