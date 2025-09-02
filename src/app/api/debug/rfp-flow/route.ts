@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const documentId = url.searchParams.get('documentId')
     const analysisId = url.searchParams.get('analysisId')
     
-    const debugInfo = {
+    const debugInfo: any = {
       timestamp: new Date().toISOString(),
       environment: {
         nodeEnv: process.env.NODE_ENV,
