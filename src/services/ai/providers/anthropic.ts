@@ -40,8 +40,14 @@ export class AnthropicProvider extends BaseAIProvider {
       totalContentLength: messages.reduce((sum, m) => sum + m.content.length, 0),
       maxTokens: mergedConfig.settings?.max_tokens || 4096,
       temperature: mergedConfig.settings?.temperature || 0.7,
-      apiKeyPrefix: this.apiKey?.substring(0, 15) + '...'
+      apiKeyPrefix: this.apiKey?.substring(0, 15) + '...',
+      baseUrl: this.baseUrl
     })
+    
+    // API 키 유효성 검사
+    if (!this.apiKey || !this.apiKey.startsWith('sk-ant-api03-')) {
+      throw new Error('Invalid Anthropic API key format. Key should start with "sk-ant-api03-"')
+    }
     
     try {
       const requestBody = {
@@ -52,11 +58,19 @@ export class AnthropicProvider extends BaseAIProvider {
         })),
         max_tokens: mergedConfig.settings?.max_tokens || 4096,
         temperature: mergedConfig.settings?.temperature || 0.7,
-        ...(mergedConfig.settings?.top_p && { top_p: mergedConfig.settings.top_p }),
-        ...(mergedConfig.settings?.top_k && { top_k: mergedConfig.settings.top_k }),
+        ...(mergedConfig.settings?.top_p && { top_p: mergedConfig.settings.top_p })
       }
       
-      console.log('AnthropicProvider: Request body prepared, sending to:', `${this.baseUrl}/v1/messages`)
+      console.log('AnthropicProvider: Request details:', {
+        url: `${this.baseUrl}/v1/messages`,
+        method: 'POST',
+        bodySize: JSON.stringify(requestBody).length,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey.substring(0, 15) + '...',
+          'anthropic-version': this.apiVersion
+        }
+      })
       
       const response = await fetch(`${this.baseUrl}/v1/messages`, {
         method: 'POST',
@@ -71,13 +85,22 @@ export class AnthropicProvider extends BaseAIProvider {
       console.log('AnthropicProvider: Response received:', {
         status: response.status,
         statusText: response.statusText,
-        ok: response.ok
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        console.error('AnthropicProvider: API error response:', error)
-        throw new Error(error.error?.message || `Anthropic API error: ${response.status}`)
+        let errorText = ''
+        try {
+          const error = await response.json()
+          errorText = JSON.stringify(error)
+          console.error('AnthropicProvider: API error response:', error)
+          throw new Error(`Anthropic API error (${response.status}): ${error.error?.message || error.message || response.statusText}`)
+        } catch (parseError) {
+          errorText = await response.text()
+          console.error('AnthropicProvider: Raw error response:', errorText)
+          throw new Error(`Anthropic API error (${response.status}): ${response.statusText} - ${errorText}`)
+        }
       }
 
       const data: AnthropicResponse = await response.json()
@@ -101,7 +124,12 @@ export class AnthropicProvider extends BaseAIProvider {
         finish_reason: data.stop_reason || undefined
       }
     } catch (error) {
-      console.error('AnthropicProvider: Error occurred:', error)
+      console.error('AnthropicProvider: Error occurred:', {
+        error,
+        name: error?.constructor?.name,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
       throw error
     }
   }
