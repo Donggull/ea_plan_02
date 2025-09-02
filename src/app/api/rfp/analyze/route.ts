@@ -26,6 +26,10 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(request: NextRequest) {
+  console.log('='.repeat(80))
+  console.log('🔥 RFP ANALYZE API CALLED! 🔥')
+  console.log('='.repeat(80))
+  
   try {
     console.log('RFP Analysis: Starting authentication check...')
     
