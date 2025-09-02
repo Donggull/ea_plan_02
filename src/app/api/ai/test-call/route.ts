@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     
     // 커스텀 메시지 전송
     const response = await anthropicProvider.sendMessage(message, {
-      model: model || 'claude-3-sonnet-20240229',
+      model: model || 'claude-3-5-sonnet-20241022',
       settings: {
         max_tokens: max_tokens || 1000,
         temperature: temperature || 0.7
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       message: 'AI API 커스텀 테스트 성공!',
       request: {
         message,
-        model: model || 'claude-3-sonnet-20240229',
+        model: model || 'claude-3-5-sonnet-20241022',
         max_tokens: max_tokens || 1000,
         temperature: temperature || 0.7
       },

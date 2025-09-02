@@ -361,7 +361,7 @@ JSON 결과만 반환해주세요:
     console.log('RFP Analysis: Request settings:', {
       max_tokens: 8000,
       temperature: 0.3,
-      model: 'claude-3-sonnet-20240229'
+      model: 'claude-3-5-sonnet-20241022'
     })
     
     // Anthropic API 호출 (타임아웃 제거 - Vercel 자체 타임아웃 사용)
@@ -373,7 +373,7 @@ JSON 결과만 반환해주세요:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229',
+        model: 'claude-3-5-sonnet-20241022',
         messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 8000,
         temperature: 0.3
@@ -715,7 +715,7 @@ JSON 배열만 반환해주세요:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229',
+        model: 'claude-3-5-sonnet-20241022',
         messages: [{ role: 'user', content: questionPrompt }],
         max_tokens: 4000,
         temperature: 0.4

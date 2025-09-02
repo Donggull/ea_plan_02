@@ -32,7 +32,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
   async sendMessages(messages: Array<{ role: string; content: string }>, config?: Partial<AIModelConfig>): Promise<AIResponse> {
     const mergedConfig = this.mergeConfig(config)
-    const model = mergedConfig.model || 'claude-3-sonnet-20240229'
+    const model = mergedConfig.model || 'claude-3-5-sonnet-20241022'
     
     console.log('AnthropicProvider: Sending messages:', {
       model,
