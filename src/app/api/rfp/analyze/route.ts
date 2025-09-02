@@ -278,10 +278,30 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
     }, null, 2))
     
     console.log('RFP Analysis: Calling AIModelService.createAIProvider...')
-    const aiProvider = await AIModelService.createAIProvider(
-      selectedModel.id,
-      userData.organization_id
-    )
+    let aiProvider
+    try {
+      aiProvider = await AIModelService.createAIProvider(
+        selectedModel.id,
+        userData.organization_id
+      )
+    } catch (aiProviderError: any) {
+      console.error('RFP Analysis: AI Provider creation failed:', aiProviderError)
+      
+      // API 키 관련 오류인지 확인
+      if (aiProviderError.message.includes('API key') || aiProviderError.message.includes('ANTHROPIC_API_KEY')) {
+        console.error('🚨 API KEY ERROR: ANTHROPIC_API_KEY not configured in Vercel')
+        throw new Error(`AI 분석을 위한 API 키가 설정되지 않았습니다. 
+        
+관리자에게 다음 사항을 요청하세요:
+1. Vercel Dashboard → Project Settings → Environment Variables
+2. ANTHROPIC_API_KEY 환경 변수 추가 (sk-ant-api03-로 시작하는 값)
+3. Anthropic Console(console.anthropic.com)에서 API 키 발급
+
+현재 상태: ${aiProviderError.message}`)
+      }
+      
+      throw new Error(`AI 분석 서비스 초기화 실패: ${aiProviderError.message}`)
+    }
 
     console.log('RFP Analysis: AI Provider creation result:', !!aiProvider)
 
@@ -523,7 +543,7 @@ JSON 결과만 반환해주세요:
     
     // 목업 데이터에 오류 정보 포함
     const fallback = generateFallbackAnalysis()
-    fallback._errorInfo = {
+    ;(fallback as any)._errorInfo = {
       originalError: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString(),
       suggestedAction: 'Vercel 환경 변수에서 ANTHROPIC_API_KEY를 확인하고 https://your-domain.vercel.app/api/ai/test-env 에서 환경 변수 상태를 확인하세요.'

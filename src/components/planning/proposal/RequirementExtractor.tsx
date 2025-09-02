@@ -199,7 +199,34 @@ export function RequirementExtractor({
       
     } catch (error) {
       console.error('Requirements extraction error:', error)
-      const errorMessage = error instanceof Error ? error.message : '요구사항 추출 중 오류가 발생했습니다.'
+      let errorMessage = '요구사항 추출 중 오류가 발생했습니다.'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // API 키 관련 오류인지 확인하여 사용자에게 더 명확한 안내 제공
+        if (error.message.includes('API 키가 설정되지 않았습니다') || 
+            error.message.includes('ANTHROPIC_API_KEY')) {
+          errorMessage = `🔑 AI 분석 API 키 설정이 필요합니다.
+
+관리자에게 다음 설정을 요청하세요:
+• Vercel Dashboard → Environment Variables
+• ANTHROPIC_API_KEY 추가 (sk-ant-api03-로 시작)
+• Anthropic Console에서 API 키 발급
+
+현재 오류: ${error.message}`
+        } else if (error.message.includes('AI 분석 서비스 초기화 실패')) {
+          errorMessage = `🚨 AI 분석 서비스 연결 실패
+
+시스템 설정을 확인해주세요:
+• API 키 설정 상태 확인
+• 네트워크 연결 상태 확인
+• 잠시 후 다시 시도
+
+상세 오류: ${error.message}`
+        }
+      }
+      
       onExtractError?.(errorMessage)
     } finally {
       setIsExtracting(false)

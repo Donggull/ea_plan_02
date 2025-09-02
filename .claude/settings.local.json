@@ -63,7 +63,9 @@
       "mcp__context7__get-library-docs",
       "Bash(node:*)",
       "Bash(timeout 300 npm run build)",
-      "Read(\\/**)"
+      "Read(\\/**)",
+      "mcp__playwright-stealth__playwright_get_visible_text",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
