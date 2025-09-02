@@ -185,9 +185,14 @@ export function RFPUploader({
           </p>
 
           {!selectedFile && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
               <p>지원 형식: PDF, DOC, DOCX, TXT, MD, RTF</p>
               <p>최대 크기: 50MB</p>
+              <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded text-amber-700 dark:text-amber-300">
+                <p className="font-medium">💡 최적의 텍스트 추출을 위한 권장사항:</p>
+                <p>• 텍스트 파일(.txt) 또는 Word 문서(.docx) 권장</p>
+                <p>• PDF 사용 시 텍스트 기반 파일이어야 함 (이미지 스캔본 제외)</p>
+              </div>
             </div>
           )}
         </div>
