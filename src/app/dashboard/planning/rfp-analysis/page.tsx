@@ -144,9 +144,17 @@ export default function RFPAnalysisPage() {
   }
 
   const handleAnalysisComplete = (analysis: RFPAnalysis) => {
+    console.log('RFP Analysis Page: Analysis completed with data:', {
+      analysisId: analysis.id,
+      hasData: !!analysis,
+      functionalReqCount: analysis.functional_requirements?.length || 0,
+      nonFunctionalReqCount: analysis.non_functional_requirements?.length || 0
+    })
     setAnalysisData(analysis)
     setCurrentAnalysisId(analysis.id)
+    console.log('RFP Analysis Page: Set currentAnalysisId to:', analysis.id)
     setActiveTab('extract')
+    console.log('RFP Analysis Page: Switched to extract tab')
   }
 
   const handleAnalysisError = (error: string) => {
@@ -285,6 +293,12 @@ export default function RFPAnalysisPage() {
           />
         )
       case 'extract':
+        console.log('RFP Analysis Page: Rendering RequirementExtractor with props:', {
+          currentAnalysisId,
+          hasAnalysisData: !!analysisData,
+          analysisDataId: analysisData?.id,
+          autoExtract: !!analysisData
+        })
         return (
           <RequirementExtractor
             analysisId={currentAnalysisId || ''}

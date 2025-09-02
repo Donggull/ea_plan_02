@@ -61,12 +61,20 @@ export function RequirementExtractor({
       }
 
       console.log('Requirements Extraction: Making API request to:', `/api/rfp/${analysisId}/analysis`)
+      console.log('Requirements Extraction: Request headers:', headers)
       
-      const response = await fetch(`/api/rfp/${analysisId}/analysis`, {
-        method: 'GET',
-        headers,
-        credentials: 'include', // 쿠키 포함해서 전송
-      })
+      let response: Response
+      try {
+        response = await fetch(`/api/rfp/${analysisId}/analysis`, {
+          method: 'GET',
+          headers,
+          credentials: 'include', // 쿠키 포함해서 전송
+        })
+        console.log('Requirements Extraction: Fetch completed successfully')
+      } catch (fetchError) {
+        console.error('Requirements Extraction: Fetch request failed:', fetchError)
+        throw new Error(`네트워크 요청 실패: ${fetchError instanceof Error ? fetchError.message : 'Unknown network error'}`)
+      }
 
       console.log('Requirements Extraction: Response status:', response.status)
       console.log('Requirements Extraction: Response headers:', Object.fromEntries(response.headers.entries()))
@@ -112,13 +120,28 @@ export function RequirementExtractor({
     } finally {
       setIsExtracting(false)
     }
-  }, [analysisId, onExtractComplete, onExtractError])
+    // 의존성 최소화하여 무한루프 방지
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisId])
 
   useEffect(() => {
+    console.log('Requirements Extraction: useEffect triggered with conditions:', {
+      autoExtract,
+      analysisId,
+      functionalLength: extractedRequirements.functional.length,
+      nonFunctionalLength: extractedRequirements.nonFunctional.length,
+      shouldExtract: autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length
+    })
+    
     if (autoExtract && analysisId && !extractedRequirements.functional.length && !extractedRequirements.nonFunctional.length) {
+      console.log('Requirements Extraction: Conditions met, calling handleExtractRequirements...')
       handleExtractRequirements()
+    } else {
+      console.log('Requirements Extraction: Conditions not met, skipping extraction')
     }
-  }, [autoExtract, analysisId, extractedRequirements.functional.length, extractedRequirements.nonFunctional.length, handleExtractRequirements])
+    // handleExtractRequirements 의존성 제거하여 무한루프 방지
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoExtract, analysisId, extractedRequirements.functional.length, extractedRequirements.nonFunctional.length])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {

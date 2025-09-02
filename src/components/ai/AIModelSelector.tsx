@@ -80,13 +80,17 @@ export function AIModelSelector({ onModelSelect, className, showSettings = false
 
   useEffect(() => {
     loadModels()
-  }, [loadModels])
+    // loadModels는 한 번만 실행되도록 빈 의존성 배열 사용
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (user) {
       loadUserPreference()
     }
-  }, [user, loadUserPreference])
+    // user가 변경될 때만 실행되도록 하고 loadUserPreference 의존성 제거
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   const handleModelSelect = async (model: AIModel) => {
     setSelectedModel(model)
