@@ -202,8 +202,23 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('RFP analysis error:', error)
+    console.error('RFP analysis error details:', {
+      name: error?.constructor?.name,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined
+    })
+    
+    // 실제 오류 메시지를 클라이언트에 전달
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : '알 수 없는 서버 오류가 발생했습니다.'
+    
     return NextResponse.json(
-      { message: '서버 오류가 발생했습니다.' },
+      { 
+        message: errorMessage,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     )
   }
@@ -349,10 +364,7 @@ JSON 결과만 반환해주세요:
       model: 'claude-3-sonnet-20240229'
     })
     
-    // 타임아웃과 함께 fetch 수행
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 120000) // 2분 타임아웃
-    
+    // Anthropic API 호출 (타임아웃 제거 - Vercel 자체 타임아웃 사용)
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -365,11 +377,8 @@ JSON 결과만 반환해주세요:
         messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 8000,
         temperature: 0.3
-      }),
-      signal: controller.signal
+      })
     })
-    
-    clearTimeout(timeoutId)
     
     console.log('RFP Analysis: Anthropic API response status:', anthropicResponse.status)
     

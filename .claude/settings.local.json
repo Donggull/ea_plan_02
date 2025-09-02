@@ -71,7 +71,8 @@
       "WebFetch(domain:localhost)",
       "Bash(timeout:*)",
       "mcp__github-mcp__git-remove",
-      "WebFetch(domain:ea-plan-new-02.vercel.app)"
+      "WebFetch(domain:ea-plan-new-02.vercel.app)",
+      "mcp__playwright-stealth__playwright_close"
     ],
     "deny": [],
     "ask": []
