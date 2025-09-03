@@ -396,7 +396,7 @@ ${processedText}`
     let analysisResult
     try {
       // AI 응답에서 JSON 추출
-      let rawContent = data.content[0]?.text?.trim() || ''
+      const rawContent = data.content[0]?.text?.trim() || ''
       console.log('RFP Analysis: Original response length:', rawContent.length)
       
       let jsonContent = rawContent
@@ -425,7 +425,7 @@ ${processedText}`
       
       // 3단계: 추가 정리 - 앞뒤 불필요한 텍스트 제거
       jsonContent = jsonContent
-        .replace(/^[^{]*({.*})[^}]*$/s, '$1') // JSON 객체 부분만 추출
+        .replace(/^[^{]*({[\s\S]*})[^}]*$/, '$1') // JSON 객체 부분만 추출
         .trim()
       
       console.log('RFP Analysis: Final JSON content preview (first 300 chars):', jsonContent.substring(0, 300))
