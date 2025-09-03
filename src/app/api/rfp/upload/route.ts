@@ -271,8 +271,24 @@ export async function POST(request: NextRequest) {
                   extractedText = `[대안 방법으로 추출 성공]\n\n${extractedText}\n\n참고: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}`
                 }
               } else {
-                console.log('RFP Upload: No text found with alternative method either')
-                extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF (OCR 필요)\n• 암호화된 PDF\n• 특수 형식의 PDF\n• 폰트가 임베드되지 않은 PDF\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사(Ctrl+A, Ctrl+C)하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n4. PDF가 스캔본인 경우 OCR 프로그램 사용\n\n오류 정보: ${pdfParseError.message}\n원본 파일명: ${file.name}`
+                console.log('RFP Upload: No text found with alternative method, trying OCR...')
+                
+                // OCR 시도
+                try {
+                  const { performOCR, hasExtractableText } = await import('@/lib/ocr/pdf-ocr')
+                  
+                  // 이미 추출된 텍스트가 충분한지 확인
+                  if (extractedText && hasExtractableText(extractedText)) {
+                    console.log('RFP Upload: Some text already extracted, skipping OCR')
+                  } else {
+                    console.log('RFP Upload: Starting OCR process...')
+                    extractedText = await performOCR(buffer, file.name)
+                    console.log('RFP Upload: OCR completed, text length:', extractedText.length)
+                  }
+                } catch (ocrError) {
+                  console.error('RFP Upload: OCR failed:', ocrError)
+                  extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF (OCR 시도 실패)\n• 암호화된 PDF\n• 특수 형식의 PDF\n• 폰트가 임베드되지 않은 PDF\n\nOCR 오류: ${ocrError instanceof Error ? ocrError.message : String(ocrError)}\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사(Ctrl+A, Ctrl+C)하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n4. 고품질로 다시 스캔 후 업로드\n\n원본 파일명: ${file.name}`
+                }
               }
             }
           }

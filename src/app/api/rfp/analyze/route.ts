@@ -310,8 +310,9 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       estimatedTokens: Math.ceil(extractedText.length / 4) // 대략적 토큰 추정
     })
     
-    // 토큰 제한을 고려한 텍스트 자르기 (약 60,000 토큰 = 240,000 문자)
-    const maxInputLength = 240000
+    // Rate limit을 고려한 엄격한 토큰 제한 (약 20,000 토큰 = 80,000 문자)
+    // Anthropic API는 분당 40,000 토큰 제한이 있으므로 안전하게 20,000 토큰으로 제한
+    const maxInputLength = 80000
     const processedText = extractedText.length > maxInputLength 
       ? extractedText.substring(0, maxInputLength) + '\n\n[문서가 길어 일부만 분석됨]'
       : extractedText
