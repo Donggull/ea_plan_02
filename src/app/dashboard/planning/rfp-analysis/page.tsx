@@ -167,82 +167,132 @@ export default function RFPAnalysisPage() {
   }
 
   const handleCreateNewProject = async () => {
-    if (!authUser || !newProjectName.trim() || !analysisData) return
+    if (!authUser || !newProjectName.trim() || !analysisData) {
+      console.error('프로젝트 생성 필수 데이터 부족:', {
+        authUser: !!authUser,
+        newProjectName: newProjectName.trim(),
+        analysisData: !!analysisData
+      })
+      return
+    }
+
+    console.log('🚀 신규 프로젝트 생성 시작:', {
+      projectName: newProjectName.trim(),
+      userId: authUser.id,
+      analysisId: currentAnalysisId,
+      documentId: currentDocumentId
+    })
 
     setAssignLoading(true)
     try {
+      // 분석 데이터 구조 확인 및 안전한 접근
+      const projectTitle = analysisData.project_overview?.title || 'RFP 분석 프로젝트'
+      const projectDescription = analysisData.project_overview?.description || ''
+
+      console.log('📊 분석 데이터 확인:', {
+        title: projectTitle,
+        description: projectDescription,
+        confidence_score: analysisData.confidence_score
+      })
+
       // 1. 신규 프로젝트 생성 (user_id 필드 추가)
+      console.log('💾 프로젝트 데이터베이스 삽입 시작...')
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert({
           name: newProjectName.trim(),
-          description: `RFP 분석을 통해 생성된 프로젝트: ${analysisData.project_overview.title}`,
+          description: `RFP 분석을 통해 생성된 프로젝트: ${projectTitle}`,
           category: 'rfp_analysis',
           current_phase: 'proposal',
           status: 'active',
           priority: 'medium',
           progress: 0,
-          organization_id: null,
-          user_id: authUser.id,  // user_id 필드 추가
-          created_by: authUser.id
+          user_id: authUser.id,
+          owner_id: authUser.id
         })
         .select()
         .single()
 
-      if (projectError) throw projectError
+      if (projectError) {
+        console.error('❌ 프로젝트 생성 DB 오류:', projectError)
+        throw new Error(`프로젝트 생성 실패: ${projectError.message}`)
+      }
+
+      console.log('✅ 프로젝트 생성 성공:', projectData)
 
       // 2. RFP 문서를 새 프로젝트에 연결
       if (currentDocumentId) {
+        console.log('📄 RFP 문서 연결 시작:', currentDocumentId)
         const { error: updateError } = await supabase
           .from('rfp_documents')
           .update({ project_id: projectData.id })
           .eq('id', currentDocumentId)
 
         if (updateError) {
-          console.warn('RFP 문서 연결 실패:', updateError)
+          console.warn('⚠️ RFP 문서 연결 실패:', updateError)
+        } else {
+          console.log('✅ RFP 문서 연결 성공')
         }
       }
 
       // 3. RFP 분석 데이터를 프로젝트에 연결
       if (currentAnalysisId) {
+        console.log('🔬 RFP 분석 데이터 연결 시작:', currentAnalysisId)
         const { error: updateAnalysisError } = await supabase
           .from('rfp_analyses')
           .update({ project_id: projectData.id })
           .eq('id', currentAnalysisId)
 
         if (updateAnalysisError) {
-          console.warn('RFP 분석 데이터 연결 실패:', updateAnalysisError)
+          console.warn('⚠️ RFP 분석 데이터 연결 실패:', updateAnalysisError)
+        } else {
+          console.log('✅ RFP 분석 데이터 연결 성공')
         }
       }
 
       // 4. 프로젝트 phase_data에 RFP 분석 정보 저장
+      console.log('📋 프로젝트 phase_data 업데이트 시작...')
+      const phaseDataPayload = {
+        proposal: {
+          rfp_document_id: currentDocumentId,
+          rfp_analysis_id: currentAnalysisId,
+          rfp_analysis_data: {
+            title: projectTitle,
+            description: projectDescription,
+            created_at: analysisData.created_at,
+            confidence_score: analysisData.confidence_score
+          }
+        }
+      }
+
+      console.log('📋 phase_data 저장 데이터:', phaseDataPayload)
+
       const { error: phaseError } = await supabase
         .from('projects')
         .update({
-          phase_data: {
-            proposal: {
-              rfp_document_id: currentDocumentId,
-              rfp_analysis_id: currentAnalysisId,
-              rfp_analysis_data: {
-                title: analysisData.project_overview.title,
-                description: analysisData.project_overview.description,
-                created_at: analysisData.created_at,
-                confidence_score: analysisData.confidence_score
-              }
-            }
-          }
+          phase_data: phaseDataPayload
         })
         .eq('id', projectData.id)
 
       if (phaseError) {
-        console.warn('프로젝트 phase_data 업데이트 실패:', phaseError)
+        console.warn('⚠️ 프로젝트 phase_data 업데이트 실패:', phaseError)
+      } else {
+        console.log('✅ 프로젝트 phase_data 업데이트 성공')
       }
 
+      console.log('🎉 프로젝트 생성 완료! 프로젝트 페이지로 이동:', projectData.id)
+      
       // 프로젝트 상세 페이지로 이동
       router.push(`/dashboard/projects/${projectData.id}`)
     } catch (error) {
-      console.error('프로젝트 생성 오류:', error)
-      alert('프로젝트 생성 중 오류가 발생했습니다.')
+      console.error('❌ 프로젝트 생성 중 오류 발생:', error)
+      
+      // 더 구체적인 오류 메시지 표시
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : '알 수 없는 오류가 발생했습니다.'
+      
+      alert(`프로젝트 생성 중 오류가 발생했습니다:\n${errorMessage}\n\n자세한 내용은 개발자 콘솔을 확인해주세요.`)
     } finally {
       setAssignLoading(false)
     }
