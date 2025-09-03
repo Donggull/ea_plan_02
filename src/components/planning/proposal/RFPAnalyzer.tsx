@@ -325,7 +325,7 @@ export function RFPAnalyzer({
                   key={index}
                   className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                 >
-                  {typeof keyword === 'string' ? keyword : keyword.term || keyword}
+                  {typeof keyword === 'string' ? keyword : (keyword as { term: string; importance: number; category: string; }).term}
                 </span>
               ))}
             </div>

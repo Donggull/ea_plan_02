@@ -116,7 +116,7 @@ export function RFPSummary({
           </div>
           <div className="space-y-1">
             {['high', 'medium', 'low'].map(level => {
-              const count = analysis.risk_factors.filter(r => r.level === level).length
+              const count = analysis.risk_factors.filter(r => r.probability === level || r.impact === level).length
               if (count === 0) return null
               return (
                 <div key={level} className="flex justify-between text-sm">
@@ -342,22 +342,27 @@ export function RFPSummary({
         핵심 키워드
       </h3>
       <div className="space-y-4">
-        {analysis.keywords.map((keyword, index) => (
-          <div key={index} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div className="flex items-center gap-3">
-              <span className="font-medium text-gray-900 dark:text-white">{keyword.term}</span>
-              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400">
-                {keyword.category}
-              </span>
+        {analysis.keywords.filter(keyword => 
+          typeof keyword === 'object' && keyword !== null && 'term' in keyword
+        ).map((keyword, index) => {
+          const keywordObj = keyword as { term: string; importance: number; category: string; }
+          return (
+            <div key={index} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-gray-900 dark:text-white">{keywordObj.term}</span>
+                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400">
+                  {keywordObj.category}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={cn('w-3 h-3 rounded-full', getImportanceColor(keywordObj.importance).replace('text-', 'bg-'))} />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {Math.round(keywordObj.importance * 100)}%
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className={cn('w-3 h-3 rounded-full', getImportanceColor(keyword.importance).replace('text-', 'bg-'))} />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                {Math.round(keyword.importance * 100)}%
-              </span>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </Card>
   )
@@ -374,12 +379,12 @@ export function RFPSummary({
             <div className="flex items-start gap-3">
               <span className={cn(
                 'px-2 py-1 rounded-full text-xs font-medium',
-                getRiskLevelColor(risk.level)
+                getRiskLevelColor(risk.probability)
               )}>
-                {risk.level === 'high' ? '높음' : risk.level === 'medium' ? '보통' : '낮음'}
+                {risk.probability === 'high' ? '높음' : risk.probability === 'medium' ? '보통' : '낮음'}
               </span>
               <div className="flex-1">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-1">{risk.factor}</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">{risk.title}</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{risk.mitigation}</p>
               </div>
             </div>
