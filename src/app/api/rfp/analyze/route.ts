@@ -482,34 +482,41 @@ ${processedText}`
       
       if (errorMsg.includes('401') || errorMsg.includes('unauthorized') || errorMsg.includes('invalid') || errorMsg.includes('api key')) {
         console.error('🔑 RFP Analysis: AI API 키 인증 실패 - API 키가 없거나 유효하지 않음')
-        throw new Error('AI API 키 인증에 실패했습니다. Vercel 환경 변수에서 ANTHROPIC_API_KEY를 확인해주세요.')
+        throw new Error('AI API 키 인증에 실패했습니다.\n\n해결 방법:\n1. Vercel Dashboard → Project Settings → Environment Variables\n2. ANTHROPIC_API_KEY 환경 변수 확인 (sk-ant-api03-로 시작하는 키)\n3. https://console.anthropic.com에서 새 API 키 발급')
       } else if (errorMsg.includes('quota') || errorMsg.includes('limit') || errorMsg.includes('rate') || errorMsg.includes('429')) {
         console.error('📊 RFP Analysis: AI API 할당량 또는 요청 한도 초과')
-        throw new Error('AI API 사용 할당량을 초과했습니다. 잠시 후 다시 시도해주세요.')
+        throw new Error('AI API 사용 할당량을 초과했습니다.\n\n해결 방법:\n1. 10-15분 후 다시 시도\n2. Anthropic 계정의 사용량 확인\n3. API 계정 업그레이드 검토')
       } else if (errorMsg.includes('network') || errorMsg.includes('timeout') || errorMsg.includes('econnreset') || errorMsg.includes('fetch')) {
         console.error('🌐 RFP Analysis: 네트워크 연결 오류')
-        throw new Error('네트워크 오류가 발생했습니다. 인터넷 연결 상태를 확인해주세요.')
+        throw new Error('네트워크 연결 오류가 발생했습니다.\n\n해결 방법:\n1. 인터넷 연결 상태 확인\n2. 잠시 후 다시 시도\n3. VPN 사용 시 연결 해제 후 재시도')
       } else if (errorMsg.includes('no api key found') || errorMsg.includes('missing') || errorMsg.includes('undefined')) {
         console.error('❌ RFP Analysis: API 키 환경 변수 누락')
-        throw new Error('AI API 키가 설정되지 않았습니다. Vercel Dashboard에서 ANTHROPIC_API_KEY 환경 변수를 설정해주세요.')
+        throw new Error('AI API 키가 설정되지 않았습니다.\n\n설정 방법:\n1. Vercel Dashboard 접속\n2. 프로젝트 선택 → Settings → Environment Variables\n3. ANTHROPIC_API_KEY 추가 (sk-ant-api03-로 시작하는 키)\n4. 재배포 수행')
       } else if (errorMsg.includes('model not found') || errorMsg.includes('provider')) {
         console.error('🤖 RFP Analysis: AI 모델 또는 제공자 설정 오류')
-        throw new Error('AI 모델 설정에 문제가 있습니다. 모델 설정을 확인해주세요.')
+        throw new Error('AI 모델 설정에 문제가 있습니다.\n\n확인 사항:\n1. claude-3-5-sonnet-20241022 모델 지원 여부\n2. API 키 권한 설정\n3. 모델 선택 설정')
+      } else if (errorMsg.includes('json') || errorMsg.includes('parse')) {
+        console.error('📝 RFP Analysis: AI 응답 파싱 오류')
+        throw new Error('AI 응답 처리 중 오류가 발생했습니다.\n\n원인:\n1. AI 응답 형식 오류\n2. 문서 내용이 너무 복잡함\n3. 프롬프트 설정 문제\n\n해결: 더 간단한 문서로 다시 시도해보세요.')
       }
       
       console.error('❓ RFP Analysis: 분류되지 않은 오류:', errorMsg)
     }
     
-    console.error('🚨 RFP Analysis: 디버깅을 위해 실제 오류를 던집니다 - Mock 데이터 대신 오류 반환')
-    console.error('RFP Analysis: 오류 정보:', {
+    console.error('🚨 RFP Analysis: 예상치 못한 오류 발생')
+    console.error('RFP Analysis: 오류 상세 정보:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined,
       name: error?.constructor?.name,
       cause: (error as any)?.cause
     })
     
-    // 실제 오류를 던져서 정확한 문제 파악
-    throw error
+    // 일반적인 오류 메시지와 함께 실제 오류 던지기
+    const generalErrorMessage = error instanceof Error 
+      ? `RFP 분석 중 오류가 발생했습니다: ${error.message}\n\n문제가 지속되면 관리자에게 문의해주세요.`
+      : 'RFP 분석 중 알 수 없는 오류가 발생했습니다. 다시 시도해주세요.'
+    
+    throw new Error(generalErrorMessage)
   }
 }
 

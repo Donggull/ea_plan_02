@@ -73,7 +73,10 @@
       "mcp__github-mcp__git-remove",
       "WebFetch(domain:ea-plan-new-02.vercel.app)",
       "mcp__playwright-stealth__playwright_close",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(mkdir:*)",
+      "Bash(New-Item -ItemType File -Path \"D:\\ea_plan_02\\src\\app\\api\\ai\\test-env\\route.ts\" -Force)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []
