@@ -25,7 +25,8 @@ import {
   MessageSquare,
   Minimize2,
   Maximize2,
-  LayoutDashboard
+  LayoutDashboard,
+  ListChecks
 } from 'lucide-react'
 
 const iconMap = {
@@ -55,7 +56,8 @@ const iconMap = {
   MessageSquare,
   Minimize2,
   Maximize2,
-  LayoutDashboard
+  LayoutDashboard,
+  ListChecks
 }
 
 interface IconRendererProps {

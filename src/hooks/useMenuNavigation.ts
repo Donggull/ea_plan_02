@@ -26,6 +26,7 @@ export const menuStructure: MenuSection[] = [
     items: [
       { id: 'proposal', label: '제안 진행', href: '/dashboard/planning/proposal', icon: 'FileText' },
       { id: 'rfp-analysis', label: 'RFP 분석 자동화', href: '/dashboard/planning/rfp-analysis', icon: 'Brain' },
+      { id: 'rfp-analyses', label: 'RFP 분석 완료 목록', href: '/dashboard/rfp-analyses', icon: 'ListChecks' },
       { id: 'construction', label: '구축 관리', href: '/dashboard/planning/construction', icon: 'Settings' },
       { id: 'operation', label: '운영 관리', href: '/dashboard/planning/operation', icon: 'Headphones' }
     ]
@@ -121,6 +122,14 @@ export function useMenuNavigation() {
           })
         }
         
+        // RFP 분석 상세 페이지의 경우 분석 상세 추가
+        if (subPath === 'rfp-analyses' && pathSegments.length > 2) {
+          breadcrumbs.push({ 
+            label: 'RFP 분석 상세', 
+            href: `/dashboard/rfp-analyses/${pathSegments[2]}` 
+          })
+        }
+        
         // 기타 하위 경로들 처리
         if (pathSegments.length > 3) {
           for (let i = 3; i < pathSegments.length; i++) {
@@ -132,7 +141,8 @@ export function useMenuNavigation() {
               'edit': '편집',
               'new': '새로 만들기',
               'settings': '설정',
-              'members': '멤버 관리'
+              'members': '멤버 관리',
+              'rfp-analyses': 'RFP 분석 완료 목록'
             }
             
             const segmentLabel = segmentMap[segment] || segment
