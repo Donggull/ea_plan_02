@@ -71,14 +71,20 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
 
       if (projectError) throw projectError
 
+      console.log('🔍 프로젝트 데이터 조회 결과:', project)
+      console.log('📊 phase_data 구조:', project.phase_data)
+      console.log('📝 proposal 데이터:', project.phase_data?.proposal)
+
       const proposalData = project.phase_data?.proposal
       if (!proposalData) {
+        console.log('❌ proposalData가 없습니다. phase_data:', project.phase_data)
         setError('이 프로젝트에는 연결된 RFP 분석 데이터가 없습니다.')
         return
       }
 
       // RFP 분석 데이터가 있으면 설정
       if (proposalData.rfp_analysis_data) {
+        console.log('✅ phase_data에 rfp_analysis_data 발견:', proposalData.rfp_analysis_data)
         setAnalysisData({
           id: proposalData.rfp_analysis_id || 'unknown',
           rfp_document_id: proposalData.rfp_document_id,
@@ -86,6 +92,7 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
           rfp_analysis_data: proposalData.rfp_analysis_data
         })
       } else if (proposalData.rfp_analysis_id) {
+        console.log('🔄 rfp_analyses 테이블에서 조회 시도:', proposalData.rfp_analysis_id)
         // phase_data에 분석 데이터가 없으면 rfp_analyses 테이블에서 조회
         const { data: rfpAnalysis, error: analysisError } = await supabase
           .from('rfp_analyses')
@@ -93,22 +100,70 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
           .eq('id', proposalData.rfp_analysis_id)
           .single()
 
-        if (analysisError) throw analysisError
+        if (analysisError) {
+          console.log('❌ rfp_analyses 테이블 조회 실패:', analysisError)
+          throw analysisError
+        }
+
+        console.log('📋 rfp_analyses 테이블 조회 결과:', rfpAnalysis)
 
         if (rfpAnalysis) {
+          const analysisDataFromTable = {
+            requirements: rfpAnalysis.requirements || [],
+            keywords: rfpAnalysis.keywords || [],
+            summary: rfpAnalysis.summary || {},
+            analysis_date: rfpAnalysis.created_at
+          }
+          console.log('✅ rfp_analyses에서 데이터 설정:', analysisDataFromTable)
+          
           setAnalysisData({
             id: rfpAnalysis.id,
             rfp_document_id: proposalData.rfp_document_id,
             rfp_analysis_id: rfpAnalysis.id,
-            rfp_analysis_data: {
-              requirements: rfpAnalysis.requirements || [],
-              keywords: rfpAnalysis.keywords || [],
-              summary: rfpAnalysis.summary || {},
-              analysis_date: rfpAnalysis.created_at
-            }
+            rfp_analysis_data: analysisDataFromTable
           })
+        } else {
+          console.log('❌ rfp_analyses 테이블에서 데이터를 찾을 수 없음')
+          setError('RFP 분석 데이터를 찾을 수 없습니다.')
         }
       } else {
+        console.log('❌ rfp_analysis_id도 없음:', proposalData)
+        console.log('🔍 프로젝트 ID로 직접 RFP 분석 조회 시도:', projectId)
+        
+        // 프로젝트 ID로 직접 RFP 분석 조회 시도
+        const { data: projectRfpAnalyses, error: projectAnalysisError } = await supabase
+          .from('rfp_analyses')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+
+        if (projectAnalysisError) {
+          console.log('❌ 프로젝트 ID로 RFP 분석 조회 실패:', projectAnalysisError)
+        } else {
+          console.log('📋 프로젝트 ID로 조회한 RFP 분석들:', projectRfpAnalyses)
+          
+          if (projectRfpAnalyses && projectRfpAnalyses.length > 0) {
+            // 가장 최근 RFP 분석 사용
+            const latestAnalysis = projectRfpAnalyses[0]
+            console.log('✅ 최신 RFP 분석 사용:', latestAnalysis)
+            
+            const analysisDataFromProject = {
+              requirements: latestAnalysis.requirements || [],
+              keywords: latestAnalysis.keywords || [],
+              summary: latestAnalysis.summary || {},
+              analysis_date: latestAnalysis.created_at
+            }
+            
+            setAnalysisData({
+              id: latestAnalysis.id,
+              rfp_document_id: latestAnalysis.rfp_document_id,
+              rfp_analysis_id: latestAnalysis.id,
+              rfp_analysis_data: analysisDataFromProject
+            })
+            return
+          }
+        }
+        
         setError('RFP 분석 정보를 찾을 수 없습니다.')
       }
 
