@@ -263,13 +263,20 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
     // 사용자 지정 프롬프트가 있는 경우 우선 사용
     if (analysisPrompt?.trim()) {
       console.log('RFP Analysis: Using custom analysis prompt')
-      finalPrompt = `${analysisPrompt.trim()}\n\n=== RFP 문서 내용 ===\n${processedText}`
+      finalPrompt = `${analysisPrompt.trim()}
+
+IMPORTANT: 응답은 반드시 유효한 JSON 형식만 반환해주세요. 설명이나 추가 텍스트 없이 순수 JSON 객체만 응답해주세요.
+
+=== RFP 문서 내용 ===
+${processedText}`
     } else {
       // 기본 프롬프트 사용
       console.log('RFP Analysis: Using default analysis prompt')
-      finalPrompt = `다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.
+      finalPrompt = `다음 RFP(제안요청서) 문서를 분석하여 유효한 JSON 형식으로만 응답해주세요.
 
-분석 결과는 반드시 다음 JSON 형식을 따라야 합니다:
+IMPORTANT: 응답은 반드시 순수 JSON 형식이어야 하며, 설명이나 추가 텍스트 없이 JSON 객체만 반환해야 합니다.
+
+JSON 형식:
 {
   "project_overview": {
     "title": "프로젝트 제목",
@@ -284,7 +291,7 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
       "priority": "high|medium|low",
       "category": "카테고리",
       "acceptance_criteria": ["기준1", "기준2"],
-      "estimated_effort": 숫자
+      "estimated_effort": 1
     }
   ],
   "non_functional_requirements": [
@@ -309,6 +316,8 @@ async function performRFPAnalysis(rfpDocument: any, options: any, userId: string
   ],
   "confidence_score": 0.95
 }
+
+Response format: JSON object only, no explanations or additional text.
 
 === RFP 문서 내용 ===
 ${processedText}`
@@ -346,7 +355,7 @@ ${processedText}`
           }
         ],
         max_tokens: 8192,
-        temperature: 0.7
+        temperature: 0.1
       })
     })
 
@@ -383,27 +392,49 @@ ${processedText}`
     console.log('RFP Analysis: Response content preview (first 500 chars):', data.content[0]?.text?.substring(0, 500))
     console.log('RFP Analysis: Starting JSON parsing...')
 
-    // JSON 파싱
+    // JSON 파싱 - 개선된 추출 로직
     let analysisResult
     try {
-      // JSON 코드 블록에서 JSON 부분만 추출
-      let jsonContent = data.content[0]?.text?.trim() || ''
-      console.log('RFP Analysis: Original content length:', jsonContent.length)
+      // AI 응답에서 JSON 추출
+      let rawContent = data.content[0]?.text?.trim() || ''
+      console.log('RFP Analysis: Original response length:', rawContent.length)
       
-      // ```json ... ``` 형태로 감싸져 있는 경우 추출
-      if (jsonContent.startsWith('```')) {
+      let jsonContent = rawContent
+      
+      // 1단계: ```json ... ``` 코드 블록에서 추출
+      if (rawContent.includes('```')) {
         console.log('RFP Analysis: Found code block, extracting JSON...')
-        const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)```/)
-        if (match) {
-          jsonContent = match[1].trim()
-          console.log('RFP Analysis: Extracted JSON content length:', jsonContent.length)
-        } else {
-          console.warn('RFP Analysis: Code block found but no match pattern')
+        const codeBlockMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/)
+        if (codeBlockMatch) {
+          jsonContent = codeBlockMatch[1].trim()
+          console.log('RFP Analysis: Code block extraction successful, length:', jsonContent.length)
         }
       }
       
-      console.log('RFP Analysis: JSON content preview (first 300 chars):', jsonContent.substring(0, 300))
-      console.log('RFP Analysis: JSON content preview (last 300 chars):', jsonContent.substring(Math.max(0, jsonContent.length - 300)))
+      // 2단계: JSON 객체 시작/종료 부분만 추출 (```가 없거나 실패한 경우)
+      if (!jsonContent.startsWith('{')) {
+        console.log('RFP Analysis: Attempting JSON object extraction...')
+        const jsonStart = rawContent.indexOf('{')
+        const jsonEnd = rawContent.lastIndexOf('}')
+        
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          jsonContent = rawContent.substring(jsonStart, jsonEnd + 1).trim()
+          console.log('RFP Analysis: JSON object extraction successful, length:', jsonContent.length)
+        }
+      }
+      
+      // 3단계: 추가 정리 - 앞뒤 불필요한 텍스트 제거
+      jsonContent = jsonContent
+        .replace(/^[^{]*({.*})[^}]*$/s, '$1') // JSON 객체 부분만 추출
+        .trim()
+      
+      console.log('RFP Analysis: Final JSON content preview (first 300 chars):', jsonContent.substring(0, 300))
+      console.log('RFP Analysis: Final JSON content preview (last 300 chars):', jsonContent.substring(Math.max(0, jsonContent.length - 300)))
+      
+      // JSON 유효성 사전 검사
+      if (!jsonContent.startsWith('{') || !jsonContent.endsWith('}')) {
+        throw new Error(`Invalid JSON format: does not start with { or end with } - starts with "${jsonContent.substring(0, 10)}", ends with "${jsonContent.substring(Math.max(0, jsonContent.length - 10))}"`)
+      }
       
       analysisResult = JSON.parse(jsonContent)
       console.log('RFP Analysis: JSON parsing successful')
