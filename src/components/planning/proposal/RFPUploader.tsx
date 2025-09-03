@@ -149,7 +149,7 @@ export function RFPUploader({
   }
 
   return (
-    <div className={cn('w-full space-y-4', className)}>
+    <div className={cn('w-full space-y-6 pb-8', className)}>
       {/* 파일 드롭존 */}
       <Card
         {...getRootProps()}

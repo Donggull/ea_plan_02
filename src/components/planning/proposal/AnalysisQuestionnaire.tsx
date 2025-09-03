@@ -353,7 +353,7 @@ export function AnalysisQuestionnaire({
   const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0
 
   return (
-    <div className={cn('w-full space-y-6', className)}>
+    <div className={cn('w-full space-y-6 pb-8', className)}>
       {/* 질문 생성 설정 */}
       {questions.length === 0 && (
         <Card className="p-6">

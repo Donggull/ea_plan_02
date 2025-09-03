@@ -454,7 +454,7 @@ export function RFPAnalyzer({
   }
 
   return (
-    <div className={cn('w-full', className)}>
+    <div className={cn('w-full pb-8', className)}>
       {/* 분석 상태 및 제어 */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">

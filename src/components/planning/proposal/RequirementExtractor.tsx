@@ -363,7 +363,7 @@ export function RequirementExtractor({
     : extractedRequirements.nonFunctional
 
   return (
-    <div className={cn('w-full space-y-6', className)}>
+    <div className={cn('w-full space-y-6 pb-8', className)}>
       {/* 추출 컨트롤 */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">

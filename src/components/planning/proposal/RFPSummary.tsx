@@ -422,7 +422,7 @@ export function RFPSummary({
   }
 
   return (
-    <div className={cn('w-full', className)}>
+    <div className={cn('w-full pb-8', className)}>
       {/* 헤더 */}
       <Card className="p-6 mb-6">
         <div className="flex items-start justify-between">
