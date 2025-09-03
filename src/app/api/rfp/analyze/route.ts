@@ -364,7 +364,7 @@ ${processedText}`
         errorText = JSON.stringify(error)
         console.error('RFP Analysis: API error response:', error)
         throw new Error(`Anthropic API error (${response.status}): ${error.error?.message || error.message || response.statusText}`)
-      } catch (parseError) {
+      } catch (_parseError) {
         errorText = await response.text()
         console.error('RFP Analysis: Raw error response:', errorText)
         throw new Error(`Anthropic API error (${response.status}): ${response.statusText} - ${errorText}`)
@@ -583,7 +583,7 @@ function generateFallbackAnalysis() {
 }
 
 // 질문 생성 함수 (간소화된 버전)
-async function generateAnalysisQuestions(analysisId: string, options: any, selectedModelId?: string | null) {
+async function generateAnalysisQuestions(analysisId: string, _options: any, _selectedModelId?: string | null) {
   console.log('RFP Analysis: Generating analysis questions...')
   
   // 기본 질문들만 반환 (AI 생성은 별도 구현)

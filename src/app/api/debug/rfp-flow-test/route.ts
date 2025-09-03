@@ -21,12 +21,13 @@ const supabaseAdmin = createClient(
   }
 )
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   console.log('🧪 RFP FLOW TEST: Starting comprehensive RFP flow test...')
   
   const results = {
     timestamp: new Date().toISOString(),
-    tests: {} as any
+    tests: {} as any,
+    overallStatus: {} as any
   }
 
   try {
@@ -191,12 +192,12 @@ export async function GET(request: NextRequest) {
         success: !analysisError,
         error: analysisError?.message || null,
         count: recentAnalyses?.length || 0,
-        records: recentAnalyses?.map(analysis => ({
+        records: recentAnalyses?.map((analysis: any) => ({
           id: analysis.id,
           created_at: analysis.created_at,
-          hasCustomPrompt: !!analysis.rfp_documents?.metadata?.analysis_prompt,
-          hasInstructions: !!analysis.rfp_documents?.metadata?.instructions,
-          hasInstructionFile: !!analysis.rfp_documents?.metadata?.instruction_file,
+          hasCustomPrompt: !!(analysis.rfp_documents as any)?.metadata?.analysis_prompt,
+          hasInstructions: !!(analysis.rfp_documents as any)?.metadata?.instructions,
+          hasInstructionFile: !!(analysis.rfp_documents as any)?.metadata?.instruction_file,
           functionalReqCount: analysis.functional_requirements?.length || 0,
           nonFunctionalReqCount: analysis.non_functional_requirements?.length || 0
         })) || []
