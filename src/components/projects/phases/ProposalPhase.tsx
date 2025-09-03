@@ -13,6 +13,7 @@ import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
+import RFPAnalysisViewer from './RFPAnalysisViewer'
 import { 
   FileText, 
   Plus, 
@@ -26,7 +27,8 @@ import {
   CheckCircle,
   AlertCircle as _AlertCircle,
   BarChart3,
-  Target
+  Target,
+  Eye
 } from 'lucide-react'
 import type { MarketResearch, PersonaGenerationGuidance } from '@/types/market-research'
 import type { DevelopmentPlanningGuidance } from '@/types/proposal'
@@ -36,7 +38,7 @@ interface ProposalPhaseProps {
 }
 
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
-  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'market_research' | 'persona' | 'proposal_writing'>('rfp')
+  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'rfp_analysis' | 'market_research' | 'persona' | 'proposal_writing'>('rfp')
   const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
   const [_personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
@@ -203,6 +205,19 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
             </div>
           </button>
           <button
+            onClick={() => setActiveTab('rfp_analysis')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'rfp_analysis'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              RFP 분석 결과
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab('market_research')}
             className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'market_research'
@@ -316,6 +331,13 @@ disabled={false}
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* RFP 분석 결과 탭 */}
+      {activeTab === 'rfp_analysis' && (
+        <div className="space-y-6">
+          <RFPAnalysisViewer projectId={projectId} />
         </div>
       )}
 

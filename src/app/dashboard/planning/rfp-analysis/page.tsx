@@ -171,6 +171,7 @@ export default function RFPAnalysisPage() {
 
     setAssignLoading(true)
     try {
+      // 1. 신규 프로젝트 생성 (user_id 필드 추가)
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert({
@@ -182,6 +183,7 @@ export default function RFPAnalysisPage() {
           priority: 'medium',
           progress: 0,
           organization_id: null,
+          user_id: authUser.id,  // user_id 필드 추가
           created_by: authUser.id
         })
         .select()
@@ -189,7 +191,7 @@ export default function RFPAnalysisPage() {
 
       if (projectError) throw projectError
 
-      // RFP 문서를 새 프로젝트에 연결 (분석 데이터에서 문서 ID 추출)
+      // 2. RFP 문서를 새 프로젝트에 연결
       if (currentDocumentId) {
         const { error: updateError } = await supabase
           .from('rfp_documents')
@@ -199,6 +201,41 @@ export default function RFPAnalysisPage() {
         if (updateError) {
           console.warn('RFP 문서 연결 실패:', updateError)
         }
+      }
+
+      // 3. RFP 분석 데이터를 프로젝트에 연결
+      if (currentAnalysisId) {
+        const { error: updateAnalysisError } = await supabase
+          .from('rfp_analyses')
+          .update({ project_id: projectData.id })
+          .eq('id', currentAnalysisId)
+
+        if (updateAnalysisError) {
+          console.warn('RFP 분석 데이터 연결 실패:', updateAnalysisError)
+        }
+      }
+
+      // 4. 프로젝트 phase_data에 RFP 분석 정보 저장
+      const { error: phaseError } = await supabase
+        .from('projects')
+        .update({
+          phase_data: {
+            proposal: {
+              rfp_document_id: currentDocumentId,
+              rfp_analysis_id: currentAnalysisId,
+              rfp_analysis_data: {
+                title: analysisData.project_overview.title,
+                description: analysisData.project_overview.description,
+                created_at: analysisData.created_at,
+                confidence_score: analysisData.confidence_score
+              }
+            }
+          }
+        })
+        .eq('id', projectData.id)
+
+      if (phaseError) {
+        console.warn('프로젝트 phase_data 업데이트 실패:', phaseError)
       }
 
       // 프로젝트 상세 페이지로 이동
@@ -212,16 +249,65 @@ export default function RFPAnalysisPage() {
   }
 
   const handleAssignToExistingProject = async () => {
-    if (!selectedProject || !currentDocumentId) return
+    if (!selectedProject || !currentDocumentId || !analysisData) return
 
     setAssignLoading(true)
     try {
+      // 1. RFP 문서를 기존 프로젝트에 연결
       const { error } = await supabase
         .from('rfp_documents')
         .update({ project_id: selectedProject })
         .eq('id', currentDocumentId)
 
       if (error) throw error
+
+      // 2. RFP 분석 데이터를 프로젝트에 연결
+      if (currentAnalysisId) {
+        const { error: updateAnalysisError } = await supabase
+          .from('rfp_analyses')
+          .update({ project_id: selectedProject })
+          .eq('id', currentAnalysisId)
+
+        if (updateAnalysisError) {
+          console.warn('RFP 분석 데이터 연결 실패:', updateAnalysisError)
+        }
+      }
+
+      // 3. 기존 프로젝트의 phase_data를 업데이트 (기존 데이터 보존)
+      const { data: existingProject, error: fetchError } = await supabase
+        .from('projects')
+        .select('phase_data')
+        .eq('id', selectedProject)
+        .single()
+
+      if (fetchError) {
+        console.warn('기존 프로젝트 조회 실패:', fetchError)
+      }
+
+      const existingPhaseData = existingProject?.phase_data as any || {}
+      const { error: phaseError } = await supabase
+        .from('projects')
+        .update({
+          phase_data: {
+            ...existingPhaseData,
+            proposal: {
+              ...existingPhaseData?.proposal,
+              rfp_document_id: currentDocumentId,
+              rfp_analysis_id: currentAnalysisId,
+              rfp_analysis_data: {
+                title: analysisData.project_overview.title,
+                description: analysisData.project_overview.description,
+                created_at: analysisData.created_at,
+                confidence_score: analysisData.confidence_score
+              }
+            }
+          }
+        })
+        .eq('id', selectedProject)
+
+      if (phaseError) {
+        console.warn('프로젝트 phase_data 업데이트 실패:', phaseError)
+      }
 
       // 프로젝트 상세 페이지로 이동
       router.push(`/dashboard/projects/${selectedProject}`)
