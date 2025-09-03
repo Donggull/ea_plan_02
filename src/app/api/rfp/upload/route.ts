@@ -312,12 +312,19 @@ export async function POST(request: NextRequest) {
               if (shouldTryOCR) {
                 console.log('RFP Upload: Trying OCR due to poor text quality or no text found...')
                 
-                // OCR 시도
+                // OCR 시도 (타임아웃 적용)
                 try {
                   const { performOCR, hasExtractableText } = await import('@/lib/ocr/pdf-ocr')
                   
-                  console.log('RFP Upload: Starting OCR process...')
-                  const ocrResult = await performOCR(buffer, file.name)
+                  console.log('RFP Upload: Starting OCR process with timeout...')
+                  
+                  // OCR 처리에 30초 타임아웃 적용 (Vercel 함수 타임아웃 고려)
+                  const ocrPromise = performOCR(buffer, file.name)
+                  const timeoutPromise = new Promise<string>((_, reject) => {
+                    setTimeout(() => reject(new Error('OCR 처리 시간이 30초를 초과했습니다')), 30000)
+                  })
+                  
+                  const ocrResult = await Promise.race([ocrPromise, timeoutPromise])
                   
                   console.log('RFP Upload: OCR completed:', {
                     length: ocrResult.length,

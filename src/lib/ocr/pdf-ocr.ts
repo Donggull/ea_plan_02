@@ -8,160 +8,103 @@ import Tesseract from 'tesseract.js'
  * @returns 추출된 텍스트
  */
 export async function performOCR(pdfBuffer: Buffer, fileName: string): Promise<string> {
-  console.log('OCR: Starting OCR process for', fileName)
+  console.log('OCR: Starting simplified OCR process for', fileName)
   
   try {
-    // PDF.js를 동적 import (서버 사이드 전용)
-    const pdfjsLib = await import('pdfjs-dist')
-    const { createCanvas } = await import('canvas')
+    // Vercel 서버리스 환경에서는 복잡한 Canvas 작업이 불안정할 수 있으므로
+    // 더 간단한 접근법을 사용합니다
     
-    // Worker 설정 비활성화 (Node.js 환경)
-    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
-    
-    // PDF 로드
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(pdfBuffer),
-      useWorkerFetch: false,
-      isEvalSupported: false,
-      useSystemFonts: true
-    })
-    
-    const pdf = await loadingTask.promise
-    const numPages = pdf.numPages
-    console.log(`OCR: PDF has ${numPages} pages`)
-    
-    const extractedTexts: string[] = []
-    
-    // 각 페이지 처리 (최대 10페이지까지만 OCR 처리 - 성능 고려)
-    const maxPages = Math.min(numPages, 10)
-    
-    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-      console.log(`OCR: Processing page ${pageNum}/${maxPages}...`)
+    // PDF.js를 사용하여 텍스트 레이어만 확인
+    try {
+      const pdfjsLib = await import('pdfjs-dist')
       
-      try {
-        const page = await pdf.getPage(pageNum)
-        
-        // 먼저 텍스트 레이어가 있는지 확인
-        const textContent = await page.getTextContent()
-        if (textContent.items.length > 0) {
-          // 텍스트 레이어가 있으면 직접 추출
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ')
-            .trim()
+      // Worker 설정 비활성화
+      pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+      
+      const loadingTask = pdfjsLib.getDocument({
+        data: new Uint8Array(pdfBuffer),
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true
+      })
+      
+      const pdf = await loadingTask.promise
+      const numPages = pdf.numPages
+      console.log(`OCR: PDF has ${numPages} pages, checking text layers...`)
+      
+      const extractedTexts: string[] = []
+      const maxPages = Math.min(numPages, 3) // 처리 시간을 줄이기 위해 3페이지만
+      
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+        try {
+          const page = await pdf.getPage(pageNum)
+          const textContent = await page.getTextContent()
           
-          if (pageText.length > 50) {
-            console.log(`OCR: Page ${pageNum} has text layer, using direct extraction`)
-            extractedTexts.push(`[페이지 ${pageNum}]\n${pageText}`)
-            continue
-          }
-        }
-        
-        // 텍스트 레이어가 없으면 이미지로 렌더링 후 OCR
-        console.log(`OCR: Page ${pageNum} needs OCR processing`)
-        
-        // 페이지를 캔버스로 렌더링
-        const viewport = page.getViewport({ scale: 2.0 }) // 고품질을 위해 2배 스케일
-        const canvas = createCanvas(viewport.width, viewport.height)
-        const context = canvas.getContext('2d')
-        
-        const renderTask = page.render({
-          canvasContext: context as any,
-          viewport: viewport,
-          intent: 'display'
-        } as any)
-        await renderTask.promise
-        
-        // 캔버스를 이미지 버퍼로 변환
-        const imageBuffer = canvas.toBuffer('image/png')
-        
-        // Tesseract.js를 사용하여 OCR 수행
-        console.log(`OCR: Running Tesseract on page ${pageNum}...`)
-        const ocrResult = await Tesseract.recognize(
-          imageBuffer,
-          'kor+eng', // 한국어 + 영어 인식
-          {
-            logger: (m) => {
-              if (m.status === 'recognizing text' && m.progress) {
-                const progress = Math.round(m.progress * 100)
-                if (progress % 25 === 0) { // 25% 단위로만 로그
-                  console.log(`OCR: Page ${pageNum} - ${progress}% complete`)
-                }
-              }
+          if (textContent.items.length > 0) {
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ')
+              .trim()
+            
+            if (pageText.length > 20) {
+              console.log(`OCR: Found text layer on page ${pageNum}`)
+              extractedTexts.push(`[페이지 ${pageNum}]\n${pageText}`)
             }
           }
-        )
-        
-        const pageText = ocrResult.data.text.trim()
-        if (pageText) {
-          extractedTexts.push(`[페이지 ${pageNum} - OCR]\n${pageText}`)
+          
+          page.cleanup()
+        } catch (pageError) {
+          console.error(`OCR: Error processing page ${pageNum}:`, pageError)
         }
-        
-        // 메모리 정리
-        page.cleanup()
-        
-      } catch (pageError) {
-        console.error(`OCR: Error processing page ${pageNum}:`, pageError)
-        // 페이지 처리 실패 시 계속 진행
       }
+      
+      await pdf.destroy()
+      
+      if (extractedTexts.length > 0) {
+        const fullText = extractedTexts.join('\n\n')
+        console.log(`OCR: Successfully extracted text from ${extractedTexts.length} pages using PDF text layers`)
+        return `[PDF 텍스트 레이어에서 추출 성공 - ${fileName}]\n\n${fullText}`
+      }
+      
+    } catch (pdfError) {
+      console.error('OCR: PDF text layer extraction failed:', pdfError)
     }
     
-    // PDF 문서 정리
-    await pdf.destroy()
+    // PDF 텍스트 레이어에서 텍스트를 추출할 수 없다면, 
+    // Vercel 환경의 제약으로 인해 OCR을 포기하고 안내 메시지 반환
+    console.log('OCR: No extractable text layers found, OCR not feasible in serverless environment')
     
-    if (extractedTexts.length === 0) {
-      return `[OCR 실패] ${fileName}
-      
-OCR 처리를 시도했지만 텍스트를 추출할 수 없었습니다.
+    return `[OCR 필요 - ${fileName}]
 
-가능한 원인:
-• 이미지 품질이 너무 낮음
-• 손글씨나 인식하기 어려운 폰트
-• 이미지가 회전되어 있거나 왜곡됨
-• 배경이 복잡하여 텍스트 인식 불가
+PDF 파일에서 직접 텍스트를 추출할 수 없습니다.
+서버리스 환경의 제약으로 인해 이미지 OCR 처리가 제한됩니다.
 
 해결 방법:
-1. 고품질로 스캔한 PDF 사용
-2. 텍스트를 직접 입력하여 .txt 파일로 저장
-3. 온라인 OCR 서비스 활용 후 텍스트 복사`
-    }
-    
-    const fullText = extractedTexts.join('\n\n')
-    const notice = numPages > maxPages 
-      ? `\n\n[주의: 전체 ${numPages}페이지 중 처음 ${maxPages}페이지만 OCR 처리되었습니다]`
-      : ''
-    
-    return `[OCR로 텍스트 추출 성공 - ${fileName}]\n\n${fullText}${notice}`
+1. PDF를 Word 문서(.docx)로 변환 후 업로드
+2. PDF 내용을 복사하여 텍스트 파일(.txt)로 저장 후 업로드  
+3. 온라인 OCR 서비스를 사용하여 텍스트 추출 후 직접 입력
+
+추천 온라인 OCR 서비스:
+• Google Drive (PDF 업로드 후 Google Docs로 변환)
+• Adobe Acrobat Online
+• OnlineOCR.net
+
+텍스트가 추출되면 '새 RFP 업로드' 시 텍스트 파일로 업로드해주세요.`
     
   } catch (error) {
     console.error('OCR: Complete failure:', error)
     
-    // 더 간단한 방법 시도 - Tesseract만 사용
-    try {
-      console.log('OCR: Trying direct OCR on PDF buffer...')
-      
-      // PDF 전체를 한 번에 OCR 시도
-      const ocrResult = await Tesseract.recognize(
-        pdfBuffer,
-        'kor+eng',
-        {
-          logger: (m) => {
-            if (m.status === 'recognizing text' && m.progress) {
-              console.log(`OCR: Direct OCR - ${Math.round(m.progress * 100)}% complete`)
-            }
-          }
-        }
-      )
-      
-      const text = ocrResult.data.text.trim()
-      if (text && text.length > 100) {
-        return `[Direct OCR로 텍스트 추출 - ${fileName}]\n\n${text}`
-      }
-    } catch (directOcrError) {
-      console.error('OCR: Direct OCR also failed:', directOcrError)
-    }
-    
-    throw new Error(`OCR 처리 실패: ${error instanceof Error ? error.message : String(error)}`)
+    return `[텍스트 추출 실패 - ${fileName}]
+
+PDF 파일 처리 중 오류가 발생했습니다.
+오류: ${error instanceof Error ? error.message : String(error)}
+
+해결 방법:
+1. PDF를 다시 저장하여 파일 무결성 확인
+2. 다른 형식으로 변환 후 업로드 (.txt, .docx)
+3. PDF 내용을 수동으로 복사하여 텍스트로 입력
+
+도움이 필요한 경우 관리자에게 문의하세요.`
   }
 }
 
