@@ -156,6 +156,30 @@ export function KeywordAnalyzer({
           }
         }
         setKeywordResult(convertedResult)
+      } else {
+        // 키워드가 문자열 배열인 경우 (기본 키워드)
+        const stringKeywords = analysis.keywords.filter(k => typeof k === 'string') as string[]
+        if (stringKeywords.length > 0) {
+          const convertedResult: KeywordAnalysisResult = {
+            technical_keywords: stringKeywords.map(term => ({
+              term,
+              importance: 0.5,
+              category: 'technical',
+              frequency: 1,
+              context: []
+            })),
+            business_keywords: [],
+            domain_keywords: [],
+            keyword_clusters: [],
+            priority_matrix: {
+              high_impact_high_frequency: [],
+              high_impact_low_frequency: [],
+              low_impact_high_frequency: [],
+              low_impact_low_frequency: []
+            }
+          }
+          setKeywordResult(convertedResult)
+        }
       }
     } else if (autoAnalyze && analysisId) {
       handleAnalyzeKeywords()

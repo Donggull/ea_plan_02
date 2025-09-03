@@ -103,16 +103,16 @@ export function RequirementExtractor({
       console.log('Requirements Extraction: Functional requirements:', analysis?.functional_requirements)
       console.log('Requirements Extraction: Non-functional requirements:', analysis?.non_functional_requirements)
       
-      // 목업 데이터 여부 확인 (더 강화된 검사)
+      // 목업 데이터 여부 확인 - 개선된 검사 로직
       const hasMockData = analysis?._isMockData || 
+        (analysis?.project_overview?.title?.includes('[목업]') || 
+         analysis?.project_overview?.title?.includes('AI 기반 RFP 분석 시스템 구축')) ||
         analysis?.functional_requirements?.some((req: any) => 
           req.title?.includes('[목업]') || req.title?.includes('목업') || req.title?.includes('Mock')
         ) ||
         analysis?.non_functional_requirements?.some((req: any) => 
           req.title?.includes('[목업]') || req.title?.includes('목업') || req.title?.includes('Mock')
         ) ||
-        analysis?.project_overview?.title?.includes('[목업]') ||
-        analysis?.project_overview?.title?.includes('AI 기반 RFP 분석 시스템 구축') ||
         false
       
       console.log('Requirements Extraction: Has mock data:', hasMockData)
@@ -185,6 +185,33 @@ export function RequirementExtractor({
         return // 목업 데이터인 경우 여기서 중단
       }
       
+      // 빈 분석 결과 확인
+      const isEmpty = (!analysis.functional_requirements || analysis.functional_requirements.length === 0) &&
+                     (!analysis.non_functional_requirements || analysis.non_functional_requirements.length === 0) &&
+                     (!analysis.project_overview || !analysis.project_overview.title)
+
+      if (isEmpty) {
+        console.warn('Requirements Extraction: 분석 결과가 비어있습니다 - AI 분석이 제대로 이루어지지 않았을 가능성')
+        setExtractedRequirements({
+          functional: [],
+          nonFunctional: []
+        })
+        
+        onExtractError?.(`📋 분석 결과가 비어있습니다
+
+AI 분석이 제대로 완료되지 않았거나 RFP 내용에서 요구사항을 찾을 수 없습니다.
+
+해결 방법:
+1. RFP 파일을 다시 업로드하고 분석 재시도
+2. 더 상세한 요구사항이 포함된 문서 사용
+3. 다른 AI 모델 선택하여 재분석
+4. 수동으로 요구사항 입력 고려
+
+현재 상태: 기능 요구사항 ${analysis.functional_requirements?.length || 0}개, 비기능 요구사항 ${analysis.non_functional_requirements?.length || 0}개`)
+        
+        return
+      }
+
       // 실제 AI 분석 데이터인 경우에만 설정
       console.log('Requirements Extraction: 실제 AI 분석 데이터 설정 중...')
       setExtractedRequirements({

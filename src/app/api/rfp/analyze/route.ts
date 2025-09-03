@@ -134,6 +134,32 @@ export async function POST(request: NextRequest) {
       selected_model_id
     )
 
+    // 분석 결과 저장 전 유효성 검증
+    const hasValidData = analysisResult.project_overview?.title ||
+                        (analysisResult.functional_requirements?.length > 0) ||
+                        (analysisResult.non_functional_requirements?.length > 0) ||
+                        (analysisResult.keywords?.length > 0)
+
+    if (!hasValidData) {
+      console.error('RFP Analysis: 분석 결과가 유효하지 않습니다 - 데이터베이스 저장을 건너뛰고 오류 반환')
+      return NextResponse.json(
+        { 
+          success: false,
+          message: 'AI 분석이 완료되지 않았습니다. 분석 결과가 비어있거나 유효하지 않습니다.',
+          error: 'EMPTY_ANALYSIS_RESULT',
+          suggestions: [
+            'RFP 문서의 내용이 충분한지 확인해주세요',
+            '다른 AI 모델을 선택해 보세요',
+            '문서 형식이 올바른지 확인해주세요',
+            '잠시 후 다시 시도해주세요'
+          ]
+        },
+        { status: 422 } // 처리 가능한 엔티티 오류
+      )
+    }
+
+    console.log('RFP Analysis: 유효한 분석 결과 확인됨 - 데이터베이스 저장 진행')
+
     // 분석 결과 저장 (Service Role 사용)
     const { data: analysisData, error: analysisError } = await supabaseAdmin
       .from('rfp_analyses')
@@ -483,9 +509,17 @@ ${processedText}`
         hasJsonKeyword: data.content[0]?.text?.includes('"functional_requirements"') || false
       })
       
-      // 파싱 실패 시 명확한 오류 메시지와 함께 기본값 반환
-      console.log('RFP Analysis: Using fallback analysis due to JSON parsing failure - AI may need better prompting')
-      analysisResult = generateFallbackAnalysis()
+      // 파싱 실패 시 JSON 파싱 오류를 상위로 전파 (목업 데이터 대신)
+      console.error('RFP Analysis: JSON parsing failed - throwing error instead of using fallback')
+      throw new Error(`AI 응답 처리 중 JSON 파싱 오류가 발생했습니다: ${parseError instanceof Error ? parseError.message : String(parseError)}
+
+AI 응답 샘플:
+${data.content[0]?.text?.substring(0, 500) || 'NO_CONTENT'}
+
+해결 방법:
+1. 새로고침 후 다시 시도
+2. 더 간단한 문서로 테스트
+3. 다른 AI 모델 선택`)
     }
 
     console.log('RFP Analysis: Analysis completed successfully')
@@ -551,67 +585,8 @@ ${processedText}`
   }
 }
 
-// AI 분석 실패 시 사용할 기본 분석 결과
-function generateFallbackAnalysis() {
-  console.warn('🚨 MOCK DATA: Returning fallback analysis data - AI analysis failed')
-  
-  return {
-    _isMockData: true, // 목업 데이터 식별자
-    project_overview: {
-      title: "[목업] AI 기반 RFP 분석 시스템 구축",
-      description: "기업의 제안요청서(RFP)를 자동으로 분석하여 요구사항을 추출하고 위험요소를 식별하는 AI 시스템을 구축합니다.",
-      scope: "RFP 문서 업로드, AI 분석, 요구사항 추출, 키워드 분석, 질문 생성 기능을 포함한 웹 애플리케이션 개발",
-      objectives: [
-        "RFP 분석 시간 80% 단축",
-        "요구사항 추출 정확도 95% 이상 달성",
-        "자동 질문 생성을 통한 고객 소통 개선"
-      ]
-    },
-    functional_requirements: [
-      {
-        id: crypto.randomUUID(),
-        title: "[목업] RFP 파일 업로드 기능",
-        description: "PDF, DOC, DOCX 등 다양한 형식의 RFP 파일을 업로드할 수 있어야 합니다.",
-        priority: "high" as const,
-        category: "파일 처리",
-        acceptance_criteria: ["50MB 이하 파일 지원", "다중 파일 형식 지원", "진행률 표시"],
-        estimated_effort: 5
-      },
-      {
-        id: crypto.randomUUID(),
-        title: "[목업] AI 기반 요구사항 자동 추출",
-        description: "업로드된 RFP 문서에서 기능적 요구사항과 비기능적 요구사항을 자동으로 추출합니다.",
-        priority: "high" as const,
-        category: "AI 분석",
-        acceptance_criteria: ["95% 이상 정확도", "실시간 분석", "구조화된 결과 제공"],
-        estimated_effort: 8
-      }
-    ],
-    non_functional_requirements: [
-      {
-        id: crypto.randomUUID(),
-        title: "[목업] 시스템 성능 요구사항",
-        description: "대용량 문서 처리 시에도 5초 이내 응답 시간을 보장해야 합니다.",
-        category: "성능",
-        priority: "high" as const,
-        metric: "응답시간",
-        target_value: "< 5초"
-      }
-    ],
-    keywords: ["AI 분석", "RFP 처리", "요구사항 추출", "문서 분석", "자동화"],
-    risk_factors: [
-      {
-        id: crypto.randomUUID(),
-        title: "[목업] AI 분석 정확도 위험",
-        description: "AI 모델의 분석 결과가 부정확할 수 있는 위험성이 존재합니다.",
-        probability: "medium" as const,
-        impact: "high" as const,
-        mitigation: "인간 검토자의 최종 검증 단계 추가 및 신뢰도 점수 표시"
-      }
-    ],
-    confidence_score: 0.85
-  }
-}
+// AI 분석 실패 시 사용할 기본 분석 결과 (현재 사용되지 않음 - 오류 발생 시 즉시 실패 처리)
+// function generateFallbackAnalysis() - 삭제됨 (빈 데이터 저장 방지를 위해)
 
 // 질문 생성 함수 (간소화된 버전)
 async function generateAnalysisQuestions(analysisId: string, _options: any, _selectedModelId?: string | null) {

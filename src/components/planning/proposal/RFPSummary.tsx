@@ -25,6 +25,35 @@ export function RFPSummary({
   const [activeSection, setActiveSection] = useState<string>('overview')
   const [isExporting, setIsExporting] = useState(false)
 
+  // 빈 분석 결과 확인
+  const isEmpty = (!analysis.functional_requirements || analysis.functional_requirements.length === 0) &&
+                  (!analysis.non_functional_requirements || analysis.non_functional_requirements.length === 0) &&
+                  (!analysis.project_overview || !analysis.project_overview.title) &&
+                  (!analysis.keywords || analysis.keywords.length === 0)
+
+  if (isEmpty) {
+    return (
+      <Card className={cn('p-8 text-center', className)}>
+        <IconRenderer icon="AlertTriangle" size={48} className="mx-auto mb-4 text-orange-400" {...({} as any)} />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          분석 결과가 비어있습니다
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          AI 분석이 제대로 완료되지 않았거나 RFP에서 내용을 추출할 수 없습니다.
+        </p>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="font-medium mb-2">해결 방법:</p>
+          <ul className="list-disc list-inside space-y-1 text-left max-w-md mx-auto">
+            <li>RFP 파일을 다시 업로드하고 분석 재시도</li>
+            <li>더 상세한 내용이 포함된 문서 사용</li>
+            <li>다른 AI 모델로 재분석</li>
+            <li>API 키 설정 및 연결 상태 확인</li>
+          </ul>
+        </div>
+      </Card>
+    )
+  }
+
   const getImportanceColor = (importance: number) => {
     if (importance >= 0.8) return 'bg-red-500'
     if (importance >= 0.6) return 'bg-orange-500'
