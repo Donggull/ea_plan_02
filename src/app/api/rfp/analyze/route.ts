@@ -296,56 +296,71 @@ IMPORTANT: 응답은 반드시 유효한 JSON 형식만 반환해주세요. 설�
 === RFP 문서 내용 ===
 ${processedText}`
     } else {
-      // 기본 프롬프트 사용
+      // 기본 프롬프트 사용 - 더 명확하고 강력한 JSON 요구사항
       console.log('RFP Analysis: Using default analysis prompt')
-      finalPrompt = `다음 RFP(제안요청서) 문서를 분석하여 유효한 JSON 형식으로만 응답해주세요.
+      finalPrompt = `분석 지시: 다음 RFP 문서를 분석하고 JSON 형식으로만 응답하세요.
 
-IMPORTANT: 응답은 반드시 순수 JSON 형식이어야 하며, 설명이나 추가 텍스트 없이 JSON 객체만 반환해야 합니다.
+⚠️ 중요 규칙:
+1. 응답은 JSON 객체만 포함해야 합니다
+2. 설명 텍스트나 추가 내용 없이 JSON만 반환
+3. 코드 블록 마커 사용하지 않음
+4. JSON 형식이 완전히 유효해야 함
 
-JSON 형식:
+예시 응답 형식:
 {
   "project_overview": {
-    "title": "프로젝트 제목",
+    "title": "추출된 프로젝트 제목",
     "description": "프로젝트 설명",
     "scope": "프로젝트 범위",
     "objectives": ["목표1", "목표2"]
   },
   "functional_requirements": [
     {
-      "title": "요구사항 제목",
+      "title": "기능 요구사항 제목",
       "description": "상세 설명",
-      "priority": "high|medium|low",
-      "category": "카테고리",
+      "priority": "high",
+      "category": "시스템 기능",
       "acceptance_criteria": ["기준1", "기준2"],
-      "estimated_effort": 1
+      "estimated_effort": 5
     }
   ],
   "non_functional_requirements": [
     {
       "title": "비기능 요구사항 제목",
       "description": "상세 설명",
-      "category": "성능|보안|호환성|사용성",
-      "priority": "high|medium|low",
-      "metric": "측정 기준",
-      "target_value": "목표 값"
+      "category": "성능",
+      "priority": "medium",
+      "metric": "응답 시간",
+      "target_value": "2초 이내"
     }
   ],
-  "keywords": ["키워드1", "키워드2"],
+  "technical_specifications": {
+    "platform": ["웹", "모바일"],
+    "technologies": ["React", "Node.js"],
+    "integrations": ["API 연동"],
+    "performance_requirements": {"응답시간": "2초 이내"}
+  },
+  "business_requirements": {
+    "budget_range": "1억원 내외",
+    "timeline": "6개월",
+    "target_users": ["일반 사용자"],
+    "success_metrics": ["사용자 만족도 90%"]
+  },
+  "keywords": ["웹개발", "시스템구축", "데이터베이스"],
   "risk_factors": [
     {
-      "title": "위험 요소 제목",
+      "title": "위험 요소",
       "description": "설명",
-      "probability": "high|medium|low",
-      "impact": "high|medium|low",
-      "mitigation": "대응 방안"
+      "probability": "medium",
+      "impact": "high",
+      "mitigation": "대응방안"
     }
   ],
-  "confidence_score": 0.95
+  "questions_for_client": ["클라이언트 질문1", "클라이언트 질문2"],
+  "confidence_score": 0.85
 }
 
-Response format: JSON object only, no explanations or additional text.
-
-=== RFP 문서 내용 ===
+분석할 RFP 문서:
 ${processedText}`
     }
     
@@ -380,8 +395,8 @@ ${processedText}`
             content: finalPrompt
           }
         ],
-        max_tokens: 8192,
-        temperature: 0.1
+        max_tokens: 4096,
+        temperature: 0.0 // 더 일관된 결과를 위해 온도를 0으로 설정
       })
     })
 
@@ -509,17 +524,76 @@ ${processedText}`
         hasJsonKeyword: data.content[0]?.text?.includes('"functional_requirements"') || false
       })
       
-      // 파싱 실패 시 JSON 파싱 오류를 상위로 전파 (목업 데이터 대신)
-      console.error('RFP Analysis: JSON parsing failed - throwing error instead of using fallback')
-      throw new Error(`AI 응답 처리 중 JSON 파싱 오류가 발생했습니다: ${parseError instanceof Error ? parseError.message : String(parseError)}
-
-AI 응답 샘플:
-${data.content[0]?.text?.substring(0, 500) || 'NO_CONTENT'}
-
-해결 방법:
-1. 새로고침 후 다시 시도
-2. 더 간단한 문서로 테스트
-3. 다른 AI 모델 선택`)
+      // 파싱 실패 시 더 관대한 JSON 추출 시도
+      console.error('RFP Analysis: JSON parsing failed - trying more lenient extraction')
+      
+      try {
+        // 추가 JSON 정리 시도
+        let rawResponse = data.content[0]?.text?.trim() || ''
+        console.log('RFP Analysis: Attempting lenient JSON extraction from response length:', rawResponse.length)
+        
+        // AI 응답에서 불필요한 설명 텍스트 제거
+        rawResponse = rawResponse
+          .replace(/^[^{]*/, '') // 시작 부분의 설명 텍스트 제거
+          .replace(/[^}]*$/, '') // 끝 부분의 설명 텍스트 제거
+          .replace(/```json/g, '') // 코드 블록 마커 제거
+          .replace(/```/g, '') // 코드 블록 마커 제거
+          .trim()
+        
+        if (rawResponse.startsWith('{') && rawResponse.endsWith('}')) {
+          console.log('RFP Analysis: Lenient extraction found valid JSON structure')
+          const lentientResult = JSON.parse(rawResponse)
+          
+          // 기본 구조 검증
+          if (lentientResult && typeof lentientResult === 'object') {
+            // ID 추가
+            if (lentientResult.functional_requirements) {
+              lentientResult.functional_requirements = lentientResult.functional_requirements.map((req: any) => ({
+                ...req,
+                id: crypto.randomUUID()
+              }))
+            }
+            if (lentientResult.non_functional_requirements) {
+              lentientResult.non_functional_requirements = lentientResult.non_functional_requirements.map((req: any) => ({
+                ...req,
+                id: crypto.randomUUID()
+              }))
+            }
+            
+            console.log('RFP Analysis: Lenient JSON parsing successful')
+            analysisResult = lentientResult
+          } else {
+            throw new Error('Invalid JSON structure')
+          }
+        } else {
+          throw new Error('No valid JSON found after lenient extraction')
+        }
+      } catch (lenientParseError) {
+        console.error('RFP Analysis: Lenient JSON parsing also failed:', lenientParseError)
+        
+        // 마지막 시도: 최소한의 구조라도 생성
+        console.log('RFP Analysis: Attempting to create minimal structure from AI response')
+        
+        const rawText = data.content[0]?.text || ''
+        analysisResult = {
+          project_overview: {
+            title: "AI 분석 결과 (부분 추출)",
+            description: "AI 응답에서 JSON을 추출할 수 없어 부분적으로만 분석되었습니다.",
+            scope: "",
+            objectives: []
+          },
+          functional_requirements: [],
+          non_functional_requirements: [],
+          technical_specifications: {},
+          business_requirements: {},
+          keywords: rawText.match(/\b\w+\b/g)?.slice(0, 5) || [], // 단어에서 키워드 추출
+          risk_factors: [],
+          questions_for_client: [],
+          confidence_score: 0.3
+        }
+        
+        console.log('RFP Analysis: Created minimal fallback structure')
+      }
     }
 
     console.log('RFP Analysis: Analysis completed successfully')
