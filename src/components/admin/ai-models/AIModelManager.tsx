@@ -36,6 +36,11 @@ export function AIModelManager() {
     cost_per_1k_output_tokens: 0.015
   })
 
+  // 기본값 설정 확인 모달 상태
+  const [showDefaultConfirmModal, setShowDefaultConfirmModal] = useState(false)
+  const [pendingDefaultModelId, setPendingDefaultModelId] = useState<string | null>(null)
+  const [currentDefaultModel, setCurrentDefaultModel] = useState<AIModel | null>(null)
+
   const loadProviders = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -270,6 +275,26 @@ export function AIModelManager() {
     }
   }
 
+  const handleDefaultModelClick = (modelId: string, isCurrentlyDefault: boolean = false) => {
+    if (isCurrentlyDefault) {
+      // 현재 기본값인 모델을 클릭한 경우 바로 해제
+      setDefaultModel(modelId, true)
+    } else {
+      // 다른 모델을 기본값으로 설정하려는 경우
+      const existingDefaultModel = models.find(m => m.is_default)
+      
+      if (existingDefaultModel) {
+        // 기존 기본값이 있으면 확인 모달 표시
+        setCurrentDefaultModel(existingDefaultModel)
+        setPendingDefaultModelId(modelId)
+        setShowDefaultConfirmModal(true)
+      } else {
+        // 기본값이 없으면 바로 설정
+        setDefaultModel(modelId, false)
+      }
+    }
+  }
+
   const setDefaultModel = async (modelId: string, isCurrentlyDefault: boolean = false) => {
     try {
       if (isCurrentlyDefault) {
@@ -322,6 +347,28 @@ export function AIModelManager() {
       const errorMessage = error.message || '기본 모델 설정 중 오류가 발생했습니다.'
       alert(errorMessage)
     }
+  }
+
+  const confirmDefaultModelChange = async () => {
+    if (!pendingDefaultModelId) return
+
+    setIsLoading(true)
+    try {
+      await setDefaultModel(pendingDefaultModelId, false)
+      setShowDefaultConfirmModal(false)
+      setPendingDefaultModelId(null)
+      setCurrentDefaultModel(null)
+    } catch (_error) {
+      // 오류는 setDefaultModel에서 처리됨
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const cancelDefaultModelChange = () => {
+    setShowDefaultConfirmModal(false)
+    setPendingDefaultModelId(null)
+    setCurrentDefaultModel(null)
   }
 
   const renderModelsTab = () => (
@@ -386,7 +433,7 @@ export function AIModelManager() {
                 <div className="flex items-center gap-3">
                   {/* 라디오 버튼 스타일 */}
                   <button
-                    onClick={() => setDefaultModel(model.id, model.is_default)}
+                    onClick={() => handleDefaultModelClick(model.id, model.is_default)}
                     className={cn(
                       "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
                       model.is_default
@@ -436,7 +483,7 @@ export function AIModelManager() {
                   <Button
                     variant={model.is_default ? 'primary' : 'ghost'}
                     size="sm"
-                    onClick={() => setDefaultModel(model.id, model.is_default)}
+                    onClick={() => handleDefaultModelClick(model.id, model.is_default)}
                     className={model.is_default ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
                   >
                     {model.is_default ? '기본값 해제' : '기본값 설정'}
@@ -740,6 +787,66 @@ export function AIModelManager() {
                 disabled={!newModel.provider_id || !newModel.model_id || !newModel.display_name || isLoading}
               >
                 {isLoading ? '추가 중...' : '모델 추가'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 기본값 설정 확인 모달 */}
+      {showDefaultConfirmModal && currentDefaultModel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <IconRenderer icon="AlertTriangle" size={24} className="text-orange-500" {...({} as any)} />
+              <h3 className="text-lg font-semibold">기본 모델 변경 확인</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-sm text-orange-800">
+                  <strong>현재 기본 모델:</strong> {currentDefaultModel.display_name}
+                </p>
+                <p className="text-sm text-orange-700 mt-2">
+                  새로운 모델을 기본값으로 설정하면 위 모델의 기본값 설정이 자동으로 해제됩니다.
+                </p>
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>새로운 기본 모델:</strong> {models.find(m => m.id === pendingDefaultModelId)?.display_name}
+                </p>
+                <p className="text-sm text-blue-700 mt-2">
+                  이 모델이 시스템의 기본 AI 모델로 설정됩니다.
+                </p>
+              </div>
+
+              <p className="text-sm text-gray-600">
+                계속 진행하시겠습니까?
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <Button 
+                variant="outline" 
+                onClick={cancelDefaultModelChange}
+                disabled={isLoading}
+              >
+                취소
+              </Button>
+              <Button 
+                onClick={confirmDefaultModelChange}
+                disabled={isLoading}
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    변경 중...
+                  </div>
+                ) : (
+                  '확인'
+                )}
               </Button>
             </div>
           </Card>
