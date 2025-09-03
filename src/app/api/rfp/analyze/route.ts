@@ -236,7 +236,7 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
     })
     
     // 선택된 모델 ID가 UUID인지 확인하고, 실제 모델명 조회
-    let actualModelId = 'claude-sonnet-4-20250514' // 기본값
+    let actualModelId = 'claude-3-5-sonnet-20241022' // 기본값 - 최신 Sonnet 모델
     
     if (selectedModelId) {
       console.log('RFP Analysis: Resolving selected model ID:', selectedModelId)
@@ -706,7 +706,7 @@ async function generateAnalysisQuestions(analysisId: string, _options: any, _sel
     }
 
     // 선택된 모델 ID 해결 (분석과 동일한 로직)
-    let actualModelId = 'claude-sonnet-4-20250514' // 기본값
+    let actualModelId = 'claude-3-5-sonnet-20241022' // 기본값 - 최신 Sonnet 모델
     
     if (_selectedModelId) {
       console.log('Question Generation: Resolving selected model ID:', _selectedModelId)
