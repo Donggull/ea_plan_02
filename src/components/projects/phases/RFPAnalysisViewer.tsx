@@ -36,7 +36,7 @@ interface RFPAnalysisData {
     summary?: {
       overview: string
       key_points: string[]
-      complexity_score: number
+      complexity_score?: number | null
     }
     analysis_date?: string
   }
@@ -122,20 +122,55 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
         console.log('📋 rfp_analyses 테이블 조회 결과:', rfpAnalysis)
 
         if (rfpAnalysis) {
+          // 실제 데이터베이스 구조에 맞게 데이터 매핑
+          const functionalReqs = rfpAnalysis.functional_requirements || []
+          const nonFunctionalReqs = rfpAnalysis.non_functional_requirements || []
+          const allRequirements = [...functionalReqs, ...nonFunctionalReqs]
+          
+          console.log('📋 functional_requirements:', functionalReqs)
+          console.log('📋 non_functional_requirements:', nonFunctionalReqs)
+          console.log('📋 combined requirements:', allRequirements)
+          
+          // keywords 데이터 매핑 (DB의 keywords 배열을 컴포넌트 형식으로 변환)
+          const dbKeywords = rfpAnalysis.keywords || []
+          const mappedKeywords = dbKeywords.map((kw: any, _index: number) => ({
+            keyword: kw.term || kw.keyword || kw,
+            frequency: kw.importance ? Math.round(kw.importance * 100) : (kw.frequency || 1),
+            category: kw.category || 'general'
+          }))
+          
+          console.log('🔑 DB keywords:', dbKeywords)
+          console.log('🔑 mapped keywords:', mappedKeywords)
+          
+          // summary 데이터 매핑
+          const projectOverview = rfpAnalysis.project_overview || {}
+          const summaryData = {
+            overview: projectOverview.description || rfpAnalysis.project_overview?.scope || '프로젝트 개요 정보를 로드할 수 없습니다.',
+            key_points: projectOverview.objectives || [],
+            complexity_score: rfpAnalysis.confidence_score ? Math.round(rfpAnalysis.confidence_score * 10) : null
+          }
+          
+          console.log('📝 project_overview:', projectOverview)
+          console.log('📝 mapped summary:', summaryData)
+          
           const analysisDataFromTable = {
-            requirements: rfpAnalysis.requirements || [],
-            keywords: rfpAnalysis.keywords || [],
-            summary: rfpAnalysis.summary || {},
+            requirements: allRequirements,
+            keywords: mappedKeywords,
+            summary: summaryData,
             analysis_date: rfpAnalysis.created_at
           }
-          console.log('✅ rfp_analyses에서 데이터 설정:', analysisDataFromTable)
+          console.log('✅ rfp_analyses에서 최종 데이터 매핑:', analysisDataFromTable)
           
-          setAnalysisData({
+          const newAnalysisData = {
             id: rfpAnalysis.id,
             rfp_document_id: proposalData.rfp_document_id,
             rfp_analysis_id: rfpAnalysis.id,
             rfp_analysis_data: analysisDataFromTable
-          })
+          }
+          
+          console.log('🎯 최종 설정할 analysisData:', newAnalysisData)
+          setAnalysisData(newAnalysisData)
+          console.log('✅ setAnalysisData 호출 완료')
         } else {
           console.log('❌ rfp_analyses 테이블에서 데이터를 찾을 수 없음')
           setError('RFP 분석 데이터를 찾을 수 없습니다.')
@@ -161,19 +196,44 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
             const latestAnalysis = projectRfpAnalyses[0]
             console.log('✅ 최신 RFP 분석 사용:', latestAnalysis)
             
+            // 실제 데이터베이스 구조에 맞게 데이터 매핑 (프로젝트 ID 기반 조회용)
+            const functionalReqs = latestAnalysis.functional_requirements || []
+            const nonFunctionalReqs = latestAnalysis.non_functional_requirements || []
+            const allRequirements = [...functionalReqs, ...nonFunctionalReqs]
+            
+            // keywords 데이터 매핑
+            const dbKeywords = latestAnalysis.keywords || []
+            const mappedKeywords = dbKeywords.map((kw: any, _index: number) => ({
+              keyword: kw.term || kw.keyword || kw,
+              frequency: kw.importance ? Math.round(kw.importance * 100) : (kw.frequency || 1),
+              category: kw.category || 'general'
+            }))
+            
+            // summary 데이터 매핑
+            const projectOverview = latestAnalysis.project_overview || {}
+            const summaryData = {
+              overview: projectOverview.description || latestAnalysis.project_overview?.scope || '프로젝트 개요 정보를 로드할 수 없습니다.',
+              key_points: projectOverview.objectives || [],
+              complexity_score: latestAnalysis.confidence_score ? Math.round(latestAnalysis.confidence_score * 10) : null
+            }
+            
             const analysisDataFromProject = {
-              requirements: latestAnalysis.requirements || [],
-              keywords: latestAnalysis.keywords || [],
-              summary: latestAnalysis.summary || {},
+              requirements: allRequirements,
+              keywords: mappedKeywords,
+              summary: summaryData,
               analysis_date: latestAnalysis.created_at
             }
             
-            setAnalysisData({
+            const projectAnalysisData = {
               id: latestAnalysis.id,
               rfp_document_id: latestAnalysis.rfp_document_id,
               rfp_analysis_id: latestAnalysis.id,
               rfp_analysis_data: analysisDataFromProject
-            })
+            }
+            
+            console.log('🎯 프로젝트 ID로 조회한 최종 데이터:', projectAnalysisData)
+            setAnalysisData(projectAnalysisData)
+            console.log('✅ 프로젝트 ID 기반 setAnalysisData 호출 완료')
             return
           }
         }
@@ -237,6 +297,11 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
   const requirements = rfp_analysis_data?.requirements || []
   const keywords = rfp_analysis_data?.keywords || []
   const summary = rfp_analysis_data?.summary as any || {}
+  
+  console.log('🔍 렌더링 시 analysisData:', analysisData)
+  console.log('📊 렌더링 시 requirements:', requirements)
+  console.log('🔑 렌더링 시 keywords:', keywords)
+  console.log('📝 렌더링 시 summary:', summary)
 
   return (
     <div className="space-y-6">
