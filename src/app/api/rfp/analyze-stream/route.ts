@@ -327,6 +327,8 @@ export async function POST(request: NextRequest) {
 async function handleStreamingRequest(request: NextRequest) {
   const method = request.method
   console.log(`🔥 RFP ANALYZE STREAM API CALLED (${method})! 🔥`)
+  console.log('Request URL:', request.url)
+  console.log('Request headers:', Object.fromEntries(request.headers.entries()))
   
   try {
     console.log('RFP Stream Analysis: Starting authentication check...')
@@ -350,17 +352,28 @@ async function handleStreamingRequest(request: NextRequest) {
 
     // 최종 인증 확인
     if (!user) {
-      console.error('RFP Stream Analysis: No authenticated user found')
+      console.error('RFP Stream Analysis: ❌ AUTHENTICATION FAILED - No authenticated user found')
       console.error('RFP Stream Analysis: Authentication methods tried:', {
         authHeader: !!authorization,
+        authHeaderValue: authorization ? `${authorization.substring(0, 20)}...` : 'null',
         urlToken: !!request.url.includes('auth_token='),
+        urlTokenValue: request.url.includes('auth_token=') ? 'present' : 'missing',
         cookieAuth: 'attempted'
       })
+      console.error('RFP Stream Analysis: Request URL:', request.url)
+      console.error('RFP Stream Analysis: Request method:', method)
+      console.error('RFP Stream Analysis: Timestamp:', new Date().toISOString())
       
       return NextResponse.json({ 
         success: false, 
         error: 'Authentication required - no valid user found',
-        details: 'Please ensure you are logged in and try again'
+        details: 'Please ensure you are logged in and try again',
+        debug: {
+          authHeader: !!authorization,
+          urlToken: !!request.url.includes('auth_token='),
+          method: method,
+          timestamp: new Date().toISOString()
+        }
       }, { status: 401 })
     }
     
@@ -377,20 +390,44 @@ async function handleStreamingRequest(request: NextRequest) {
       
       // URL 파라미터에서 auth_token 확인
       const authToken = searchParams.get('auth_token')
+      console.log('RFP Stream Analysis: Auth token from URL params:', authToken ? `${authToken.substring(0, 20)}...` : 'null')
+      console.log('RFP Stream Analysis: Current user status before URL token check:', !!user)
+      
       if (authToken && !user) {
         console.log('RFP Stream Analysis: Using URL auth token for authentication')
         try {
           const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(authToken)
           
           if (tokenError) {
-            console.error('RFP Stream Analysis: URL token validation error:', tokenError.message)
+            console.error('RFP Stream Analysis: URL token validation error:', tokenError)
+            console.error('RFP Stream Analysis: Token error details:', {
+              message: tokenError.message,
+              status: tokenError.status,
+              code: tokenError.code
+            })
           } else if (tokenUser) {
-            console.log('RFP Stream Analysis: URL token user authenticated:', tokenUser.id)
+            console.log('RFP Stream Analysis: URL token user authenticated successfully:', {
+              userId: tokenUser.id,
+              email: tokenUser.email,
+              aud: tokenUser.aud,
+              role: tokenUser.role
+            })
             user = tokenUser
+          } else {
+            console.error('RFP Stream Analysis: No user returned from token validation')
           }
         } catch (tokenErr) {
           console.error('RFP Stream Analysis: URL token parsing error:', tokenErr)
+          console.error('RFP Stream Analysis: Token parsing error details:', {
+            name: tokenErr?.constructor?.name,
+            message: tokenErr instanceof Error ? tokenErr.message : String(tokenErr),
+            stack: tokenErr instanceof Error ? tokenErr.stack?.substring(0, 500) : undefined
+          })
         }
+      } else if (!authToken) {
+        console.error('RFP Stream Analysis: No auth_token found in URL parameters')
+      } else if (user) {
+        console.log('RFP Stream Analysis: User already authenticated, skipping URL token check')
       }
       
       if (!rfpDocumentId) {
