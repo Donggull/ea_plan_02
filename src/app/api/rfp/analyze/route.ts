@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error('RFP analysis error:', error)
+    console.error('❌ RFP 분석 실패:', error)
     console.error('RFP analysis error details:', {
       name: error?.constructor?.name,
       message: error instanceof Error ? error.message : String(error),
@@ -215,8 +215,10 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       { 
+        success: false,
         message: errorMessage,
         error: error instanceof Error ? error.message : String(error),
+        details: 'RFP 분석 중 오류가 발생했습니다.',
         timestamp: new Date().toISOString()
       },
       { status: 500 }
@@ -412,6 +414,8 @@ JSON 결과만 반환해주세요:
       model: actualModelId
     })
     
+    const startTime = Date.now()
+    
     // Anthropic API 호출 (타임아웃 제거 - Vercel 자체 타임아웃 사용)
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -428,11 +432,22 @@ JSON 결과만 반환해주세요:
       })
     })
     
+    const apiCallDuration = Date.now() - startTime
+    console.log('RFP Analysis: API call completed in', apiCallDuration, 'ms')
+    
     console.log('RFP Analysis: Anthropic API response status:', anthropicResponse.status)
     
     if (!anthropicResponse.ok) {
       const errorText = await anthropicResponse.text()
       console.error('RFP Analysis: Anthropic API error:', errorText)
+      console.error('RFP Analysis: Request details:', {
+        url: 'https://api.anthropic.com/v1/messages',
+        method: 'POST',
+        model: actualModelId,
+        promptLength: analysisPrompt.length,
+        hasApiKey: !!apiKey,
+        apiKeyPrefix: apiKey ? apiKey.substring(0, 15) : 'NO_KEY'
+      })
       throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorText}`)
     }
     
@@ -664,7 +679,7 @@ JSON 결과만 반환해주세요:
       console.error('❓ RFP Analysis: 분류되지 않은 오류:', errorMsg)
     }
     
-    console.error('🚨 RFP Analysis: 디버깅을 위해 실제 오류를 던집니다 - Mock 데이터 대신 오류 반환')
+    console.error('🚨 RFP Analysis: 실제 오류 발생, 디버깅 정보:')
     console.error('RFP Analysis: 오류 정보:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined,
@@ -672,7 +687,7 @@ JSON 결과만 반환해주세요:
       cause: (error as any)?.cause
     })
     
-    // 실제 오류를 던져서 정확한 문제 파악
+    // 실제 오류를 던져서 정확한 문제 파악 - Mock 데이터 사용하지 않음
     throw error
   }
 }
