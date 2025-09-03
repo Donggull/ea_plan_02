@@ -8,6 +8,9 @@ export interface Requirement {
   category: string;
   acceptance_criteria?: string[];
   estimated_effort?: number;
+  // 비기능 요구사항 전용 필드
+  metric?: string;
+  target_value?: string;
 }
 
 export interface RFPAnalysis {
@@ -42,15 +45,17 @@ export interface RFPAnalysis {
     success_metrics: string[];
   };
   
-  keywords: Array<{
+  keywords: string[] | Array<{
     term: string;
     importance: number;
     category: string;
   }>;
   
   risk_factors: Array<{
-    factor: string;
-    level: 'low' | 'medium' | 'high';
+    title: string;
+    description: string;
+    probability: 'low' | 'medium' | 'high';
+    impact: 'low' | 'medium' | 'high';
     mitigation: string;
   }>;
 
