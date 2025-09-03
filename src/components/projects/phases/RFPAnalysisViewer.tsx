@@ -85,15 +85,29 @@ export default function RFPAnalysisViewer({ projectId }: RFPAnalysisViewerProps)
       // RFP 분석 데이터가 있으면 설정
       if (proposalData.rfp_analysis_data) {
         console.log('✅ phase_data에 rfp_analysis_data 발견:', proposalData.rfp_analysis_data)
-        setAnalysisData({
-          id: proposalData.rfp_analysis_id || 'unknown',
-          rfp_document_id: proposalData.rfp_document_id,
-          rfp_analysis_id: proposalData.rfp_analysis_id,
-          rfp_analysis_data: proposalData.rfp_analysis_data
-        })
-      } else if (proposalData.rfp_analysis_id) {
-        console.log('🔄 rfp_analyses 테이블에서 조회 시도:', proposalData.rfp_analysis_id)
-        // phase_data에 분석 데이터가 없으면 rfp_analyses 테이블에서 조회
+        
+        // phase_data의 데이터가 완전한지 확인 (requirements, keywords, summary 포함)
+        const hasCompleteData = proposalData.rfp_analysis_data.requirements || 
+                               proposalData.rfp_analysis_data.keywords || 
+                               proposalData.rfp_analysis_data.summary
+        
+        if (hasCompleteData) {
+          console.log('✅ phase_data에 완전한 분석 데이터 있음')
+          setAnalysisData({
+            id: proposalData.rfp_analysis_id || 'unknown',
+            rfp_document_id: proposalData.rfp_document_id,
+            rfp_analysis_id: proposalData.rfp_analysis_id,
+            rfp_analysis_data: proposalData.rfp_analysis_data
+          })
+          return
+        } else {
+          console.log('⚠️ phase_data의 분석 데이터가 불완전함. rfp_analyses 테이블에서 조회')
+        }
+      }
+      
+      // phase_data에 rfp_analysis_id가 있으면 해당 ID로 완전한 데이터 조회
+      if (proposalData.rfp_analysis_id) {
+        console.log('🔄 rfp_analyses 테이블에서 완전한 데이터 조회 시도:', proposalData.rfp_analysis_id)
         const { data: rfpAnalysis, error: analysisError } = await supabase
           .from('rfp_analyses')
           .select('*')
