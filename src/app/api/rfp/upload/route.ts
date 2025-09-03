@@ -98,9 +98,6 @@ export async function POST(request: NextRequest) {
     const title = formData.get('title') as string
     const description = formData.get('description') as string
     const projectId = formData.get('project_id') as string
-    const analysisPrompt = formData.get('analysis_prompt') as string
-    const instructions = formData.get('instructions') as string
-    const instructionFile = formData.get('instruction_file') as File | null
 
     if (!file || !title) {
       return NextResponse.json(
@@ -139,68 +136,6 @@ export async function POST(request: NextRequest) {
     const randomId = crypto.randomUUID().substring(0, 8)
     const fileExtension = file.name.split('.').pop()
     const fileName = `rfp-${timestamp}-${randomId}.${fileExtension}`
-
-    // 지침 파일 처리 (있는 경우)
-    let instructionFileData = null
-    let instructionFileText = ''
-    
-    if (instructionFile) {
-      console.log('RFP Upload: Processing instruction file...', instructionFile.name)
-      
-      // 지침 파일명 생성
-      const instructionExtension = instructionFile.name.split('.').pop()
-      const instructionFileName = `instruction-${timestamp}-${randomId}.${instructionExtension}`
-      
-      // 지침 파일 업로드
-      const { data: _instructionUploadData, error: instructionUploadError } = await supabaseAdmin.storage
-        .from('rfp-documents')
-        .upload(instructionFileName, instructionFile, {
-          contentType: instructionFile.type,
-          upsert: false
-        })
-
-      if (instructionUploadError) {
-        console.error('Instruction file upload error:', instructionUploadError)
-        return NextResponse.json(
-          { message: '지침 파일 업로드 중 오류가 발생했습니다: ' + instructionUploadError.message },
-          { status: 500 }
-        )
-      }
-
-      // 지침 파일 URL 생성
-      const { data: instructionUrlData } = supabaseAdmin.storage
-        .from('rfp-documents')
-        .getPublicUrl(instructionFileName)
-
-      // 지침 파일에서 텍스트 추출
-      try {
-        if (instructionFile.type === 'text/plain' || instructionFile.type === 'text/markdown') {
-          instructionFileText = await instructionFile.text()
-        } else if (instructionFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-          const mammoth = await import('mammoth')
-          const arrayBuffer = await instructionFile.arrayBuffer()
-          const buffer = Buffer.from(arrayBuffer)
-          const result = await mammoth.extractRawText({ buffer })
-          instructionFileText = result.value
-        } else {
-          instructionFileText = `[지침 파일: ${instructionFile.name}] - 직접 확인이 필요한 파일 형식입니다.`
-        }
-      } catch (error) {
-        console.error('Instruction file text extraction error:', error)
-        instructionFileText = `[지침 파일: ${instructionFile.name}] - 텍스트 추출 중 오류가 발생했습니다.`
-      }
-
-      instructionFileData = {
-        file_name: instructionFileName,
-        original_name: instructionFile.name,
-        file_url: instructionUrlData.publicUrl,
-        file_size: instructionFile.size,
-        mime_type: instructionFile.type,
-        extracted_text: instructionFileText
-      }
-      
-      console.log('RFP Upload: Instruction file processed successfully')
-    }
     
     // Supabase Storage에 파일 업로드 (Service Role 사용)
     const { data: _uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -376,10 +311,7 @@ export async function POST(request: NextRequest) {
           original_file_name: file.name,
           file_url: urlData.publicUrl,
           file_size: file.size,
-          mime_type: file.type,
-          analysis_prompt: analysisPrompt || null,
-          instructions: instructions || null,
-          instruction_file: instructionFileData
+          mime_type: file.type
         },
         project_id: projectId || null,
         uploaded_by: user.id,
@@ -391,15 +323,10 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       console.error('Database error:', dbError)
       
-      // 업로드된 파일들 삭제 (롤백)
-      const filesToRemove = [fileName]
-      if (instructionFileData?.file_name) {
-        filesToRemove.push(instructionFileData.file_name)
-      }
-      
+      // 업로드된 파일 삭제 (롤백)
       await supabaseAdmin.storage
         .from('rfp-documents')
-        .remove(filesToRemove)
+        .remove([fileName])
         
       return NextResponse.json(
         { message: '데이터베이스 저장 중 오류가 발생했습니다: ' + dbError.message },

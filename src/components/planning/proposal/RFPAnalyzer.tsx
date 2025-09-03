@@ -201,131 +201,30 @@ export function RFPAnalyzer({
           </div>
         </Card>
 
-        {/* 기능 요구사항 */}
-        {analysis.functional_requirements && analysis.functional_requirements.length > 0 && (
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <IconRenderer icon="List" size={20} {...({} as any)} />
-              기능 요구사항 ({analysis.functional_requirements.length}개)
-            </h3>
-            <div className="space-y-4">
-              {analysis.functional_requirements.map((requirement, index) => (
-                <div key={requirement.id || index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h4 className="font-medium text-gray-900 dark:text-white">{requirement.title}</h4>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={cn(
-                          'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                          requirement.priority === 'high' 
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : requirement.priority === 'medium'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        )}
-                      >
-                        {requirement.priority === 'high' ? '높음' : requirement.priority === 'medium' ? '보통' : '낮음'}
-                      </span>
-                      {requirement.category && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          {requirement.category}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{requirement.description}</p>
-                  
-                  {requirement.acceptance_criteria && requirement.acceptance_criteria.length > 0 && (
-                    <div className="mb-3">
-                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">승인 기준:</span>
-                      <ul className="list-disc list-inside text-xs text-gray-600 dark:text-gray-400 mt-1 ml-2">
-                        {requirement.acceptance_criteria.map((criteria, idx) => (
-                          <li key={idx}>{criteria}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  {requirement.estimated_effort && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <IconRenderer icon="Clock" size={12} {...({} as any)} />
-                      예상 작업량: {requirement.estimated_effort}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* 비기능 요구사항 */}
-        {analysis.non_functional_requirements && analysis.non_functional_requirements.length > 0 && (
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <IconRenderer icon="Settings" size={20} {...({} as any)} />
-              비기능 요구사항 ({analysis.non_functional_requirements.length}개)
-            </h3>
-            <div className="space-y-4">
-              {analysis.non_functional_requirements.map((requirement, index) => (
-                <div key={requirement.id || index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h4 className="font-medium text-gray-900 dark:text-white">{requirement.title}</h4>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={cn(
-                          'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                          requirement.priority === 'high' 
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : requirement.priority === 'medium'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        )}
-                      >
-                        {requirement.priority === 'high' ? '높음' : requirement.priority === 'medium' ? '보통' : '낮음'}
-                      </span>
-                      {requirement.category && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                          {requirement.category}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{requirement.description}</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {requirement.metric && (
-                      <div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">측정 기준:</span>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{requirement.metric}</p>
-                      </div>
-                    )}
-                    {requirement.target_value && (
-                      <div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">목표 값:</span>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{requirement.target_value}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
         {/* 키워드 분석 */}
-        {analysis.keywords && analysis.keywords.length > 0 && (
+        {analysis.keywords.length > 0 && (
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <IconRenderer icon="Hash" size={20} {...({} as any)} />
-              핵심 키워드 ({analysis.keywords.length}개)
+              핵심 키워드
             </h3>
             <div className="flex flex-wrap gap-2">
               {analysis.keywords.map((keyword, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                  className={cn(
+                    'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium',
+                    keyword.importance > 0.7 
+                      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                      : keyword.importance > 0.4
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                  )}
                 >
-                  {typeof keyword === 'string' ? keyword : (keyword as { term: string; importance: number; category: string; }).term}
+                  {keyword.term}
+                  <span className="ml-1 text-xs opacity-75">
+                    ({Math.round(keyword.importance * 100)}%)
+                  </span>
                 </span>
               ))}
             </div>
@@ -333,11 +232,11 @@ export function RFPAnalyzer({
         )}
 
         {/* 위험 요소 */}
-        {analysis.risk_factors && analysis.risk_factors.length > 0 && (
+        {analysis.risk_factors.length > 0 && (
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <IconRenderer icon="AlertTriangle" size={20} {...({} as any)} />
-              위험 요소 ({analysis.risk_factors.length}개)
+              위험 요소
             </h3>
             <div className="space-y-3">
               {analysis.risk_factors.map((risk, index) => (
@@ -345,27 +244,18 @@ export function RFPAnalyzer({
                   <span
                     className={cn(
                       'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                      risk.probability === 'high' || risk.impact === 'high'
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        : risk.probability === 'medium' || risk.impact === 'medium'
-                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      risk.level === 'high' 
+                        ? 'bg-red-100 text-red-800'
+                        : risk.level === 'medium'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
                     )}
                   >
-                    {risk.probability === 'high' || risk.impact === 'high' 
-                      ? '높음' 
-                      : risk.probability === 'medium' || risk.impact === 'medium' 
-                      ? '보통' 
-                      : '낮음'}
+                    {risk.level === 'high' ? '높음' : risk.level === 'medium' ? '보통' : '낮음'}
                   </span>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">{risk.title}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{risk.description}</p>
-                    {risk.mitigation && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        <strong>대응방안:</strong> {risk.mitigation}
-                      </p>
-                    )}
+                    <p className="font-medium text-gray-900 dark:text-white">{risk.factor}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{risk.mitigation}</p>
                   </div>
                 </div>
               ))}

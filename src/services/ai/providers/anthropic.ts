@@ -96,7 +96,7 @@ export class AnthropicProvider extends BaseAIProvider {
           errorText = JSON.stringify(error)
           console.error('AnthropicProvider: API error response:', error)
           throw new Error(`Anthropic API error (${response.status}): ${error.error?.message || error.message || response.statusText}`)
-        } catch (_parseError) {
+        } catch (parseError) {
           errorText = await response.text()
           console.error('AnthropicProvider: Raw error response:', errorText)
           throw new Error(`Anthropic API error (${response.status}): ${response.statusText} - ${errorText}`)

@@ -113,74 +113,43 @@ export function KeywordAnalyzer({
   useEffect(() => {
     if (analysis?.keywords && analysis.keywords.length > 0) {
       // 기존 분석 결과가 있으면 변환하여 표시
-      // 먼저 객체 형태인지 확인
-      const keywordObjects = analysis.keywords.filter(k => 
-        typeof k === 'object' && k !== null && 'term' in k && 'importance' in k && 'category' in k
-      ) as Array<{ term: string; importance: number; category: string; }>
-
-      if (keywordObjects.length > 0) {
-        const convertedResult: KeywordAnalysisResult = {
-          technical_keywords: keywordObjects
-            .filter(k => k.category === 'technical')
-            .map(k => ({
-              term: k.term,
-              importance: k.importance,
-              category: k.category,
-              frequency: Math.floor(k.importance * 10),
-              context: []
-            })),
-          business_keywords: keywordObjects
-            .filter(k => k.category === 'business')
-            .map(k => ({
-              term: k.term,
-              importance: k.importance,
-              category: k.category,
-              frequency: Math.floor(k.importance * 10),
-              context: []
-            })),
-          domain_keywords: keywordObjects
-            .filter(k => k.category === 'domain')
-            .map(k => ({
-              term: k.term,
-              importance: k.importance,
-              category: k.category,
-              frequency: Math.floor(k.importance * 10),
-              context: []
-            })),
-          keyword_clusters: [],
-          priority_matrix: {
-            high_impact_high_frequency: [],
-            high_impact_low_frequency: [],
-            low_impact_high_frequency: [],
-            low_impact_low_frequency: []
-          }
-        }
-        setKeywordResult(convertedResult)
-      } else {
-        // 키워드가 문자열 배열인 경우 (기본 키워드)
-        const stringKeywords = analysis.keywords.filter(k => typeof k === 'string') as string[]
-        if (stringKeywords.length > 0) {
-          const convertedResult: KeywordAnalysisResult = {
-            technical_keywords: stringKeywords.map(term => ({
-              term,
-              importance: 0.5,
-              category: 'technical',
-              frequency: 1,
-              context: []
-            })),
-            business_keywords: [],
-            domain_keywords: [],
-            keyword_clusters: [],
-            priority_matrix: {
-              high_impact_high_frequency: [],
-              high_impact_low_frequency: [],
-              low_impact_high_frequency: [],
-              low_impact_low_frequency: []
-            }
-          }
-          setKeywordResult(convertedResult)
+      const convertedResult: KeywordAnalysisResult = {
+        technical_keywords: analysis.keywords
+          .filter(k => k.category === 'technical')
+          .map(k => ({
+            term: k.term,
+            importance: k.importance,
+            category: k.category,
+            frequency: Math.floor(k.importance * 10),
+            context: []
+          })),
+        business_keywords: analysis.keywords
+          .filter(k => k.category === 'business')
+          .map(k => ({
+            term: k.term,
+            importance: k.importance,
+            category: k.category,
+            frequency: Math.floor(k.importance * 10),
+            context: []
+          })),
+        domain_keywords: analysis.keywords
+          .filter(k => k.category === 'domain')
+          .map(k => ({
+            term: k.term,
+            importance: k.importance,
+            category: k.category,
+            frequency: Math.floor(k.importance * 10),
+            context: []
+          })),
+        keyword_clusters: [],
+        priority_matrix: {
+          high_impact_high_frequency: [],
+          high_impact_low_frequency: [],
+          low_impact_high_frequency: [],
+          low_impact_low_frequency: []
         }
       }
+      setKeywordResult(convertedResult)
     } else if (autoAnalyze && analysisId) {
       handleAnalyzeKeywords()
     }
