@@ -32,7 +32,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
   async sendMessages(messages: Array<{ role: string; content: string }>, config?: Partial<AIModelConfig>): Promise<AIResponse> {
     const mergedConfig = this.mergeConfig(config)
-    const model = mergedConfig.model || 'claude-3-5-sonnet-20241022'
+    const model = mergedConfig.model || 'claude-sonnet-4-20250514'
     
     console.log('AnthropicProvider: Sending messages:', {
       model,
@@ -208,6 +208,14 @@ export const CLAUDE_MODEL_PRESETS = {
     settings: {
       max_tokens: 8192,
       temperature: 0.7
+    }
+  },
+  'claude-sonnet-4-20250514': {
+    model: 'claude-sonnet-4-20250514',
+    settings: {
+      max_tokens: 8192,
+      temperature: 0.7,
+      context_window: 200000
     }
   }
 }
