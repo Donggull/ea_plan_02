@@ -220,7 +220,25 @@ export default function RFPAnalysisPage() {
 
       console.log('✅ 프로젝트 생성 성공:', projectData)
 
-      // 2. RFP 문서를 새 프로젝트에 연결
+      // 2. 프로젝트 생성자를 멤버로 자동 등록
+      console.log('👥 프로젝트 멤버 등록 시작...')
+      const { error: memberError } = await supabase
+        .from('project_members')
+        .insert({
+          project_id: projectData.id,
+          user_id: authUser.id,
+          role: 'owner',
+          permissions: ['all'],
+          added_by: authUser.id
+        })
+
+      if (memberError) {
+        console.warn('⚠️ 프로젝트 멤버 등록 실패:', memberError)
+      } else {
+        console.log('✅ 프로젝트 멤버 등록 성공')
+      }
+
+      // 3. RFP 문서를 새 프로젝트에 연결
       if (currentDocumentId) {
         console.log('📄 RFP 문서 연결 시작:', currentDocumentId)
         const { error: updateError } = await supabase
@@ -235,7 +253,7 @@ export default function RFPAnalysisPage() {
         }
       }
 
-      // 3. RFP 분석 데이터를 프로젝트에 연결
+      // 4. RFP 분석 데이터를 프로젝트에 연결
       if (currentAnalysisId) {
         console.log('🔬 RFP 분석 데이터 연결 시작:', currentAnalysisId)
         const { error: updateAnalysisError } = await supabase
@@ -250,7 +268,7 @@ export default function RFPAnalysisPage() {
         }
       }
 
-      // 4. 프로젝트 phase_data에 RFP 분석 정보 저장
+      // 5. 프로젝트 phase_data에 RFP 분석 정보 저장
       console.log('📋 프로젝트 phase_data 업데이트 시작...')
       const phaseDataPayload = {
         proposal: {
