@@ -270,23 +270,38 @@ export function AIModelManager() {
     }
   }
 
-  const setDefaultModel = async (modelId: string) => {
+  const setDefaultModel = async (modelId: string, isCurrentlyDefault: boolean = false) => {
     try {
-      // 모든 모델의 기본값 해제
-      await supabase
-        .from('ai_models' as any)
-        .update({ is_default: false })
+      if (isCurrentlyDefault) {
+        // 현재 기본값인 모델을 클릭한 경우 기본값 해제
+        const { error } = await supabase
+          .from('ai_models' as any)
+          .update({ is_default: false })
+          .eq('id', modelId)
 
-      // 선택한 모델을 기본값으로 설정
-      const { error } = await supabase
-        .from('ai_models' as any)
-        .update({ is_default: true })
-        .eq('id', modelId)
+        if (error) throw error
+        await loadModels()
+        alert('기본 모델 설정이 해제되었습니다.')
+      } else {
+        // 다른 모델을 기본값으로 설정하는 경우
+        // 먼저 모든 모델의 기본값 해제
+        await supabase
+          .from('ai_models' as any)
+          .update({ is_default: false })
 
-      if (error) throw error
-      await loadModels()
+        // 선택한 모델을 기본값으로 설정
+        const { error } = await supabase
+          .from('ai_models' as any)
+          .update({ is_default: true })
+          .eq('id', modelId)
+
+        if (error) throw error
+        await loadModels()
+        alert('기본 모델이 설정되었습니다.')
+      }
     } catch (error) {
       console.error('Error setting default model:', error)
+      alert('기본 모델 설정 중 오류가 발생했습니다.')
     }
   }
 
@@ -317,7 +332,18 @@ export function AIModelManager() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold">등록된 AI 모델</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">총 {models.length}개의 모델이 등록되어 있습니다.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                총 {models.length}개의 모델이 등록되어 있습니다.
+                {models.filter(m => m.is_default).length === 0 ? (
+                  <span className="text-orange-600 ml-2">⚠️ 기본 모델이 설정되지 않았습니다</span>
+                ) : (
+                  <span className="text-green-600 ml-2">✓ 기본 모델 설정됨</span>
+                )}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                라디오 버튼을 클릭하거나 &apos;기본값 설정&apos; 버튼을 눌러 기본 모델을 선택하세요. 
+                기본값은 1개만 선택 가능하며, 다시 클릭하면 해제됩니다.
+              </p>
             </div>
             <IconRenderer 
               icon="Bot" 
@@ -331,46 +357,70 @@ export function AIModelManager() {
             {models.map(model => (
               <div 
                 key={model.id} 
-                className="flex items-center justify-between p-3 rounded-lg border bg-gray-50 dark:bg-gray-800"
+                className={cn(
+                  "flex items-center justify-between p-4 rounded-lg border transition-all",
+                  model.is_default 
+                    ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700" 
+                    : "bg-gray-50 border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-750"
+                )}
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium">{model.display_name}</h4>
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {model.provider?.display_name || model.provider?.name || 'Unknown'}
-                    </span>
+                <div className="flex items-center gap-3">
+                  {/* 라디오 버튼 스타일 */}
+                  <button
+                    onClick={() => setDefaultModel(model.id, model.is_default)}
+                    className={cn(
+                      "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                      model.is_default
+                        ? "border-blue-500 bg-blue-500"
+                        : "border-gray-300 hover:border-blue-400"
+                    )}
+                    aria-label={model.is_default ? "기본값 해제" : "기본값으로 설정"}
+                  >
                     {model.is_default && (
-                      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                        기본값
+                      <div className="w-2 h-2 bg-white rounded-full" />
+                    )}
+                  </button>
+
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">{model.display_name}</h4>
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                        {model.provider?.display_name || model.provider?.name || 'Unknown'}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {model.description}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    모델 ID: {model.model_id}
-                  </p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                    <span>컨텍스트: {model.context_window?.toLocaleString()}</span>
-                    <span>최대 출력: {model.max_output_tokens?.toLocaleString()}</span>
-                    {model.cost_per_1k_input_tokens && (
-                      <span>입력: ${model.cost_per_1k_input_tokens}/1K</span>
-                    )}
-                    {model.cost_per_1k_output_tokens && (
-                      <span>출력: ${model.cost_per_1k_output_tokens}/1K</span>
-                    )}
+                      {model.is_default && (
+                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded flex items-center gap-1">
+                          <IconRenderer icon="CheckCircle" size={12} className="text-blue-600" {...({} as any)} />
+                          기본값
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {model.description}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      모델 ID: {model.model_id}
+                    </p>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                      <span>컨텍스트: {model.context_window?.toLocaleString()}</span>
+                      <span>최대 출력: {model.max_output_tokens?.toLocaleString()}</span>
+                      {model.cost_per_1k_input_tokens && (
+                        <span>입력: ${model.cost_per_1k_input_tokens}/1K</span>
+                      )}
+                      {model.cost_per_1k_output_tokens && (
+                        <span>출력: ${model.cost_per_1k_output_tokens}/1K</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Button
-                    variant="ghost"
+                    variant={model.is_default ? 'primary' : 'ghost'}
                     size="sm"
-                    onClick={() => setDefaultModel(model.id)}
-                    disabled={model.is_default}
+                    onClick={() => setDefaultModel(model.id, model.is_default)}
+                    className={model.is_default ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
                   >
-                    기본값 설정
+                    {model.is_default ? '기본값 해제' : '기본값 설정'}
                   </Button>
                   <Button
                     variant={model.is_active ? 'outline' : 'primary'}
