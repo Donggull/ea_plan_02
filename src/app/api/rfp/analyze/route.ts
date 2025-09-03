@@ -235,6 +235,53 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       hasOptions: !!options
     })
     
+    // 선택된 모델 ID가 UUID인지 확인하고, 실제 모델명 조회
+    let actualModelId = 'claude-sonnet-4-20250514' // 기본값
+    
+    if (selectedModelId) {
+      console.log('RFP Analysis: Resolving selected model ID:', selectedModelId)
+      
+      // UUID 패턴 체크 (8-4-4-4-12 형식)
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      
+      if (uuidPattern.test(selectedModelId)) {
+        // UUID인 경우 데이터베이스에서 실제 모델명 조회
+        console.log('RFP Analysis: UUID detected, querying database for model info...')
+        
+        try {
+          const { data: modelData, error: modelError } = await supabaseAdmin
+            .from('ai_models')
+            .select('model_id, display_name')
+            .eq('id', selectedModelId)
+            .eq('is_active', true)
+            .single()
+          
+          if (modelError) {
+            console.error('RFP Analysis: Model lookup error:', modelError)
+            console.log('RFP Analysis: Using default model due to lookup failure')
+          } else if (modelData) {
+            actualModelId = modelData.model_id
+            console.log('RFP Analysis: Found model in database:', {
+              uuid: selectedModelId,
+              actualModelId: actualModelId,
+              displayName: modelData.display_name
+            })
+          } else {
+            console.warn('RFP Analysis: No model found for UUID, using default')
+          }
+        } catch (dbError) {
+          console.error('RFP Analysis: Database query failed:', dbError)
+          console.log('RFP Analysis: Using default model due to DB error')
+        }
+      } else {
+        // UUID가 아닌 경우 그대로 사용
+        actualModelId = selectedModelId
+        console.log('RFP Analysis: Using provided model ID directly:', actualModelId)
+      }
+    }
+    
+    console.log('RFP Analysis: Final model to use:', actualModelId)
+
     // 환경변수에서 직접 API 키 가져오기
     const apiKey = process.env.ANTHROPIC_API_KEY
     console.log('RFP Analysis: API key check:', {
@@ -361,7 +408,7 @@ JSON 결과만 반환해주세요:
     console.log('RFP Analysis: Request settings:', {
       max_tokens: 8000,
       temperature: 0.3,
-      model: selectedModelId || 'claude-sonnet-4-20250514'
+      model: actualModelId
     })
     
     // Anthropic API 호출 (타임아웃 제거 - Vercel 자체 타임아웃 사용)
@@ -373,7 +420,7 @@ JSON 결과만 반환해주세요:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: selectedModelId || 'claude-sonnet-4-20250514', // Claude 4 Sonnet을 기본값으로 설정
+        model: actualModelId, // 해결된 실제 모델명 사용
         messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 8000,
         temperature: 0.3
@@ -658,6 +705,49 @@ async function generateAnalysisQuestions(analysisId: string, _options: any, _sel
       throw new Error('분석 데이터를 찾을 수 없습니다.')
     }
 
+    // 선택된 모델 ID 해결 (분석과 동일한 로직)
+    let actualModelId = 'claude-sonnet-4-20250514' // 기본값
+    
+    if (_selectedModelId) {
+      console.log('Question Generation: Resolving selected model ID:', _selectedModelId)
+      
+      // UUID 패턴 체크 (8-4-4-4-12 형식)
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      
+      if (uuidPattern.test(_selectedModelId)) {
+        // UUID인 경우 데이터베이스에서 실제 모델명 조회
+        console.log('Question Generation: UUID detected, querying database for model info...')
+        
+        try {
+          const { data: modelData, error: modelError } = await supabaseAdmin
+            .from('ai_models')
+            .select('model_id, display_name')
+            .eq('id', _selectedModelId)
+            .eq('is_active', true)
+            .single()
+          
+          if (modelError) {
+            console.error('Question Generation: Model lookup error:', modelError)
+          } else if (modelData) {
+            actualModelId = modelData.model_id
+            console.log('Question Generation: Found model in database:', {
+              uuid: _selectedModelId,
+              actualModelId: actualModelId,
+              displayName: modelData.display_name
+            })
+          }
+        } catch (dbError) {
+          console.error('Question Generation: Database query failed:', dbError)
+        }
+      } else {
+        // UUID가 아닌 경우 그대로 사용
+        actualModelId = _selectedModelId
+        console.log('Question Generation: Using provided model ID directly:', actualModelId)
+      }
+    }
+    
+    console.log('Question Generation: Final model to use:', actualModelId)
+
     // 환경변수에서 직접 API 키 가져오기
     const apiKey = process.env.ANTHROPIC_API_KEY
     
@@ -715,7 +805,7 @@ JSON 배열만 반환해주세요:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: _selectedModelId || 'claude-sonnet-4-20250514', // Claude 4 Sonnet을 기본값으로 설정
+        model: actualModelId, // 해결된 실제 모델명 사용
         messages: [{ role: 'user', content: questionPrompt }],
         max_tokens: 4000,
         temperature: 0.4
