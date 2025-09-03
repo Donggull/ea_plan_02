@@ -315,6 +315,7 @@ export function AIModelManager() {
           const { error: resetError } = await supabase
             .from('ai_models' as any)
             .update({ is_default: false })
+            .neq('id', '')  // 모든 레코드를 대상으로 하기 위한 WHERE 절
 
           if (resetError) throw resetError
 
