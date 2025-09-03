@@ -105,9 +105,17 @@ export function RFPAnalyzer({
   }, [rfpDocumentId, onAnalysisComplete, onAnalysisError, selectedModel, useStreamingMode])
 
   const handleStreamingAnalysis = async () => {
-
     try {
-      console.log('RFP Streaming Analysis: Starting...')
+      console.log('RFP Streaming Analysis: Starting with fetch...')
+      
+      // Supabase 세션 토큰 획득
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        throw new Error('인증 토큰을 찾을 수 없습니다. 다시 로그인해주세요.')
+      }
+      
+      console.log('✅ Session token available:', session.access_token.substring(0, 20) + '...')
       
       const request: RFPAnalysisRequest = {
         rfp_document_id: rfpDocumentId,
@@ -118,108 +126,134 @@ export function RFPAnalyzer({
         selected_model_id: selectedModel?.id || null
       }
 
-      // Supabase 세션 토큰 획득
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      // EventSource로 스트리밍 연결 생성
-      const eventSource = new EventSource(
-        `/api/rfp/analyze-stream?${new URLSearchParams({
-          rfp_document_id: rfpDocumentId,
-          selected_model_id: selectedModel?.id || '',
-          auth_token: session?.access_token || ''
-        })}`
-      )
-      
-      eventSourceRef.current = eventSource
+      // fetch로 스트리밍 연결 생성 (인증 헤더 포함)
+      const response = await fetch('/api/rfp/analyze-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache'
+        },
+        credentials: 'include',
+        body: JSON.stringify(request)
+      })
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          console.log('Stream data:', data)
-
-          switch (data.type) {
-            case 'progress':
-            case 'step_start':
-              setCurrentStepId(data.currentStepId)
-              setOverallProgress(data.overallProgress || 0)
-              setAnalysisSteps(prevSteps => 
-                prevSteps.map(step => 
-                  step.id === data.step.id 
-                    ? { ...step, status: data.step.status, progress: data.step.progress }
-                    : step
-                )
-              )
-              break
-              
-            case 'step_progress':
-              setCurrentStepId(data.currentStepId)
-              setOverallProgress(data.overallProgress || 0)
-              setAnalysisSteps(prevSteps => 
-                prevSteps.map(step => 
-                  step.id === data.step.id 
-                    ? { ...step, status: 'processing', progress: data.step.progress }
-                    : step
-                )
-              )
-              break
-              
-            case 'step_complete':
-              setAnalysisSteps(prevSteps => 
-                prevSteps.map(step => 
-                  step.id === data.step.id 
-                    ? { ...step, status: 'completed', progress: 100 }
-                    : step
-                )
-              )
-              setOverallProgress(data.overallProgress || 0)
-              break
-              
-            case 'analysis_data':
-              if (data.data) {
-                setAnalysis(prevAnalysis => ({ 
-                  ...prevAnalysis, 
-                  ...data.data 
-                } as RFPAnalysis))
-              }
-              break
-              
-            case 'complete':
-              setOverallProgress(100)
-              setIsAnalyzing(false)
-              if (data.analysis) {
-                setAnalysis(data.analysis)
-                onAnalysisComplete?.(data.analysis)
-              }
-              eventSource.close()
-              eventSourceRef.current = null
-              break
-              
-            case 'error':
-              console.error('Stream error:', data.error)
-              setAnalysisSteps(prevSteps => 
-                prevSteps.map(step => 
-                  step.id === data.currentStepId 
-                    ? { ...step, status: 'error' }
-                    : step
-                )
-              )
-              setIsAnalyzing(false)
-              onAnalysisError?.(data.error)
-              eventSource.close()
-              eventSourceRef.current = null
-              break
-          }
-        } catch (parseError) {
-          console.error('Error parsing stream data:', parseError)
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(`스트리밍 연결 실패 (${response.status}): ${errorData.error || response.statusText}`)
       }
 
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error)
-        setIsAnalyzing(false)
-        onAnalysisError?.('스트리밍 연결 오류가 발생했습니다.')
-        eventSource.close()
-        eventSourceRef.current = null
+      if (!response.body) {
+        throw new Error('응답 스트림을 찾을 수 없습니다.')
+      }
+
+      console.log('✅ Streaming response received, starting to read...')
+
+      // ReadableStream으로 데이터 읽기
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          
+          if (done) {
+            console.log('✅ Stream reading completed')
+            break
+          }
+
+          // 새로운 데이터를 버퍼에 추가
+          buffer += decoder.decode(value, { stream: true })
+          
+          // 완전한 메시지들을 처리
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || '' // 마지막 불완전한 라인은 버퍼에 보관
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6))
+                console.log('Stream data received:', data.type)
+
+                switch (data.type) {
+                  case 'progress':
+                  case 'step_start':
+                    setCurrentStepId(data.currentStepId)
+                    setOverallProgress(data.overallProgress || 0)
+                    setAnalysisSteps(prevSteps => 
+                      prevSteps.map(step => 
+                        step.id === data.step.id 
+                          ? { ...step, status: data.step.status, progress: data.step.progress }
+                          : step
+                      )
+                    )
+                    break
+                    
+                  case 'step_progress':
+                    setCurrentStepId(data.currentStepId)
+                    setOverallProgress(data.overallProgress || 0)
+                    setAnalysisSteps(prevSteps => 
+                      prevSteps.map(step => 
+                        step.id === data.step.id 
+                          ? { ...step, status: 'processing', progress: data.step.progress }
+                          : step
+                      )
+                    )
+                    break
+                    
+                  case 'step_complete':
+                    setAnalysisSteps(prevSteps => 
+                      prevSteps.map(step => 
+                        step.id === data.step.id 
+                          ? { ...step, status: 'completed', progress: 100 }
+                          : step
+                      )
+                    )
+                    setOverallProgress(data.overallProgress || 0)
+                    break
+                    
+                  case 'analysis_data':
+                    if (data.data) {
+                      setAnalysis(prevAnalysis => ({ 
+                        ...prevAnalysis, 
+                        ...data.data 
+                      } as RFPAnalysis))
+                    }
+                    break
+                    
+                  case 'complete':
+                    setOverallProgress(100)
+                    setIsAnalyzing(false)
+                    if (data.analysis) {
+                      setAnalysis(data.analysis)
+                      onAnalysisComplete?.(data.analysis)
+                    }
+                    console.log('✅ Analysis completed successfully')
+                    return // 스트림 완료
+                    
+                  case 'error':
+                    console.error('Stream error:', data.error)
+                    setAnalysisSteps(prevSteps => 
+                      prevSteps.map(step => 
+                        step.id === data.currentStepId 
+                          ? { ...step, status: 'error' }
+                          : step
+                      )
+                    )
+                    setIsAnalyzing(false)
+                    onAnalysisError?.(data.error)
+                    return // 오류로 인한 스트림 종료
+                }
+              } catch (parseError) {
+                console.error('Error parsing stream data:', parseError, 'Raw line:', line)
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock()
       }
 
     } catch (error) {
@@ -282,12 +316,11 @@ export function RFPAnalyzer({
     }
   }, [autoStart, rfpDocumentId, handleStartAnalysis])
 
-  // 컴포넌트 언마운트 시 EventSource 정리
+  // 컴포넌트 언마운트 시 정리 (더 이상 EventSource는 사용하지 않음)
   useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
-      }
+      // fetch 기반 스트림은 자동으로 정리됨
+      console.log('RFPAnalyzer component unmounted')
     }
   }, [])
 

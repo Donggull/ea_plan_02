@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { RFPAnalysisRequest } from '@/types/rfp-analysis'
 
 // Service role client for privileged operations
@@ -67,14 +69,15 @@ function _sleep(ms: number): Promise<void> {
 }
 
 // 실제 RFP 분석을 위한 AI API 호출 함수
-async function performActualRFPAnalysis(rfpDocumentId: string, selectedModelId?: string | null, onProgress?: (step: string, progress: number, data?: any) => void) {
+async function performActualRFPAnalysis(rfpDocumentId: string, selectedModelId?: string | null, supabaseClient?: any, onProgress?: (step: string, progress: number, data?: any) => void) {
   try {
     console.log('Stream Analysis: Starting actual RFP analysis...')
     
     // Step 1: RFP 문서 조회
     onProgress?.('step1', 20, { message: 'RFP 문서 정보를 조회하고 있습니다...' })
     
-    const { data: rfpDocument, error: rfpError } = await supabaseAdmin
+    const clientToUse = supabaseClient || supabaseAdmin
+    const { data: rfpDocument, error: rfpError } = await clientToUse
       .from('rfp_documents')
       .select('*')
       .eq('id', rfpDocumentId)
@@ -96,7 +99,7 @@ async function performActualRFPAnalysis(rfpDocumentId: string, selectedModelId?:
       
       if (uuidPattern.test(selectedModelId)) {
         try {
-          const { data: modelData } = await supabaseAdmin
+          const { data: modelData } = await clientToUse
             .from('ai_models')
             .select('model_id, display_name')
             .eq('id', selectedModelId)
@@ -328,56 +331,80 @@ async function handleStreamingRequest(request: NextRequest) {
   const method = request.method
   console.log(`🔥 RFP ANALYZE STREAM API CALLED (${method})! 🔥`)
   console.log('Request URL:', request.url)
-  console.log('Request headers:', Object.fromEntries(request.headers.entries()))
   
   try {
-    console.log('RFP Stream Analysis: Starting authentication check...')
+    console.log('RFP Stream Analysis: Starting authentication...')
     
     let user: any = null
+    let supabase: any = null
     
-    // Authorization 헤더에서 토큰 확인
-    const authorization = request.headers.get('authorization')
-    if (authorization) {
-      console.log('RFP Stream Analysis: Using token-based authentication')
-      const token = authorization.replace('Bearer ', '')
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+    // 1. 쿠키 기반 인증 시도
+    try {
+      const cookieStore = cookies()
+      supabase = createRouteHandlerClient({ cookies: () => cookieStore })
       
-      if (tokenError) {
-        console.error('RFP Stream Analysis: Token validation error:', tokenError.message)
-      } else if (tokenUser) {
-        console.log('RFP Stream Analysis: Token user authenticated:', tokenUser.id)
-        user = tokenUser
+      const { data: { user: cookieUser, session }, error: sessionError } = await supabase.auth.getUser()
+      
+      if (!sessionError && cookieUser && session) {
+        console.log('RFP Stream Analysis: ✅ Cookie authentication successful:', {
+          userId: cookieUser.id,
+          email: cookieUser.email
+        })
+        user = cookieUser
+      } else {
+        console.log('RFP Stream Analysis: Cookie authentication failed, trying Authorization header...')
+      }
+    } catch (cookieError) {
+      console.log('RFP Stream Analysis: Cookie error, trying Authorization header...', 
+        cookieError instanceof Error ? cookieError.message : String(cookieError))
+    }
+    
+    // 2. Authorization 헤더 기반 인증 시도 (쿠키 실패 시)
+    if (!user) {
+      const authorization = request.headers.get('authorization')
+      if (authorization && authorization.startsWith('Bearer ')) {
+        const token = authorization.replace('Bearer ', '')
+        console.log('RFP Stream Analysis: Using Bearer token authentication:', token.substring(0, 20) + '...')
+        
+        try {
+          const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+          
+          if (!tokenError && tokenUser) {
+            console.log('RFP Stream Analysis: ✅ Bearer token authentication successful:', {
+              userId: tokenUser.id,
+              email: tokenUser.email
+            })
+            user = tokenUser
+          } else {
+            console.error('RFP Stream Analysis: Bearer token validation failed:', tokenError?.message)
+          }
+        } catch (tokenErr) {
+          console.error('RFP Stream Analysis: Bearer token error:', tokenErr)
+        }
+      } else {
+        console.log('RFP Stream Analysis: No Authorization header found')
       }
     }
 
-    // 최종 인증 확인
+    // 3. 최종 인증 확인
     if (!user) {
-      console.error('RFP Stream Analysis: ❌ AUTHENTICATION FAILED - No authenticated user found')
-      console.error('RFP Stream Analysis: Authentication methods tried:', {
-        authHeader: !!authorization,
-        authHeaderValue: authorization ? `${authorization.substring(0, 20)}...` : 'null',
-        urlToken: !!request.url.includes('auth_token='),
-        urlTokenValue: request.url.includes('auth_token=') ? 'present' : 'missing',
-        cookieAuth: 'attempted'
-      })
-      console.error('RFP Stream Analysis: Request URL:', request.url)
-      console.error('RFP Stream Analysis: Request method:', method)
-      console.error('RFP Stream Analysis: Timestamp:', new Date().toISOString())
+      console.error('RFP Stream Analysis: ❌ All authentication methods failed')
       
       return NextResponse.json({ 
         success: false, 
-        error: 'Authentication required - no valid user found',
-        details: 'Please ensure you are logged in and try again',
+        error: 'Authentication required',
+        details: 'Please ensure you are logged in and try again. Both cookie and bearer token authentication failed.',
         debug: {
-          authHeader: !!authorization,
-          urlToken: !!request.url.includes('auth_token='),
           method: method,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          authHeaderPresent: !!request.headers.get('authorization'),
+          cookieAuthAttempted: true,
+          bearerAuthAttempted: !!request.headers.get('authorization')
         }
       }, { status: 401 })
     }
     
-    console.log('RFP Stream Analysis: User successfully authenticated:', user.id)
+    console.log('RFP Stream Analysis: ✅ User successfully authenticated:', user.id)
     
     let rfpDocumentId: string
     let selectedModelId: string | null = null
@@ -387,48 +414,6 @@ async function handleStreamingRequest(request: NextRequest) {
       const { searchParams } = new URL(request.url)
       rfpDocumentId = searchParams.get('rfp_document_id') || ''
       selectedModelId = searchParams.get('selected_model_id') || null
-      
-      // URL 파라미터에서 auth_token 확인
-      const authToken = searchParams.get('auth_token')
-      console.log('RFP Stream Analysis: Auth token from URL params:', authToken ? `${authToken.substring(0, 20)}...` : 'null')
-      console.log('RFP Stream Analysis: Current user status before URL token check:', !!user)
-      
-      if (authToken && !user) {
-        console.log('RFP Stream Analysis: Using URL auth token for authentication')
-        try {
-          const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(authToken)
-          
-          if (tokenError) {
-            console.error('RFP Stream Analysis: URL token validation error:', tokenError)
-            console.error('RFP Stream Analysis: Token error details:', {
-              message: tokenError.message,
-              status: tokenError.status,
-              code: tokenError.code
-            })
-          } else if (tokenUser) {
-            console.log('RFP Stream Analysis: URL token user authenticated successfully:', {
-              userId: tokenUser.id,
-              email: tokenUser.email,
-              aud: tokenUser.aud,
-              role: tokenUser.role
-            })
-            user = tokenUser
-          } else {
-            console.error('RFP Stream Analysis: No user returned from token validation')
-          }
-        } catch (tokenErr) {
-          console.error('RFP Stream Analysis: URL token parsing error:', tokenErr)
-          console.error('RFP Stream Analysis: Token parsing error details:', {
-            name: tokenErr?.constructor?.name,
-            message: tokenErr instanceof Error ? tokenErr.message : String(tokenErr),
-            stack: tokenErr instanceof Error ? tokenErr.stack?.substring(0, 500) : undefined
-          })
-        }
-      } else if (!authToken) {
-        console.error('RFP Stream Analysis: No auth_token found in URL parameters')
-      } else if (user) {
-        console.log('RFP Stream Analysis: User already authenticated, skipping URL token check')
-      }
       
       if (!rfpDocumentId) {
         return NextResponse.json({ 
@@ -469,8 +454,12 @@ async function handleStreamingRequest(request: NextRequest) {
           })
 
           try {
+            // 사용할 supabase 클라이언트 결정 (쿠키 기반이 있으면 우선 사용)
+            const clientToUse = supabase || supabaseAdmin
+            console.log('RFP Stream Analysis: Using client type:', supabase ? 'cookie-based' : 'service-role')
+            
             // 기존 분석 결과가 있는지 확인
-            const { data: existingAnalysis } = await supabaseAdmin
+            const { data: existingAnalysis } = await clientToUse
               .from('rfp_analyses')
               .select('*')
               .eq('rfp_document_id', rfpDocumentId)
@@ -497,6 +486,7 @@ async function handleStreamingRequest(request: NextRequest) {
               const analysisResult = await performActualRFPAnalysis(
                 rfpDocumentId, 
                 selectedModelId,
+                clientToUse,
                 (stepId: string, progress: number, data?: any) => {
                   const step = ANALYSIS_STEPS.find(s => s.id === stepId)
                   if (step) {
