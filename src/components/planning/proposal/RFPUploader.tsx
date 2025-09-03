@@ -29,6 +29,7 @@ export function RFPUploader({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadStep, setUploadStep] = useState<'idle' | 'uploading' | 'processing' | 'analyzing'>('idle')
 
   const acceptedFileTypes = useMemo(() => ({
     'application/pdf': ['.pdf'],
@@ -85,6 +86,7 @@ export function RFPUploader({
     }
 
     setUploading(true)
+    setUploadStep('uploading')
     
     try {
       const formData = new FormData()
@@ -98,6 +100,11 @@ export function RFPUploader({
       }
 
       console.log('RFP Upload: Starting file upload...')
+      
+      // PDF 파일인 경우 처리 단계 표시
+      if (selectedFile.type === 'application/pdf') {
+        setUploadStep('processing')
+      }
       
       // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
       const { data: { session } } = await supabase.auth.getSession()
@@ -130,10 +137,12 @@ export function RFPUploader({
       setSelectedFile(null)
       setTitle('')
       setDescription('')
+      setUploadStep('idle')
       onUploadSuccess?.(result)
       
     } catch (error) {
       console.error('RFP upload error:', error)
+      setUploadStep('idle')
       onUploadError?.(error instanceof Error ? error.message : 'RFP 업로드 중 오류가 발생했습니다.')
     } finally {
       setUploading(false)
@@ -185,11 +194,12 @@ export function RFPUploader({
           </p>
 
           {!selectedFile && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-3">
               <p>지원 형식: PDF, DOC, DOCX, TXT, MD, RTF</p>
               <p>최대 크기: 50MB</p>
-              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded text-blue-800 dark:text-blue-200">
-                <p className="font-medium mb-2">🚀 가장 확실한 방법 (권장):</p>
+              
+              <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded text-green-800 dark:text-green-200">
+                <p className="font-medium mb-2">✅ 100% 확실한 방법 (강력 권장):</p>
                 <div className="text-sm space-y-1">
                   <p><strong>1. PDF → 텍스트 변환:</strong></p>
                   <p className="ml-3">• PDF 열기 → 전체 선택(Ctrl+A) → 복사(Ctrl+C)</p>
@@ -197,8 +207,36 @@ export function RFPUploader({
                   <p><strong>2. 또는 Word 문서(.docx) 사용</strong></p>
                 </div>
               </div>
-              <div className="mt-1 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded text-amber-700 dark:text-amber-300">
-                <p className="text-xs">⚠️ PDF 업로드는 파일에 따라 텍스트 추출이 제한적일 수 있습니다.</p>
+
+              <div className="mt-1 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded text-blue-800 dark:text-blue-200">
+                <p className="font-medium mb-2">📄 PDF 직접 업로드:</p>
+                <div className="text-sm space-y-1">
+                  <p>• <strong>장점:</strong> 바로 업로드 가능</p>
+                  <p>• <strong>단점:</strong> 파일에 따라 텍스트 추출 성공률 차이</p>
+                  <p>• <strong>대응:</strong> 추출 실패 시 위의 변환 방법 안내</p>
+                </div>
+              </div>
+
+              <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-400">
+                <p className="text-xs font-medium">💡 PDF 업로드 시 처리 과정:</p>
+                <p className="text-xs">1단계: 파일 업로드 → 2단계: PDF 텍스트 추출 → 3단계: 분석 준비</p>
+              </div>
+            </div>
+          )}
+
+          {selectedFile?.type === 'application/pdf' && (
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded text-yellow-800 dark:text-yellow-200">
+              <div className="flex items-start space-x-2">
+                <span className="text-lg">📄</span>
+                <div className="text-sm">
+                  <p className="font-medium mb-1">PDF 파일이 선택되었습니다</p>
+                  <p>업로드 시 자동으로 텍스트를 추출합니다. PDF 구조에 따라 시간이 다소 소요될 수 있습니다.</p>
+                  {selectedFile.size > 10 * 1024 * 1024 && (
+                    <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-300">
+                      ⚠️ 대용량 파일({formatFileSize(selectedFile.size)})이므로 처리 시간이 길어질 수 있습니다.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -260,12 +298,15 @@ export function RFPUploader({
           {uploading ? (
             <>
               <IconRenderer icon="Loader2" size={16} className="mr-2 animate-spin" {...({} as any)} />
-              업로드 중...
+              {uploadStep === 'uploading' && '파일 업로드 중...'}
+              {uploadStep === 'processing' && selectedFile?.type === 'application/pdf' && 'PDF 텍스트 추출 중...'}
+              {uploadStep === 'analyzing' && '분석 준비 중...'}
+              {uploadStep === 'idle' && '업로드 중...'}
             </>
           ) : (
             <>
               <IconRenderer icon="Upload" size={16} className="mr-2" {...({} as any)} />
-              RFP 업로드
+              {selectedFile?.type === 'application/pdf' ? 'PDF 업로드 및 추출' : 'RFP 업로드'}
             </>
           )}
         </Button>

@@ -26,7 +26,8 @@ import {
   Minimize2,
   Maximize2,
   LayoutDashboard,
-  ListChecks
+  ListChecks,
+  Loader2
 } from 'lucide-react'
 
 const iconMap = {
@@ -57,7 +58,8 @@ const iconMap = {
   Minimize2,
   Maximize2,
   LayoutDashboard,
-  ListChecks
+  ListChecks,
+  Loader2
 }
 
 interface IconRendererProps {

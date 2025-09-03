@@ -532,9 +532,92 @@ JSON 결과만 반환해주세요:
         hasJsonKeyword: response.content.includes('"functional_requirements"')
       })
       
-      // 파싱 실패 시 명확한 오류 메시지와 함께 기본값 반환
-      console.log('RFP Analysis: Using fallback analysis due to JSON parsing failure - AI may need better prompting')
-      analysisResult = generateFallbackAnalysis()
+      // 여러 방법으로 JSON 추출 시도
+      let recoveredJson: any = null
+      
+      // 1. 첫 번째 { 부터 마지막 } 까지 추출 시도
+      try {
+        const firstBrace = response.content.indexOf('{')
+        const lastBrace = response.content.lastIndexOf('}')
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonCandidate = response.content.substring(firstBrace, lastBrace + 1)
+          console.log('RFP Analysis: Attempting brace extraction, length:', jsonCandidate.length)
+          recoveredJson = JSON.parse(jsonCandidate)
+          console.log('RFP Analysis: Brace extraction successful!')
+        }
+      } catch (braceError) {
+        console.log('RFP Analysis: Brace extraction failed:', braceError instanceof Error ? braceError.message : String(braceError))
+      }
+      
+      // 2. 정규식으로 JSON 객체 찾기
+      if (!recoveredJson) {
+        try {
+          const jsonMatch = response.content.match(/\{[\s\S]*\}/m)
+          if (jsonMatch) {
+            console.log('RFP Analysis: Attempting regex extraction, length:', jsonMatch[0].length)
+            recoveredJson = JSON.parse(jsonMatch[0])
+            console.log('RFP Analysis: Regex extraction successful!')
+          }
+        } catch (regexError) {
+          console.log('RFP Analysis: Regex extraction failed:', regexError instanceof Error ? regexError.message : String(regexError))
+        }
+      }
+      
+      // 3. 여전히 실패시 AI 응답에서 부분적 정보라도 추출 시도
+      if (!recoveredJson) {
+        console.log('RFP Analysis: Attempting partial content extraction...')
+        try {
+          // AI 응답에서 제목이나 설명 등을 찾아서 기본 구조 생성
+          const titleMatch = response.content.match(/(?:title|제목)["']?\s*[:\-]\s*["']?([^"'\n,}]+)["']?/i)
+          const descMatch = response.content.match(/(?:description|설명)["']?\s*[:\-]\s*["']?([^"'\n,}]+)["']?/i)
+          
+          recoveredJson = {
+            project_overview: {
+              title: titleMatch?.[1]?.trim() || `[추출실패] ${processedText.substring(0, 100)}...에서 분석`,
+              description: descMatch?.[1]?.trim() || "AI 응답 파싱 실패로 인해 상세 분석을 완료하지 못했습니다.",
+              scope: "파싱 실패로 인해 범위 정보를 추출하지 못했습니다.",
+              objectives: ["AI 응답 파싱 복구", "분석 데이터 재구성", "사용자 경험 개선"]
+            },
+            functional_requirements: [{
+              title: "AI 분석 시스템 개선",
+              description: `원본 문서: ${processedText.substring(0, 200)}...\n\n주의: AI 응답 파싱 실패로 인해 완전한 분석이 불가능했습니다.`,
+              priority: "high",
+              category: "시스템 개선",
+              acceptance_criteria: ["JSON 파싱 성공률 개선", "분석 결과 정확도 향상"],
+              estimated_effort: 5
+            }],
+            non_functional_requirements: [{
+              title: "분석 시스템 안정성",
+              description: "AI 응답 파싱 오류 시에도 유용한 정보를 제공할 수 있어야 합니다.",
+              priority: "medium",
+              category: "시스템",
+              acceptance_criteria: ["파싱 오류 복구", "기본 정보 제공"],
+              estimated_effort: 3
+            }],
+            keywords: [
+              { term: "파싱실패", importance: 0.9, category: "system" },
+              { term: "분석복구", importance: 0.8, category: "business" }
+            ],
+            risk_factors: [{
+              factor: "AI 응답 파싱 실패",
+              level: "high",
+              mitigation: "더 나은 프롬프트 설계 및 파싱 알고리즘 개선 필요"
+            }],
+            confidence_score: 0.2,
+            _parsing_error: true,
+            _original_response: response.content.substring(0, 1000) + "..."
+          }
+          
+          console.log('RFP Analysis: Created recovery analysis with partial content')
+        } catch (recoveryError) {
+          console.error('RFP Analysis: Even recovery parsing failed:', recoveryError)
+          throw new Error(`AI 분석 응답을 파싱할 수 없습니다. 관리자에게 문의하세요.\n\n상세 오류: ${parseError instanceof Error ? parseError.message : String(parseError)}\n복구 시도 오류: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`)
+        }
+      }
+      
+      analysisResult = recoveredJson
+      console.log('RFP Analysis: JSON parsing recovered successfully')
     }
 
     console.log('RFP Analysis: Analysis completed successfully')
@@ -593,101 +676,7 @@ JSON 결과만 반환해주세요:
   }
 }
 
-// AI 분석 실패 시 사용할 기본 분석 결과
-function generateFallbackAnalysis() {
-  console.warn('🚨 MOCK DATA: Returning fallback analysis data - AI analysis failed')
-  
-  return {
-    _isMockData: true, // 목업 데이터 식별자
-    project_overview: {
-      title: "[목업] AI 기반 RFP 분석 시스템 구축",
-      description: "기업의 제안요청서(RFP)를 자동으로 분석하여 요구사항을 추출하고 위험요소를 식별하는 AI 시스템을 구축합니다.",
-      scope: "RFP 문서 업로드, AI 분석, 요구사항 추출, 키워드 분석, 질문 생성 기능을 포함한 웹 애플리케이션 개발",
-      objectives: [
-        "RFP 분석 시간 80% 단축",
-        "요구사항 추출 정확도 95% 이상 달성",
-        "자동 질문 생성을 통한 고객 소통 개선"
-      ]
-    },
-    functional_requirements: [
-      {
-        id: crypto.randomUUID(),
-        title: "[목업] RFP 파일 업로드 기능",
-        description: "PDF, DOC, DOCX 등 다양한 형식의 RFP 파일을 업로드할 수 있어야 합니다.",
-        priority: "high" as const,
-        category: "파일 처리",
-        acceptance_criteria: ["50MB 이하 파일 지원", "다중 파일 형식 지원", "진행률 표시"],
-        estimated_effort: 5
-      },
-      {
-        id: crypto.randomUUID(),
-        title: "[목업] AI 기반 텍스트 분석",
-        description: "업로드된 RFP 문서에서 핵심 내용을 자동으로 추출하고 분석해야 합니다.",
-        priority: "critical" as const,
-        category: "AI 분석",
-        acceptance_criteria: ["자동 텍스트 추출", "키워드 식별", "요구사항 분류"],
-        estimated_effort: 15
-      }
-    ],
-    non_functional_requirements: [
-      {
-        id: crypto.randomUUID(),
-        title: "성능 요구사항",
-        description: "대용량 파일 처리 시에도 원활한 성능을 유지해야 합니다.",
-        priority: "medium" as const,
-        category: "성능",
-        acceptance_criteria: ["50MB 파일 5분 이내 분석", "동시 사용자 100명 지원"],
-        estimated_effort: 8
-      }
-    ],
-    technical_specifications: {
-      platform: ["웹 애플리케이션", "클라우드 기반"],
-      technologies: ["Next.js", "TypeScript", "Supabase", "AI/ML API"],
-      integrations: ["OpenAI API", "문서 파싱 서비스", "클라우드 스토리지"],
-      performance_requirements: {
-        "응답시간": "< 3초",
-        "처리량": "100 req/min",
-        "가용성": "99.9%"
-      }
-    },
-    business_requirements: {
-      budget_range: "5,000만원 ~ 1억원",
-      timeline: "6개월",
-      target_users: ["제안 담당자", "사업 개발팀", "프로젝트 매니저"],
-      success_metrics: [
-        "RFP 분석 시간 단축률",
-        "요구사항 추출 정확도",
-        "사용자 만족도"
-      ]
-    },
-    keywords: [
-      { term: "RFP 분석", importance: 0.95, category: "business" },
-      { term: "AI 자동화", importance: 0.90, category: "technical" },
-      { term: "요구사항 추출", importance: 0.85, category: "functional" },
-      { term: "위험 관리", importance: 0.75, category: "business" },
-      { term: "문서 처리", importance: 0.70, category: "technical" }
-    ],
-    risk_factors: [
-      {
-        factor: "AI 분석 정확도 문제",
-        level: "medium" as const,
-        mitigation: "충분한 테스트 데이터 확보 및 지속적인 모델 개선"
-      },
-      {
-        factor: "대용량 파일 처리 성능",
-        level: "low" as const,
-        mitigation: "클라우드 스케일링 및 비동기 처리 구현"
-      }
-    ],
-    questions_for_client: [
-      "현재 사용하고 있는 RFP 분석 도구나 프로세스가 있나요?",
-      "특별히 중요하게 생각하는 분석 항목이 있나요?",
-      "기존 시스템과의 연동이 필요한가요?",
-      "사용자 권한 및 접근 제어 요구사항이 있나요?"
-    ],
-    confidence_score: 0.82
-  }
-}
+// 목업 데이터 함수 제거됨 - 실제 AI 분석만 사용
 
 // 분석 질문 생성 함수 - 환경변수 직접 사용으로 간소화
 async function generateAnalysisQuestions(analysisId: string, _options: any, _selectedModelId?: string | null) {

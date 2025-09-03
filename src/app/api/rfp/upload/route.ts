@@ -173,7 +173,6 @@ export async function POST(request: NextRequest) {
         console.log('RFP Upload: Processing PDF file...')
         console.log('RFP Upload: File name:', file.name, 'Size:', file.size)
         
-        // 먼저 간단한 방법으로 시도
         try {
           const arrayBuffer = await file.arrayBuffer()
           const buffer = Buffer.from(arrayBuffer)
@@ -185,26 +184,57 @@ export async function POST(request: NextRequest) {
             console.error('RFP Upload: File is not a valid PDF')
             extractedText = `[${file.name}] 유효한 PDF 파일이 아닙니다.`
           } else {
-            // PDF 텍스트 추출 - pdf-parse 라이브러리 문제로 인해 우회 방법 사용
-            console.log('RFP Upload: Skipping pdf-parse due to compatibility issues, using alternative extraction')
+            // pdf-parse 라이브러리 사용
+            console.log('RFP Upload: Using pdf-parse library for text extraction')
             
-            // 직접 텍스트 추출 시도
             try {
-              // PDF 내용에서 텍스트 스트림 찾기
-              const pdfString = buffer.toString('binary')
+              // pdf-parse 동적 import
+              const pdfParse = (await import('pdf-parse')).default
               
-              // PDF 텍스트 객체 찾기 (간단한 방법)
-              const textStreams = []
+              // PDF 텍스트 추출
+              const pdfData = await pdfParse(buffer, {
+                // PDF 파싱 옵션
+                max: 0 // 페이지 수 제한 없음
+              })
+              
+              extractedText = pdfData.text?.trim() || ''
+              
+              console.log('RFP Upload: pdf-parse extraction successful')
+              console.log('RFP Upload: Pages:', pdfData.numpages)
+              console.log('RFP Upload: Text length:', extractedText.length)
+              console.log('RFP Upload: Info:', pdfData.info)
+              
+              if (extractedText.length > 0) {
+                // 추출된 텍스트 정리
+                extractedText = extractedText
+                  .replace(/\s+/g, ' ')  // 여러 공백을 하나로
+                  .replace(/(.)\1{10,}/g, '$1$1$1')  // 과도한 반복 문자 정리
+                  .trim()
+                
+                if (extractedText.length < 100) {
+                  extractedText = `[제한적 추출 성공 - ${pdfData.numpages}페이지]\n\n${extractedText}\n\n참고: PDF에서 일부 텍스트만 추출되었습니다.\n원본 파일명: ${file.name}\n\n더 완전한 추출을 위해:\n1. PDF를 열어서 텍스트를 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
+                } else {
+                  extractedText = `[PDF 텍스트 추출 성공 - ${pdfData.numpages}페이지]\n\n${extractedText}\n\n원본 파일명: ${file.name}`
+                }
+              } else {
+                throw new Error('추출된 텍스트가 비어있습니다')
+              }
+              
+            } catch (pdfParseError: any) {
+              console.error('RFP Upload: pdf-parse failed, trying alternative method:', pdfParseError.message)
+              
+              // pdf-parse 실패 시 대안 방법 사용
+              const pdfString = buffer.toString('binary')
+              const textStreams: string[] = []
               
               // BT...ET (텍스트 블록) 패턴 찾기
               const textBlocks = pdfString.match(/BT\s+[\s\S]*?ET/g)
               if (textBlocks) {
                 for (const block of textBlocks) {
-                  // 텍스트 내용 추출
                   const textContent = block.match(/\((.*?)\)/g)
                   if (textContent) {
                     for (const text of textContent) {
-                      const cleanText = text.replace(/[()]/g, '')
+                      const cleanText = text.replace(/[()]/g, '').trim()
                       if (cleanText.length > 2) {
                         textStreams.push(cleanText)
                       }
@@ -213,14 +243,13 @@ export async function POST(request: NextRequest) {
                 }
               }
               
-              // 스트림 내 텍스트 찾기 (다른 방법)
+              // 스트림 내 텍스트 찾기
               if (textStreams.length === 0) {
                 const streamMatches = pdfString.match(/stream\s+([\s\S]*?)\s+endstream/g)
                 if (streamMatches) {
                   for (const stream of streamMatches) {
-                    // UTF-8로 디코딩 시도
                     const utf8Text = stream.replace(/stream\s+|\s+endstream/g, '')
-                    const decoded = utf8Text.replace(/[^\x20-\x7E가-힣ㄱ-ㅎㅏ-ㅣ\s]/g, ' ')
+                    const decoded = utf8Text.replace(/[^\x20-\x7E가-힣ㄱ-ㅎㅏ-ㅣ0-9\s]/g, ' ')
                     if (decoded.trim().length > 10) {
                       textStreams.push(decoded.trim())
                     }
@@ -230,32 +259,26 @@ export async function POST(request: NextRequest) {
               
               if (textStreams.length > 0) {
                 extractedText = textStreams.join('\n').trim()
-                console.log('RFP Upload: Alternative PDF extraction successful, streams found:', textStreams.length, 'total length:', extractedText.length)
-                
-                // 추출된 텍스트 정리
-                extractedText = extractedText
-                  .replace(/\s+/g, ' ')  // 여러 공백을 하나로
-                  .replace(/(.)\1{5,}/g, '$1')  // 반복 문자 정리
+                  .replace(/\s+/g, ' ')
+                  .replace(/(.)\1{5,}/g, '$1')
                   .trim()
                 
+                console.log('RFP Upload: Alternative extraction successful, streams:', textStreams.length, 'length:', extractedText.length)
+                
                 if (extractedText.length < 100) {
-                  extractedText = `[제한적 추출 성공]\n\n${extractedText}\n\n참고: PDF에서 일부 텍스트만 추출되었습니다.\n원본 파일명: ${file.name}\n\n더 완전한 추출을 위해:\n1. PDF를 열어서 텍스트를 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
+                  extractedText = `[대안 추출 방법 - 제한적 성공]\n\n${extractedText}\n\n주의: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}\n\n더 완전한 추출을 위해:\n1. PDF를 열어서 내용을 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
                 } else {
-                  extractedText = `[PDF 텍스트 추출 성공]\n\n${extractedText}\n\n원본 파일명: ${file.name}`
+                  extractedText = `[대안 방법으로 추출 성공]\n\n${extractedText}\n\n참고: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}`
                 }
               } else {
-                console.log('RFP Upload: No text streams found in PDF')
-                extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF\n• 암호화된 PDF\n• 특수 형식의 PDF\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n\n원본 파일명: ${file.name}`
+                console.log('RFP Upload: No text found with alternative method either')
+                extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF (OCR 필요)\n• 암호화된 PDF\n• 특수 형식의 PDF\n• 폰트가 임베드되지 않은 PDF\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사(Ctrl+A, Ctrl+C)하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n4. PDF가 스캔본인 경우 OCR 프로그램 사용\n\n오류 정보: ${pdfParseError.message}\n원본 파일명: ${file.name}`
               }
-              
-            } catch (extractError: any) {
-              console.error('RFP Upload: Alternative PDF extraction failed:', extractError)
-              extractedText = `[${file.name}] PDF 처리 실패\n\n현재 사용 중인 PDF 파일의 형식이 시스템과 호환되지 않습니다.\n\n즉시 해결 방법:\n1. **가장 쉬운 방법**: PDF를 열어서 모든 내용을 복사(Ctrl+A, Ctrl+C)한 후 메모장에 붙여넣기하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word(.docx)로 변환 후 업로드\n\n원본 파일명: ${file.name}`
             }
           }
         } catch (error: any) {
           console.error('RFP Upload: Complete PDF processing failure:', error)
-          extractedText = `[${file.name}] PDF 처리 중 심각한 오류 발생\n\n오류: ${error?.message || '알 수 없는 오류'}\n\n강력 권장:\n텍스트 파일(.txt) 또는 Word 문서(.docx)로 변환하여 업로드해주세요.`
+          extractedText = `[${file.name}] PDF 처리 중 심각한 오류 발생\n\n오류: ${error?.message || '알 수 없는 오류'}\n\n강력 권장:\n1. 텍스트 파일(.txt)로 변환하여 업로드\n2. Word 문서(.docx)로 변환하여 업로드\n3. 다른 PDF 뷰어에서 저장 후 재시도\n\n기술 정보: ${error?.stack?.split('\n')[0] || 'N/A'}`
         }
         
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
