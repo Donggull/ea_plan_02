@@ -71,6 +71,7 @@ interface RFPAnalysisDetail {
     }>
     questions_for_client: string[]
     confidence_score: number
+    extracted_text: string | null
     rfp_documents: {
       title: string
       description: string | null
@@ -96,7 +97,7 @@ export default function RFPAnalysisDetailPage() {
   const [analysisData, setAnalysisData] = useState<RFPAnalysisDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'requirements' | 'keywords' | 'summary' | 'questions'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'requirements' | 'keywords' | 'summary' | 'questions' | 'extracted-text'>('overview')
 
   // 분석 데이터 로드
   const loadAnalysisData = async () => {
@@ -318,7 +319,8 @@ export default function RFPAnalysisDetailPage() {
           { key: 'requirements', label: '요구사항 추출', icon: 'FileSearch' },
           { key: 'keywords', label: '키워드 분석', icon: 'Hash' },
           { key: 'summary', label: '분석 요약', icon: 'BarChart' },
-          { key: 'questions', label: 'AI 질문', icon: 'HelpCircle' }
+          { key: 'questions', label: 'AI 질문', icon: 'HelpCircle' },
+          { key: 'extracted-text', label: '추출된 텍스트', icon: 'FileType' }
         ].map(tab => (
           <button
             key={tab.key}
@@ -545,6 +547,112 @@ export default function RFPAnalysisDetailPage() {
           analysisId={analysisId}
           autoGenerate={false}
         />
+      )}
+
+      {activeTab === 'extracted-text' && (
+        <div className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold mb-4">문서 텍스트 추출 정보</h2>
+            
+            {/* 추출 상태 정보 */}
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">추출 방법</h3>
+                  <div className="flex items-center gap-2">
+                    {analysis.extracted_text?.includes('[OCR로 텍스트 추출 성공') ? (
+                      <>
+                        <IconRenderer icon="Camera" size={16} className="text-blue-500" {...({} as any)} />
+                        <Badge className="bg-blue-100 text-blue-800 text-xs">OCR 추출</Badge>
+                      </>
+                    ) : analysis.extracted_text?.includes('[PDF 텍스트 추출 성공') ? (
+                      <>
+                        <IconRenderer icon="FileText" size={16} className="text-green-500" {...({} as any)} />
+                        <Badge className="bg-green-100 text-green-800 text-xs">일반 텍스트 추출</Badge>
+                      </>
+                    ) : analysis.extracted_text?.includes('[대안 방법으로 추출 성공') ? (
+                      <>
+                        <IconRenderer icon="Settings" size={16} className="text-yellow-500" {...({} as any)} />
+                        <Badge className="bg-yellow-100 text-yellow-800 text-xs">대안 방법 추출</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <IconRenderer icon="AlertTriangle" size={16} className="text-red-500" {...({} as any)} />
+                        <Badge className="bg-red-100 text-red-800 text-xs">추출 상태 불명</Badge>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">텍스트 길이</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {analysis.extracted_text ? `${analysis.extracted_text.length.toLocaleString()} 자` : 'N/A'}
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">추출 품질</h3>
+                  <div className="flex items-center gap-2">
+                    {analysis.extracted_text && analysis.extracted_text.length > 1000 ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-green-600 dark:text-green-400">우수</span>
+                      </>
+                    ) : analysis.extracted_text && analysis.extracted_text.length > 500 ? (
+                      <>
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span className="text-sm text-yellow-600 dark:text-yellow-400">보통</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span className="text-sm text-red-600 dark:text-red-400">부족</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 추출된 텍스트 내용 */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-md font-medium text-gray-900 dark:text-white">추출된 텍스트 내용</h3>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (analysis.extracted_text) {
+                        navigator.clipboard.writeText(analysis.extracted_text)
+                      }
+                    }}
+                  >
+                    <IconRenderer icon="Copy" size={14} className="mr-1" {...({} as any)} />
+                    복사
+                  </Button>
+                </div>
+              </div>
+              
+              {analysis.extracted_text ? (
+                <div className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
+                    {analysis.extracted_text}
+                  </pre>
+                </div>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-900 border rounded-lg p-8 text-center">
+                  <IconRenderer icon="FileX" size={48} className="mx-auto text-gray-400 mb-4" {...({} as any)} />
+                  <p className="text-gray-500 dark:text-gray-400 mb-2">추출된 텍스트가 없습니다.</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    문서에서 텍스트를 추출할 수 없거나 추출 과정에서 오류가 발생했습니다.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   )

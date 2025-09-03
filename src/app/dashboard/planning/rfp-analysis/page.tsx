@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { RFPAnalysis, RFPUploadResponse } from '@/types/rfp-analysis'
 import { supabase } from '@/lib/supabase/client'
 import { AIModelSelector } from '@/components/ai/AIModelSelector'
+import OCRTester from '@/components/debug/OCRTester'
 import { AIModel } from '@/types/ai-models'
 
 interface Project {
@@ -719,6 +720,9 @@ export default function RFPAnalysisPage() {
           {renderTabContent()}
         </div>
       </div>
+
+      {/* OCR 테스터 (개발 환경에서만 표시) */}
+      {process.env.NODE_ENV === 'development' && <OCRTester />}
     </div>
   )
 }
