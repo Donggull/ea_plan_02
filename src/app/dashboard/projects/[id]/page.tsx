@@ -7,6 +7,7 @@ import { useProjectMembers } from '@/hooks/useProjectMembers'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { MemberManagement } from '@/components/projects/MemberManagement'
 import ProjectPhases from '@/components/projects/phases/ProjectPhases'
+import RFPAnalysisViewer from '@/components/projects/phases/RFPAnalysisViewer'
 import { useAuthStore } from '@/stores/auth-store'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -21,7 +22,8 @@ import {
   AlertCircle,
   FileText,
   Target,
-  Layers
+  Layers,
+  Eye
 } from 'lucide-react'
 
 export default function ProjectDetailPage() {
@@ -30,7 +32,7 @@ export default function ProjectDetailPage() {
   const { user } = useAuthStore()
   const projectId = params.id as string
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'settings' | 'members'>('phases')
+  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'rfp_analysis' | 'settings' | 'members'>('phases')
 
   // 프로젝트 데이터 로드
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId)
@@ -196,6 +198,17 @@ export default function ProjectDetailPage() {
             <FileText className="w-4 h-4 mr-1" />
             프로젝트 개요
           </button>
+          <button
+            onClick={() => setActiveTab('rfp_analysis')}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'rfp_analysis'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            RFP 분석
+          </button>
           {canManageProject && (
             <>
               <button
@@ -228,6 +241,12 @@ export default function ProjectDetailPage() {
       {/* 탭 콘텐츠 */}
       {activeTab === 'phases' && (
         <ProjectPhases projectId={projectId} />
+      )}
+
+      {activeTab === 'rfp_analysis' && (
+        <div className="space-y-6">
+          <RFPAnalysisViewer projectId={projectId} />
+        </div>
       )}
 
       {activeTab === 'overview' && (
