@@ -284,24 +284,43 @@ export function AIModelManager() {
         alert('기본 모델 설정이 해제되었습니다.')
       } else {
         // 다른 모델을 기본값으로 설정하는 경우
-        // 먼저 모든 모델의 기본값 해제
-        await supabase
-          .from('ai_models' as any)
-          .update({ is_default: false })
+        // 트랜잭션을 사용하여 원자적으로 처리
+        try {
+          // 먼저 모든 모델의 기본값 해제
+          const { error: resetError } = await supabase
+            .from('ai_models' as any)
+            .update({ is_default: false })
 
-        // 선택한 모델을 기본값으로 설정
-        const { error } = await supabase
-          .from('ai_models' as any)
-          .update({ is_default: true })
-          .eq('id', modelId)
+          if (resetError) throw resetError
 
-        if (error) throw error
-        await loadModels()
-        alert('기본 모델이 설정되었습니다.')
+          // 선택한 모델을 기본값으로 설정
+          const { error: setError } = await supabase
+            .from('ai_models' as any)
+            .update({ is_default: true })
+            .eq('id', modelId)
+
+          if (setError) {
+            // 데이터베이스 제약조건 위반 오류 처리
+            if (setError.code === '23505' && setError.message.includes('idx_ai_models_single_default')) {
+              throw new Error('이미 다른 모델이 기본값으로 설정되어 있습니다. 먼저 해당 모델의 기본값을 해제한 후 다시 시도해주세요.')
+            }
+            throw setError
+          }
+
+          await loadModels()
+          alert('기본 모델이 설정되었습니다.')
+        } catch (innerError) {
+          // 설정 실패 시 다시 로드하여 상태 동기화
+          await loadModels()
+          throw innerError
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error setting default model:', error)
-      alert('기본 모델 설정 중 오류가 발생했습니다.')
+      
+      // 사용자에게 구체적인 오류 메시지 표시
+      const errorMessage = error.message || '기본 모델 설정 중 오류가 발생했습니다.'
+      alert(errorMessage)
     }
   }
 
