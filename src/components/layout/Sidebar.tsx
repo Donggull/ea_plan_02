@@ -96,7 +96,7 @@ export function Sidebar() {
       <aside
         ref={sidebarRef}
         className={cn(
-          'fixed left-0 top-0 z-30 h-full border-r bg-white transition-all duration-200 ease-in-out',
+          'fixed left-0 top-0 z-30 h-full border-r bg-white transition-all duration-200 ease-in-out flex flex-col',
           darkMode && 'bg-gray-900 border-gray-700',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'md:relative md:translate-x-0'
@@ -141,7 +141,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-6">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6">
           {menuStructure.map((section) => (
             <div key={section.section}>
               {!sidebarCollapsed && (
@@ -195,7 +195,7 @@ export function Sidebar() {
         )}
 
         {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
           <button
             onClick={() => handleNavItemClick('/dashboard/settings')}
             className={cn(
