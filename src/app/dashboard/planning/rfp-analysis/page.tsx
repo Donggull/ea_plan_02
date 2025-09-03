@@ -228,8 +228,7 @@ export default function RFPAnalysisPage() {
           project_id: projectData.id,
           user_id: authUser.id,
           role: 'owner',
-          permissions: ['all'],
-          added_by: authUser.id
+          permissions: { all: true, admin: true, read: true, write: true }
         })
 
       if (memberError) {
