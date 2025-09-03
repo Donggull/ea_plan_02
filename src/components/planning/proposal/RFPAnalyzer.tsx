@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
+import { AnalysisProgress, AnalysisStep } from '@/components/ui/AnalysisProgress'
 import { cn } from '@/lib/utils'
-import { RFPAnalysis, RFPAnalysisRequest, RFPAnalysisResponse, AnalysisProgress } from '@/types/rfp-analysis'
+import { RFPAnalysis, RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
 import { supabase } from '@/lib/supabase/client'
 import { AIModel } from '@/types/ai-models'
 
@@ -27,12 +28,65 @@ export function RFPAnalyzer({
   selectedModel
 }: RFPAnalyzerProps) {
   const [analysis, setAnalysis] = useState<RFPAnalysis | null>(null)
-  const [progress, setProgress] = useState<AnalysisProgress>({
-    status: 'awaiting_responses',
-    progress_percentage: 0,
-    current_step: '분석 대기 중'
-  })
+  const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([
+    {
+      id: 'step1',
+      title: 'RFP 문서 읽기',
+      description: 'RFP 문서를 로드하고 텍스트를 추출합니다.',
+      status: 'pending'
+    },
+    {
+      id: 'step2', 
+      title: 'AI 모델 초기화',
+      description: '선택된 AI 모델을 초기화하고 연결합니다.',
+      status: 'pending'
+    },
+    {
+      id: 'step3',
+      title: '프로젝트 개요 분석', 
+      description: 'AI가 RFP의 기본 정보와 프로젝트 개요를 분석합니다.',
+      status: 'pending'
+    },
+    {
+      id: 'step4',
+      title: '키워드 및 요구사항 추출',
+      description: '핵심 키워드와 세부 요구사항을 추출합니다.',
+      status: 'pending'
+    },
+    {
+      id: 'step5',
+      title: '위험 요소 평가',
+      description: '프로젝트 위험 요소를 식별하고 평가합니다.',
+      status: 'pending'
+    },
+    {
+      id: 'step6',
+      title: '결과 저장',
+      description: '분석 결과를 데이터베이스에 저장합니다.',
+      status: 'pending'
+    }
+  ])
+  const [currentStepId, setCurrentStepId] = useState<string | undefined>()
+  const [overallProgress, setOverallProgress] = useState(0)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [useStreamingMode, setUseStreamingMode] = useState(true)
+  const eventSourceRef = useRef<EventSource | null>(null)
+
+  const resetAnalysisState = () => {
+    setAnalysisSteps(steps => steps.map(step => ({ ...step, status: 'pending', progress: undefined })))
+    setCurrentStepId(undefined)
+    setOverallProgress(0)
+    setAnalysis(null)
+  }
+
+  const handleCancelAnalysis = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
+    setIsAnalyzing(false)
+    resetAnalysisState()
+  }
 
   const handleStartAnalysis = useCallback(async () => {
     if (!rfpDocumentId) {
@@ -41,12 +95,143 @@ export function RFPAnalyzer({
     }
 
     setIsAnalyzing(true)
-    setProgress({
-      status: 'processing',
-      progress_percentage: 0,
-      current_step: '분석 시작 중...'
-    })
+    resetAnalysisState()
 
+    if (useStreamingMode) {
+      return handleStreamingAnalysis()
+    } else {
+      return handleStandardAnalysis()
+    }
+  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError, selectedModel, useStreamingMode])
+
+  const handleStreamingAnalysis = async () => {
+
+    try {
+      console.log('RFP Streaming Analysis: Starting...')
+      
+      const request: RFPAnalysisRequest = {
+        rfp_document_id: rfpDocumentId,
+        analysis_options: {
+          include_questions: true,
+          depth_level: 'comprehensive'
+        },
+        selected_model_id: selectedModel?.id || null
+      }
+
+      // Supabase 세션 토큰 획득
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      // EventSource로 스트리밍 연결 생성
+      const eventSource = new EventSource(
+        `/api/rfp/analyze-stream?${new URLSearchParams({
+          rfp_document_id: rfpDocumentId,
+          selected_model_id: selectedModel?.id || '',
+          auth_token: session?.access_token || ''
+        })}`
+      )
+      
+      eventSourceRef.current = eventSource
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('Stream data:', data)
+
+          switch (data.type) {
+            case 'progress':
+            case 'step_start':
+              setCurrentStepId(data.currentStepId)
+              setOverallProgress(data.overallProgress || 0)
+              setAnalysisSteps(prevSteps => 
+                prevSteps.map(step => 
+                  step.id === data.step.id 
+                    ? { ...step, status: data.step.status, progress: data.step.progress }
+                    : step
+                )
+              )
+              break
+              
+            case 'step_progress':
+              setCurrentStepId(data.currentStepId)
+              setOverallProgress(data.overallProgress || 0)
+              setAnalysisSteps(prevSteps => 
+                prevSteps.map(step => 
+                  step.id === data.step.id 
+                    ? { ...step, status: 'processing', progress: data.step.progress }
+                    : step
+                )
+              )
+              break
+              
+            case 'step_complete':
+              setAnalysisSteps(prevSteps => 
+                prevSteps.map(step => 
+                  step.id === data.step.id 
+                    ? { ...step, status: 'completed', progress: 100 }
+                    : step
+                )
+              )
+              setOverallProgress(data.overallProgress || 0)
+              break
+              
+            case 'analysis_data':
+              if (data.data) {
+                setAnalysis(prevAnalysis => ({ 
+                  ...prevAnalysis, 
+                  ...data.data 
+                } as RFPAnalysis))
+              }
+              break
+              
+            case 'complete':
+              setOverallProgress(100)
+              setIsAnalyzing(false)
+              if (data.analysis) {
+                setAnalysis(data.analysis)
+                onAnalysisComplete?.(data.analysis)
+              }
+              eventSource.close()
+              eventSourceRef.current = null
+              break
+              
+            case 'error':
+              console.error('Stream error:', data.error)
+              setAnalysisSteps(prevSteps => 
+                prevSteps.map(step => 
+                  step.id === data.currentStepId 
+                    ? { ...step, status: 'error' }
+                    : step
+                )
+              )
+              setIsAnalyzing(false)
+              onAnalysisError?.(data.error)
+              eventSource.close()
+              eventSourceRef.current = null
+              break
+          }
+        } catch (parseError) {
+          console.error('Error parsing stream data:', parseError)
+        }
+      }
+
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error)
+        setIsAnalyzing(false)
+        onAnalysisError?.('스트리밍 연결 오류가 발생했습니다.')
+        eventSource.close()
+        eventSourceRef.current = null
+      }
+
+    } catch (error) {
+      console.error('RFP streaming analysis error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'RFP 분석 중 오류가 발생했습니다.'
+      setIsAnalyzing(false)
+      onAnalysisError?.(errorMessage)
+    }
+  }
+
+  const handleStandardAnalysis = async () => {
+    // 기존 표준 분석 로직 (폴백용)
     try {
       const request: RFPAnalysisRequest = {
         rfp_document_id: rfpDocumentId,
@@ -57,78 +242,39 @@ export function RFPAnalyzer({
         selected_model_id: selectedModel?.id || null
       }
 
-      console.log('RFP Analysis: Starting analysis...')
-      
-      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
       const { data: { session } } = await supabase.auth.getSession()
-      console.log('RFP Analysis: Client session check:', session ? 'session exists' : 'no session')
-      
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       }
       
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`
-        console.log('RFP Analysis: Added Authorization header')
       }
-
-      console.log('RFP Analysis: Sending request to:', '/api/rfp/analyze')
-      console.log('RFP Analysis: Request body:', JSON.stringify(request, null, 2))
       
       const response = await fetch('/api/rfp/analyze', {
         method: 'POST',
         headers,
-        credentials: 'include', // 쿠키 포함해서 전송
+        credentials: 'include',
         body: JSON.stringify(request)
       })
 
-      console.log('RFP Analysis: Response status:', response.status)
-      console.log('RFP Analysis: Response headers:', Object.fromEntries(response.headers.entries()))
-      
       if (!response.ok) {
-        console.error('RFP Analysis: Response not ok, status:', response.status)
-        let errorData;
-        try {
-          errorData = await response.json()
-          console.error('RFP Analysis: Error data:', errorData)
-        } catch (_e) {
-          console.error('RFP Analysis: Could not parse error response as JSON')
-          const textError = await response.text()
-          console.error('RFP Analysis: Error text:', textError)
-          throw new Error(`HTTP ${response.status}: ${textError}`)
-        }
-        throw new Error(errorData.message || 'RFP 분석 중 오류가 발생했습니다.')
+        throw new Error('RFP 분석 중 오류가 발생했습니다.')
       }
 
       const result: RFPAnalysisResponse = await response.json()
-      console.log('RFP Analysis: Response data received:', result)
-      console.log('RFP Analysis: Analysis data:', result.analysis)
-      
       setAnalysis(result.analysis)
-      setProgress({
-        status: 'completed',
-        progress_percentage: 100,
-        current_step: '분석 완료'
-      })
-      
+      setOverallProgress(100)
       onAnalysisComplete?.(result.analysis)
       
     } catch (error) {
-      console.error('RFP analysis error:', error)
+      console.error('RFP standard analysis error:', error)
       const errorMessage = error instanceof Error ? error.message : 'RFP 분석 중 오류가 발생했습니다.'
-      
-      setProgress({
-        status: 'error',
-        progress_percentage: 0,
-        current_step: '분석 실패',
-        error_message: errorMessage
-      })
-      
       onAnalysisError?.(errorMessage)
     } finally {
       setIsAnalyzing(false)
     }
-  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError, selectedModel])
+  }
 
   useEffect(() => {
     if (autoStart && rfpDocumentId) {
@@ -136,33 +282,14 @@ export function RFPAnalyzer({
     }
   }, [autoStart, rfpDocumentId, handleStartAnalysis])
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'processing':
-      case 'analyzing':
-        return 'Loader2'
-      case 'completed':
-        return 'CheckCircle'
-      case 'error':
-        return 'AlertCircle'
-      default:
-        return 'Clock'
+  // 컴포넌트 언마운트 시 EventSource 정리
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+      }
     }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'processing':
-      case 'analyzing':
-        return 'text-blue-600'
-      case 'completed':
-        return 'text-green-600'
-      case 'error':
-        return 'text-red-600'
-      default:
-        return 'text-gray-600'
-    }
-  }
+  }, [])
 
   const renderAnalysisResults = () => {
     if (!analysis) return null
@@ -295,54 +422,60 @@ export function RFPAnalyzer({
 
   return (
     <div className={cn('w-full', className)}>
-      {/* 분석 상태 */}
+      {/* 분석 상태 및 제어 */}
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">RFP 분석</h2>
-          {!isAnalyzing && progress.status !== 'completed' && (
-            <Button onClick={handleStartAnalysis} disabled={!rfpDocumentId}>
-              <IconRenderer icon="Play" size={16} className="mr-2" {...({} as any)} />
-              분석 시작
-            </Button>
-          )}
-        </div>
-
-        {/* 진행률 표시 */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <IconRenderer 
-              icon={getStatusIcon(progress.status)} 
-              size={20} 
-              className={cn(
-                getStatusColor(progress.status),
-                (progress.status === 'processing' || progress.status === 'analyzing') && 'animate-spin'
-              )}
-              {...({} as any)} 
-            />
-            <div className="flex-1">
-              <p className="font-medium text-gray-900 dark:text-white">{progress.current_step}</p>
-              {progress.error_message && (
-                <p className="text-sm text-red-600 mt-1">{progress.error_message}</p>
-              )}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-semibold">RFP 분석</h2>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useStreamingMode}
+                  onChange={(e) => setUseStreamingMode(e.target.checked)}
+                  className="rounded"
+                />
+                실시간 모드
+              </label>
             </div>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              {progress.progress_percentage}%
-            </span>
           </div>
-
-          {isAnalyzing && (
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progress.progress_percentage}%` }}
-              />
-            </div>
-          )}
+          
+          <div className="flex items-center gap-2">
+            {!isAnalyzing && overallProgress !== 100 && (
+              <Button onClick={handleStartAnalysis} disabled={!rfpDocumentId}>
+                <IconRenderer icon="Play" size={16} className="mr-2" {...({} as any)} />
+                분석 시작
+              </Button>
+            )}
+            
+            {isAnalyzing && (
+              <Button 
+                onClick={handleCancelAnalysis} 
+                variant="outline"
+                className="text-red-600 border-red-300 hover:bg-red-50"
+              >
+                <IconRenderer icon="X" size={16} className="mr-2" {...({} as any)} />
+                취소
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* 실시간 프로그레스바 */}
+        {(isAnalyzing || overallProgress > 0) && (
+          <AnalysisProgress
+            steps={analysisSteps}
+            currentStepId={currentStepId}
+            overallProgress={overallProgress}
+            isProcessing={isAnalyzing}
+            onCancel={isAnalyzing ? handleCancelAnalysis : undefined}
+            className="mb-6"
+          />
+        )}
       </Card>
 
       {/* 분석 결과 */}
-      {renderAnalysisResults()}
+      {analysis && renderAnalysisResults()}
     </div>
   )
 }
