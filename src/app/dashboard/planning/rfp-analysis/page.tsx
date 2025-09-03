@@ -202,7 +202,7 @@ export default function RFPAnalysisPage() {
         .insert({
           name: newProjectName.trim(),
           description: `RFP 분석을 통해 생성된 프로젝트: ${projectTitle}`,
-          category: 'rfp_analysis',
+          category: 'general',
           current_phase: 'proposal',
           status: 'active',
           priority: 'medium',
