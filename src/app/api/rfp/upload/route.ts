@@ -227,6 +227,27 @@ export async function POST(request: NextRequest) {
               const pdfString = buffer.toString('binary')
               const textStreams: string[] = []
               
+              // 텍스트 품질 검사 함수
+              const isTextQualityGood = (text: string): boolean => {
+                if (!text || text.length < 100) return false
+                
+                // 한글/영문/숫자/공백/기본 문장부호의 비율 확인
+                const validChars = text.match(/[가-힣a-zA-Z0-9\s.,!?()[\]{}\-_:;"']/g) || []
+                const validRatio = validChars.length / text.length
+                
+                // 연속된 이상한 문자 패턴 검사 (OCR 실패 징후)
+                const hasWeirdPatterns = /[^가-힣a-zA-Z0-9\s.,!?()[\]{}\-_:;"']{3,}/.test(text)
+                
+                console.log('RFP Upload: Text quality check:', {
+                  length: text.length,
+                  validRatio: validRatio.toFixed(3),
+                  hasWeirdPatterns,
+                  isGoodQuality: validRatio > 0.7 && !hasWeirdPatterns
+                })
+                
+                return validRatio > 0.7 && !hasWeirdPatterns
+              }
+              
               // BT...ET (텍스트 블록) 패턴 찾기
               const textBlocks = pdfString.match(/BT\s+[\s\S]*?ET/g)
               if (textBlocks) {
@@ -263,31 +284,68 @@ export async function POST(request: NextRequest) {
                   .replace(/(.)\1{5,}/g, '$1')
                   .trim()
                 
-                console.log('RFP Upload: Alternative extraction successful, streams:', textStreams.length, 'length:', extractedText.length)
+                console.log('RFP Upload: Alternative extraction result:', {
+                  streams: textStreams.length,
+                  length: extractedText.length,
+                  preview: extractedText.substring(0, 100)
+                })
                 
-                if (extractedText.length < 100) {
-                  extractedText = `[대안 추출 방법 - 제한적 성공]\n\n${extractedText}\n\n주의: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}\n\n더 완전한 추출을 위해:\n1. PDF를 열어서 내용을 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
+                
+                // 텍스트 품질이 좋으면 그대로 사용, 나쁘면 OCR 시도
+                if (isTextQualityGood(extractedText)) {
+                  console.log('RFP Upload: Alternative extraction quality is good, using it')
+                  if (extractedText.length < 100) {
+                    extractedText = `[대안 추출 방법 - 제한적 성공]\n\n${extractedText}\n\n주의: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}\n\n더 완전한 추출을 위해:\n1. PDF를 열어서 내용을 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
+                  } else {
+                    extractedText = `[대안 방법으로 추출 성공]\n\n${extractedText}\n\n참고: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}`
+                  }
                 } else {
-                  extractedText = `[대안 방법으로 추출 성공]\n\n${extractedText}\n\n참고: PDF 파싱 라이브러리 오류로 대안 방법을 사용했습니다.\n원본 파일명: ${file.name}`
+                  console.log('RFP Upload: Alternative extraction quality is poor, trying OCR instead...')
+                  // 품질이 나쁘면 OCR 시도 (아래 OCR 로직으로 이동)
                 }
-              } else {
-                console.log('RFP Upload: No text found with alternative method, trying OCR...')
+              }
+              
+              // OCR 시도 조건: textStreams가 없거나 품질이 나쁜 경우
+              const shouldTryOCR = textStreams.length === 0 || 
+                                   (textStreams.length > 0 && !isTextQualityGood(extractedText))
+              
+              if (shouldTryOCR) {
+                console.log('RFP Upload: Trying OCR due to poor text quality or no text found...')
                 
                 // OCR 시도
                 try {
                   const { performOCR, hasExtractableText } = await import('@/lib/ocr/pdf-ocr')
                   
-                  // 이미 추출된 텍스트가 충분한지 확인
-                  if (extractedText && hasExtractableText(extractedText)) {
-                    console.log('RFP Upload: Some text already extracted, skipping OCR')
+                  console.log('RFP Upload: Starting OCR process...')
+                  const ocrResult = await performOCR(buffer, file.name)
+                  
+                  console.log('RFP Upload: OCR completed:', {
+                    length: ocrResult.length,
+                    preview: ocrResult.substring(0, 100)
+                  })
+                  
+                  // OCR 결과가 대안 방법보다 나은지 확인
+                  if (hasExtractableText(ocrResult) && ocrResult.length > 100) {
+                    extractedText = `[OCR로 텍스트 추출 성공]\n\n${ocrResult}\n\n참고: PDF에서 직접 텍스트 추출에 실패하여 OCR을 사용했습니다.\n원본 파일명: ${file.name}`
+                    console.log('RFP Upload: OCR result is better, using OCR text')
+                  } else if (textStreams.length > 0 && extractedText) {
+                    // OCR도 실패하고 대안 방법 결과가 있으면 대안 방법 사용 (품질이 나쁘더라도)
+                    extractedText = `[대안 방법으로 제한적 추출]\n\n${extractedText}\n\n경고: OCR 시도도 실패하여 품질이 낮은 대안 방법 결과를 사용합니다.\n원본 파일명: ${file.name}\n\n권장사항:\n1. PDF를 열어서 내용을 복사하여 .txt 파일로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드`
+                    console.log('RFP Upload: OCR failed, falling back to alternative extraction')
                   } else {
-                    console.log('RFP Upload: Starting OCR process...')
-                    extractedText = await performOCR(buffer, file.name)
-                    console.log('RFP Upload: OCR completed, text length:', extractedText.length)
+                    extractedText = `[${file.name}] OCR 결과가 불충분합니다.\n\nOCR 결과 길이: ${ocrResult.length}자\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사(Ctrl+A, Ctrl+C)하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 더 높은 해상도로 스캔된 PDF 사용\n4. OCR 전용 도구 (Adobe Acrobat 등) 사용 후 재업로드`
+                    console.log('RFP Upload: Both OCR and alternative extraction failed')
                   }
                 } catch (ocrError) {
                   console.error('RFP Upload: OCR failed:', ocrError)
-                  extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF (OCR 시도 실패)\n• 암호화된 PDF\n• 특수 형식의 PDF\n• 폰트가 임베드되지 않은 PDF\n\nOCR 오류: ${ocrError instanceof Error ? ocrError.message : String(ocrError)}\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사(Ctrl+A, Ctrl+C)하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n4. 고품질로 다시 스캔 후 업로드\n\n원본 파일명: ${file.name}`
+                  
+                  // OCR 실패 시 대안 방법 결과가 있으면 사용
+                  if (textStreams.length > 0 && extractedText) {
+                    extractedText = `[대안 방법으로 제한적 추출 - OCR 실패]\n\n${extractedText}\n\n경고: OCR 처리 중 오류가 발생하여 품질이 낮은 대안 방법 결과를 사용합니다.\n\nOCR 오류: ${ocrError instanceof Error ? ocrError.message : String(ocrError)}\n원본 파일명: ${file.name}`
+                    console.log('RFP Upload: OCR error, using alternative extraction as fallback')
+                  } else {
+                    extractedText = `[${file.name}] PDF에서 텍스트를 찾을 수 없습니다.\n\n이 PDF는 다음 중 하나일 수 있습니다:\n• 이미지 스캔본 PDF (OCR 시도 실패)\n• 암호화된 PDF\n• 특수 형식의 PDF\n• 폰트가 임베드되지 않은 PDF\n\nOCR 오류: ${ocrError instanceof Error ? ocrError.message : String(ocrError)}\n\n해결 방법:\n1. **권장**: PDF를 열어서 내용을 복사(Ctrl+A, Ctrl+C)하여 텍스트 파일(.txt)로 저장 후 업로드\n2. PDF를 Word 문서(.docx)로 변환 후 업로드\n3. 온라인 PDF → 텍스트 변환 도구 사용\n4. 고품질로 다시 스캔 후 업로드\n\n원본 파일명: ${file.name}`
+                  }
                 }
               }
             }
