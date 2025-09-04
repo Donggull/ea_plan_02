@@ -386,7 +386,7 @@ export class ProjectAccessService {
         throw error
       }
 
-      const projectMembers: ProjectMember[] = (members || []).map(member => ({
+      const projectMembers: ProjectMember[] = (members || []).map((member: any) => ({
         id: member.id,
         userId: member.user_id,
         projectId: member.project_id,
@@ -465,7 +465,7 @@ export class ProjectAccessService {
 
       // 소유한 프로젝트 추가
       if (ownedProjects) {
-        projects.push(...ownedProjects.map(project => ({
+        projects.push(...ownedProjects.map((project: any) => ({
           id: project.id,
           name: project.name,
           description: project.description,
@@ -478,12 +478,12 @@ export class ProjectAccessService {
 
       // 멤버로 참여한 프로젝트 추가
       if (memberProjects) {
-        projects.push(...memberProjects.map(member => ({
+        projects.push(...memberProjects.map((member: any) => ({
           id: member.project.id,
           name: member.project.name,
           description: member.project.description,
           accessLevel: member.access_level,
-          permissions: ACCESS_PERMISSIONS[member.access_level].permissions,
+          permissions: ACCESS_PERMISSIONS[member.access_level as ProjectAccessLevel].permissions,
           isOwner: false,
           joinedAt: member.created_at
         })))

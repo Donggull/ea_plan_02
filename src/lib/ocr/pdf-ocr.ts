@@ -1,4 +1,4 @@
-import Tesseract from 'tesseract.js'
+// import Tesseract from 'tesseract.js' // 향후 사용 예정
 
 /**
  * PDF Buffer에서 직접 OCR을 수행합니다.

@@ -163,16 +163,16 @@ export default function RFPAnalysisDetailPage() {
     })
   }
 
-  // 우선순위 색상
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical': return 'bg-red-100 text-red-800'
-      case 'high': return 'bg-orange-100 text-orange-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'low': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
+  // 우선순위 색상 (향후 사용 예정)
+  // const getPriorityColor = (priority: string) => {
+  //   switch (priority) {
+  //     case 'critical': return 'bg-red-100 text-red-800'
+  //     case 'high': return 'bg-orange-100 text-orange-800'
+  //     case 'medium': return 'bg-yellow-100 text-yellow-800'
+  //     case 'low': return 'bg-green-100 text-green-800'
+  //     default: return 'bg-gray-100 text-gray-800'
+  //   }
+  // }
 
   // 신뢰도 점수 표시
   const getConfidenceColor = (score: number) => {

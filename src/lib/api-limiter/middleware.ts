@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { apiLimiterService } from './service'
-import { projectAccessServiceAdmin, ProjectAccessLevel } from './project-access'
+import { projectAccessServiceAdmin } from './project-access'
 import { UserTier } from './types'
 
 // API 제한 적용 대상 경로
@@ -14,14 +14,14 @@ const PROTECTED_API_PATHS = [
   '/api/projects/'
 ]
 
-// 프로젝트 접근 권한이 필요한 경로
-const PROJECT_PROTECTED_PATHS = [
-  '/api/projects/',
-  '/api/rfp/',
-  '/api/proposal/',
-  '/api/construction/',
-  '/api/operation/'
-]
+// 프로젝트 접근 권한이 필요한 경로 (향후 사용 예정)
+// const PROJECT_PROTECTED_PATHS = [
+//   '/api/projects/',
+//   '/api/rfp/',
+//   '/api/proposal/',
+//   '/api/construction/',
+//   '/api/operation/'
+// ]
 
 // 제한 제외 경로 (인증, 헬스체크 등)
 const EXCLUDED_PATHS = [
@@ -80,7 +80,7 @@ export async function applyApiLimiting(request: NextRequest): Promise<NextRespon
         0,
         Date.now() - startTime,
         'rate_limited',
-        request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+        getClientIP(request)
       )
 
       return NextResponse.json(
@@ -171,13 +171,7 @@ export async function checkProjectPermission(
         const body = await request.json()
         projectId = body.project_id || body.projectId
         
-        // body를 읽었으므로 새로운 Request 객체 생성
-        const newRequest = new NextRequest(request.url, {
-          method: request.method,
-          headers: request.headers,
-          body: JSON.stringify(body)
-        })
-        // 원본 request를 새로운 request로 교체하기 위해 body를 다시 설정
+        // body를 읽었으므로 원본 request에 body를 다시 설정
         Object.defineProperty(request, 'body', {
           value: JSON.stringify(body),
           configurable: true
@@ -349,7 +343,7 @@ export function getClientIP(request: NextRequest): string {
   const realIP = request.headers.get('x-real-ip')
   const cfIP = request.headers.get('cf-connecting-ip')
   
-  return cfIP || realIP || forwarded?.split(',')[0] || request.ip || 'unknown'
+  return cfIP || realIP || forwarded?.split(',')[0] || 'unknown'
 }
 
 // API 요청 메타데이터 추출

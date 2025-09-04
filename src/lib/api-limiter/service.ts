@@ -367,8 +367,8 @@ export class APILimiterService {
         .select('user_tier')
         .eq('is_active', true)
 
-      const averageTier = tierData?.length > 0 
-        ? tierData.reduce((sum, user) => sum + user.user_tier, 0) / tierData.length 
+      const averageTier = (tierData?.length || 0) > 0 
+        ? tierData!.reduce((sum, user) => sum + user.user_tier, 0) / tierData!.length 
         : 0
 
       return {
