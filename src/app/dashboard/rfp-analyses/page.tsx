@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import Button from '@/basic/src/components/Button/Button'
@@ -77,7 +77,7 @@ export default function RFPAnalysesPage() {
   const [currentPage, setCurrentPage] = useState(1)
 
   // RFP 분석 목록 로드
-  const loadAnalyses = async (page: number = 1) => {
+  const loadAnalyses = useCallback(async (page: number = 1) => {
     if (!user) return
 
     setIsLoading(true)
@@ -134,7 +134,7 @@ export default function RFPAnalysesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, statusFilter, sortBy, sortOrder])
 
   // 초기 로드
   useEffect(() => {

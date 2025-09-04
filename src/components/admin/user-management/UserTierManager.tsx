@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -54,7 +54,7 @@ export function UserTierManager() {
   const supabase = createClientComponentClient()
 
   // 사용자 목록 가져오기
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -71,7 +71,7 @@ export function UserTierManager() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // 등급 변경
   const changeTier = async () => {

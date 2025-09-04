@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth-store'
 import Button from '@/basic/src/components/Button/Button'
@@ -100,7 +100,7 @@ export default function RFPAnalysisDetailPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'requirements' | 'keywords' | 'summary' | 'questions' | 'extracted-text'>('overview')
 
   // 분석 데이터 로드
-  const loadAnalysisData = async () => {
+  const loadAnalysisData = useCallback(async () => {
     if (!user || !analysisId) return
 
     setIsLoading(true)
@@ -143,7 +143,7 @@ export default function RFPAnalysisDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [user, analysisId])
 
   // 초기 로드
   useEffect(() => {
