@@ -71,7 +71,8 @@ export const menuStructure: MenuSection[] = [
     items: [
       { id: 'workflow-management', label: '워크플로우 관리', href: '/dashboard/admin/workflow', icon: 'GitBranch' },
       { id: 'mcp-management', label: 'MCP 관리', href: '/dashboard/admin/mcp', icon: 'Zap' },
-      { id: 'user-management', label: '사용자 관리', href: '/dashboard/admin/users', icon: 'UserCog' }
+      { id: 'ai-models', label: 'AI 모델 관리', href: '/dashboard/admin/ai-models', icon: 'Brain' },
+      { id: 'user-management', label: '회원 관리', href: '/dashboard/admin/user-management', icon: 'UserCog' }
     ]
   }
 ]
