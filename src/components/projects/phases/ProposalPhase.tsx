@@ -29,7 +29,8 @@ import {
   AlertCircle as _AlertCircle,
   BarChart3,
   Target,
-  Eye
+  Eye,
+  GitBranch
 } from 'lucide-react'
 import type { MarketResearch, PersonaGenerationGuidance } from '@/types/market-research'
 import type { DevelopmentPlanningGuidance } from '@/types/proposal'
@@ -178,10 +179,10 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
 
       {/* 탭 네비게이션 */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto">
+        <nav className="-mb-px flex space-x-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('rfp')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'rfp'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -194,7 +195,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
           </button>
           <button
             onClick={() => setActiveTab('tasks')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'tasks'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -207,7 +208,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
           </button>
           <button
             onClick={() => setActiveTab('rfp_analysis')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'rfp_analysis'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -220,7 +221,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
           </button>
           <button
             onClick={() => setActiveTab('market_research')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'market_research'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -233,17 +234,17 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
           </button>
           <button
             onClick={() => setActiveTab('persona')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'persona'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
-disabled={false}
+            disabled={false}
           >
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               페르소나 분석
-{currentResearch ? (
+              {currentResearch ? (
                 <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">
                   시장조사 연동
                 </span>
@@ -256,7 +257,7 @@ disabled={false}
           </button>
           <button
             onClick={() => setActiveTab('proposal_writing')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'proposal_writing'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -274,14 +275,14 @@ disabled={false}
           </button>
           <button
             onClick={() => setActiveTab('integration')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
               activeTab === 'integration'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
             <div className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
+              <GitBranch className="h-4 w-4" />
               데이터 통합
               <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">
                 New
