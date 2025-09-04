@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,7 @@ import {
   Palette, 
   Code, 
   FileText, 
-  Play, 
-  Pause,
+  Play,
   RefreshCw,
   CheckCircle,
   AlertCircle,
@@ -27,18 +26,12 @@ interface AnalysisIntegrationDashboardProps {
 }
 
 export function AnalysisIntegrationDashboard({ projectId }: AnalysisIntegrationDashboardProps) {
-  const { user } = useAuthStore()
+  const { user: _user } = useAuthStore()
   const [integrations, setIntegrations] = useState<AnalysisIntegration[]>([])
   const [loading, setLoading] = useState(true)
   const [processingIntegrations, setProcessingIntegrations] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    if (projectId) {
-      loadIntegrations()
-    }
-  }, [projectId])
-
-  const loadIntegrations = async () => {
+  const loadIntegrations = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/analysis-integration?project_id=${projectId}`)
@@ -55,7 +48,13 @@ export function AnalysisIntegrationDashboard({ projectId }: AnalysisIntegrationD
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
+
+  useEffect(() => {
+    if (projectId) {
+      loadIntegrations()
+    }
+  }, [projectId, loadIntegrations])
 
   const createIntegration = async () => {
     try {

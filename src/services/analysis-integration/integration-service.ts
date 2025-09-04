@@ -4,10 +4,7 @@ import type {
   CreateAnalysisIntegrationRequest,
   AnalysisIntegrationResponse,
   IntegrationProcessOptions,
-  WorkflowProgressUpdate,
-  DesignSystem,
-  PublishingComponent,
-  DevelopmentDocument
+  WorkflowProgressUpdate
 } from '@/types/analysis-integration'
 
 export class AnalysisIntegrationService {
@@ -250,7 +247,7 @@ export class AnalysisIntegrationService {
   /**
    * 성능 요구사항 추출
    */
-  private extractPerformanceRequirements(requirements: any[]): Record<string, any> {
+  private extractPerformanceRequirements(_requirements: any[]): Record<string, any> {
     return {
       load_time: '< 3초',
       mobile_optimization: true,
@@ -291,7 +288,7 @@ export class AnalysisIntegrationService {
   /**
    * 접근성 요구사항 생성
    */
-  private generateAccessibilityRequirements(persona: any): Record<string, any> {
+  private generateAccessibilityRequirements(_persona: any): Record<string, any> {
     return {
       wcag_level: 'AA',
       keyboard_navigation: true,
@@ -304,7 +301,7 @@ export class AnalysisIntegrationService {
   /**
    * 반응형 전략 생성
    */
-  private generateResponsiveStrategy(audience: any): Record<string, any> {
+  private generateResponsiveStrategy(_audience: any): Record<string, any> {
     return {
       breakpoints: {
         mobile: '320px-768px',
@@ -371,7 +368,7 @@ export class AnalysisIntegrationService {
   /**
    * 퍼블리싱 컴포넌트 생성
    */
-  private async createPublishingComponents(integrationId: string, integratedData: any): Promise<void> {
+  private async createPublishingComponents(integrationId: string, _integratedData: any): Promise<void> {
     // 기본 페이지 컴포넌트들 생성
     const components = [
       {
