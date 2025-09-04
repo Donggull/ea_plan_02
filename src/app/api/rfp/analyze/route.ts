@@ -3,6 +3,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { RFPAnalysisRequest, RFPAnalysisResponse } from '@/types/rfp-analysis'
+import { recordApiUsage } from '@/lib/api-limiter/middleware'
 // import { AIModelService } from '@/services/ai/model-service' // 환경변수 직접 사용으로 임시 비활성화
 
 // Service role client for privileged operations
@@ -36,10 +37,12 @@ export async function POST(request: NextRequest) {
   console.log('🔥 RFP ANALYZE API CALLED! 🔥')
   console.log('='.repeat(80))
   
+  const requestStartTime = Date.now()
+  let user: any = null
+  let totalTokensUsed = 0
+  
   try {
     console.log('RFP Analysis: Starting authentication check...')
-    
-    let user: any = null
     
     // Authorization 헤더에서 토큰 확인 (동일한 방식 사용)
     const authorization = request.headers.get('authorization')
@@ -145,12 +148,15 @@ export async function POST(request: NextRequest) {
     }
 
     // AI 모델을 사용한 RFP 분석 수행 (사용자 선택 모델 반영)
-    const analysisResult = await performRFPAnalysis(
+    const analysisResultWithUsage = await performRFPAnalysis(
       rfpDocument.content || '', 
       analysis_options, 
       user.id,
       selected_model_id
     )
+    
+    const analysisResult = analysisResultWithUsage.analysisResult
+    totalTokensUsed += analysisResultWithUsage.tokensUsed || 0
 
     // 분석 결과 저장 (Service Role 사용)
     const { data: analysisData, error: analysisError } = await supabaseAdmin
@@ -185,7 +191,9 @@ export async function POST(request: NextRequest) {
     let generatedQuestions = undefined
     if (analysis_options?.include_questions) {
       try {
-        generatedQuestions = await generateAnalysisQuestions(analysisData.id, analysis_options, selected_model_id)
+        const questionResultWithUsage = await generateAnalysisQuestions(analysisData.id, analysis_options, selected_model_id)
+        generatedQuestions = questionResultWithUsage.questions || questionResultWithUsage
+        totalTokensUsed += questionResultWithUsage.tokensUsed || 0
       } catch (error) {
         console.error('Question generation error:', error)
         // 질문 생성 실패는 전체 분석을 실패시키지 않음
@@ -198,6 +206,17 @@ export async function POST(request: NextRequest) {
       estimated_duration: Math.ceil((rfpDocument.file_size || 1024) / (1024 * 100)) // 대략적인 추정
     }
 
+    // 성공적인 API 사용량 기록
+    await recordApiUsage(
+      user.id,
+      'rfp_analysis',
+      '/api/rfp/analyze',
+      totalTokensUsed,
+      Date.now() - requestStartTime,
+      true,
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    )
+
     return NextResponse.json(response)
 
   } catch (error) {
@@ -207,6 +226,19 @@ export async function POST(request: NextRequest) {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined
     })
+    
+    // 실패한 API 사용량 기록 (사용자가 있는 경우만)
+    if (user?.id) {
+      await recordApiUsage(
+        user.id,
+        'rfp_analysis',
+        '/api/rfp/analyze',
+        totalTokensUsed,
+        Date.now() - requestStartTime,
+        false,
+        request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+      )
+    }
     
     // 실제 오류 메시지를 클라이언트에 전달
     const errorMessage = error instanceof Error 
@@ -637,7 +669,11 @@ JSON 결과만 반환해주세요:
     }
 
     console.log('RFP Analysis: Analysis completed successfully')
-    return analysisResult
+    return {
+      analysisResult,
+      tokensUsed: response.usage.total_tokens || 0,
+      usage: response.usage
+    }
 
   } catch (error) {
     console.error('🚨 RFP Analysis: AI analysis failed with error:', error)
@@ -877,14 +913,22 @@ JSON 배열만 반환해주세요:
     }
 
     console.log('Question Generation: Generated', generatedQuestions.length, 'questions')
-    return generatedQuestions
+    return {
+      questions: generatedQuestions,
+      tokensUsed: response.usage.total_tokens || 0,
+      usage: response.usage
+    }
 
   } catch (error) {
     console.error('AI question generation error:', error)
     console.log('Question Generation: Falling back to default questions')
     
     // AI 질문 생성 실패 시 기본 질문 반환
-    return generateFallbackQuestions(analysisId)
+    return {
+      questions: generateFallbackQuestions(analysisId),
+      tokensUsed: 0,
+      usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 }
+    }
   }
 }
 

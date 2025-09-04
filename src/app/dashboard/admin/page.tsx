@@ -66,18 +66,22 @@ export default function AdminPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>사용자 관리</CardTitle>
+            <CardTitle>회원 등급 관리</CardTitle>
             <CardDescription>
-              시스템 사용자를 관리하고 권한을 설정하세요
+              사용자 등급을 관리하고 API 사용량을 모니터링하세요
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-center py-4">
-              <Users className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mt-2">
-                등록된 사용자가 없습니다
-              </p>
-            </div>
+          <CardContent className="space-y-2">
+            <Button className="w-full" asChild>
+              <Link href="/dashboard/admin/user-management">
+                회원 등급 관리
+              </Link>
+            </Button>
+            <Button className="w-full" variant="outline" asChild>
+              <Link href="/dashboard/admin/ai-models">
+                AI 모델 관리
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 

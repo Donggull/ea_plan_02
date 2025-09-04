@@ -532,3 +532,698 @@ RFP 분석 자동화에서 개발된 핵심 기능들을 프로젝트 전반에 
 - RFP 분석 자동화 결과를 프로젝트로 Import 기능
 - 분석 결과를 기반으로 프로젝트 초기 설정 자동화
 - 각 단계별 필요 데이터 선택적 활용 가능
+
+## ⚠️ 중요: 분석 데이터 기반 디자인/퍼블리싱/개발 통합 시스템 구축 (2025-09-04)
+
+### 🔴 필수 구현 사항 - 모든 개발 시 반드시 참조
+
+#### 1. 통합 분석 데이터 활용 시스템
+**핵심 요구사항**: 4개 분석 소스(RFP 분석 자동화, 제안 진행 분석, 구축 관리 분석, 운영 관리 분석) 중 하나를 선택하여 디자인/퍼블리싱/개발 영역에서 활용
+
+**DB 테이블 설계 (핵심)**
+```sql
+-- 분석 데이터 통합 테이블
+analysis_integration: {
+  id, 
+  source_type: enum('rfp_auto', 'proposal', 'construction', 'operation'),
+  source_id: uuid (각 분석 테이블의 ID 참조),
+  project_id: uuid,
+  selected_at: timestamp,
+  selected_by: uuid
+}
+
+-- 디자인 시스템 테이블
+design_systems: {
+  id,
+  analysis_integration_id: uuid,
+  name, 
+  figma_file_url,
+  design_tokens: jsonb,
+  components_library: jsonb,
+  created_at, updated_at
+}
+
+-- 퍼블리싱 컴포넌트 테이블  
+publishing_components: {
+  id,
+  design_system_id: uuid,
+  component_name,
+  component_code: text,
+  component_props: jsonb,
+  preview_url,
+  created_at, updated_at
+}
+
+-- 개발 문서 테이블
+development_documents: {
+  id,
+  analysis_integration_id: uuid,
+  document_type: enum('PRD', 'TRD', 'API_SPEC', 'PROMPT'),
+  content: text,
+  metadata: jsonb,
+  version: integer,
+  created_at, updated_at
+}
+```
+
+#### 2. 디자인 영역 - Figma 연동 시스템
+**목표**: 선택된 분석 데이터를 기반으로 Figma에서 시안 자동 생성
+
+**구현 요구사항**:
+- 분석 데이터 → 디자인 시스템 변환 엔진
+- Figma API 연동 (Figma Make 활용)
+- 디자인 토큰 자동 생성 (색상, 타이포그래피, 스페이싱)
+- UI/UX 컴포넌트 자동 생성 (현재 프로젝트의 메뉴 구조 참조)
+- 디자인 시스템 버전 관리
+
+**추천 구현 방안**:
+```typescript
+// Figma 디자인 시스템 생성 서비스
+interface DesignSystemGenerator {
+  analyzeRequirements(analysisData: AnalysisData): DesignTokens
+  generateFigmaComponents(tokens: DesignTokens): FigmaFile
+  syncWithProject(figmaFile: FigmaFile, projectId: string): void
+}
+```
+
+#### 3. 퍼블리싱 영역 - 컴포넌트 시스템
+**목표**: 디자인 시스템 기반 재사용 가능한 컴포넌트 라이브러리 구축
+
+**구현 요구사항**:
+- 디자인 시스템 → React/Vue/Angular 컴포넌트 변환
+- Storybook 통합 (컴포넌트 문서화 및 테스트)
+- 컴포넌트 버전 관리 및 의존성 관리
+- 실시간 미리보기 및 코드 생성
+- Tailwind CSS / Shadcn UI 통합
+
+**추천 구현 방안**:
+```typescript
+// 컴포넌트 생성 및 관리 서비스
+interface ComponentManager {
+  importFromDesignSystem(designSystemId: string): ComponentLibrary
+  generateComponent(design: DesignSpec): ReactComponent
+  publishToStorybook(component: ReactComponent): StoryBookEntry
+  exportAsPackage(components: ComponentLibrary): NPMPackage
+}
+```
+
+#### 4. 개발 영역 - 문서 및 코드 생성 시스템
+**목표**: 분석 데이터 기반 개발 문서 및 코드 자동 생성
+
+**구현 요구사항**:
+- **PRD 문서 생성**: 요구사항 → 상세 기능 명세서
+- **TRD 문서 생성**: 기술 스택, 아키텍처, 구현 상세
+- **단계별 프롬프트 생성**: PRD 기반 개발 가이드라인
+- **API 설계 문서**: OpenAPI/Swagger 스펙 자동 생성
+- **코드 스캐폴딩**: 기본 프로젝트 구조 자동 생성
+
+**추천 구현 방안**:
+```typescript
+// 개발 문서 생성 서비스
+interface DevelopmentDocGenerator {
+  generatePRD(analysis: AnalysisData): PRDocument
+  generateTRD(prd: PRDocument, techStack: TechStack): TRDocument  
+  generatePrompts(prd: PRDocument): DevelopmentPrompts[]
+  generateAPISpec(requirements: Requirements[]): OpenAPISpec
+  scaffoldProject(spec: ProjectSpec): ProjectStructure
+}
+```
+
+### 🎯 통합 워크플로우
+
+```mermaid
+graph LR
+    A[분석 데이터 선택] --> B{소스 선택}
+    B --> C[RFP 자동화]
+    B --> D[제안 진행]
+    B --> E[구축 관리]
+    B --> F[운영 관리]
+    
+    C --> G[통합 분석 데이터]
+    D --> G
+    E --> G
+    F --> G
+    
+    G --> H[디자인 영역]
+    G --> I[퍼블리싱 영역]
+    G --> J[개발 영역]
+    
+    H --> K[Figma 디자인 시스템]
+    I --> L[컴포넌트 라이브러리]
+    J --> M[PRD/TRD/API 문서]
+```
+
+### 📊 예상 효과 및 KPI
+
+1. **개발 속도 향상**: 분석→디자인→퍼블리싱→개발 자동화로 50% 시간 단축
+2. **일관성 확보**: 단일 분석 소스 기반 전체 프로세스 진행
+3. **재사용성 증대**: 컴포넌트 및 문서 템플릿 재활용
+4. **협업 효율화**: 팀 간 명확한 산출물 공유
+
+### 🔧 기술 스택 권장사항
+
+- **디자인**: Figma API, Design Tokens, Style Dictionary
+- **퍼블리싱**: Storybook, Bit, Tailwind CSS, Shadcn UI
+- **개발**: OpenAPI Generator, Plop.js, Yeoman
+- **AI 활용**: Claude/GPT API for 문서 생성 및 코드 생성
+
+### ⚡ 구현 우선순위
+
+1. **Phase 1**: 분석 데이터 통합 테이블 및 선택 UI
+2. **Phase 2**: 개발 영역 (PRD/TRD 생성) - 가장 즉시 효과적
+3. **Phase 3**: 디자인 시스템 생성 (Figma 연동)
+4. **Phase 4**: 퍼블리싱 컴포넌트 자동화
+
+### 📝 추가 고려사항
+
+- **버전 관리**: 모든 생성물에 대한 버전 트래킹
+- **롤백 기능**: 이전 버전으로 복원 가능
+- **협업 기능**: 실시간 공동 편집 및 코멘트
+- **권한 관리**: 역할별 접근 권한 설정
+- **알림 시스템**: 변경사항 실시간 알림
+
+**⚠️ 중요: 이 시스템은 전체 프로젝트의 핵심 아키텍처이므로, 모든 개발 시 이 설계를 기준으로 진행해야 함**
+
+## 🔵 MCP (Model Context Protocol) 기반 Claude API 연동 시스템 (2025-09-04)
+
+### 개요
+Claude API 연동 시 MCP를 활용하여 더 강력하고 확장 가능한 AI 기능을 구현합니다. Admin 영역에서 MCP 서버를 등록/관리하고, API 호출 시 필요한 MCP를 선택적으로 활용할 수 있는 시스템을 구축합니다.
+
+### MCP 통합 아키텍처
+
+#### 1. MCP 서버 관리 시스템
+**Admin 경로**: `/dashboard/admin/mcp-servers`
+
+**DB 테이블 설계**:
+```sql
+-- MCP 서버 정보 테이블
+mcp_servers: {
+  id: uuid,
+  name: varchar(255),
+  server_type: enum('supabase', 'github', 'playwright', 'context7', 'custom'),
+  connection_config: jsonb, -- 연결 설정 (URL, credentials 등)
+  capabilities: jsonb, -- 서버가 제공하는 기능 목록
+  is_active: boolean,
+  organization_id: uuid,
+  created_at: timestamp,
+  updated_at: timestamp
+}
+
+-- MCP 사용 권한 테이블
+mcp_permissions: {
+  id: uuid,
+  mcp_server_id: uuid,
+  user_role: varchar(50),
+  can_read: boolean,
+  can_write: boolean,
+  can_execute: boolean,
+  created_at: timestamp
+}
+
+-- MCP 실행 로그 테이블
+mcp_execution_logs: {
+  id: uuid,
+  mcp_server_id: uuid,
+  user_id: uuid,
+  action: varchar(255),
+  input_params: jsonb,
+  output_result: jsonb,
+  execution_time_ms: integer,
+  status: enum('success', 'failed', 'timeout'),
+  created_at: timestamp
+}
+
+-- AI 모델과 MCP 연동 설정
+ai_mcp_integrations: {
+  id: uuid,
+  ai_model_id: uuid,
+  mcp_server_ids: uuid[], -- 사용할 MCP 서버 목록
+  default_enabled: boolean,
+  context_settings: jsonb, -- MCP 컨텍스트 설정
+  created_at: timestamp
+}
+```
+
+#### 2. MCP 서버 타입별 구현
+
+**지원할 MCP 서버 타입**:
+
+1. **Supabase MCP**
+   - 데이터베이스 쿼리 실행
+   - 테이블 스키마 조회
+   - RLS 정책 관리
+   - Edge Functions 배포
+
+2. **GitHub MCP**
+   - 코드 저장소 관리
+   - PR/Issue 생성 및 관리
+   - 코드 검색 및 분석
+   - Git 작업 자동화
+
+3. **Playwright MCP**
+   - 웹 자동화 테스팅
+   - 스크린샷 캡처
+   - E2E 테스트 생성
+   - 웹 크롤링
+
+4. **Context7 MCP**
+   - 문서 검색 및 분석
+   - 라이브러리 문서 조회
+   - 코드 예제 검색
+   - API 레퍼런스 조회
+
+5. **Custom MCP**
+   - 사용자 정의 MCP 서버
+   - 커스텀 API 연동
+   - 외부 서비스 통합
+
+#### 3. Admin 관리 기능
+
+**MCP 서버 관리 UI 컴포넌트**:
+```typescript
+// MCP 서버 관리 인터페이스
+interface MCPServerManager {
+  // 서버 등록/수정/삭제
+  registerServer(config: MCPServerConfig): Promise<MCPServer>
+  updateServer(id: string, config: Partial<MCPServerConfig>): Promise<MCPServer>
+  deleteServer(id: string): Promise<void>
+  
+  // 연결 테스트
+  testConnection(serverId: string): Promise<ConnectionTestResult>
+  
+  // 권한 관리
+  setPermissions(serverId: string, permissions: MCPPermissions): Promise<void>
+  
+  // 사용량 모니터링
+  getUsageStats(serverId: string, period: DateRange): Promise<UsageStats>
+}
+```
+
+**Admin UI 기능**:
+- MCP 서버 목록 관리 (추가/수정/삭제)
+- 연결 설정 및 인증 정보 관리
+- 실시간 연결 상태 모니터링
+- 사용 권한 설정 (역할별)
+- 실행 로그 및 통계 대시보드
+- API 키 및 토큰 암호화 관리
+
+#### 4. API 연동 시 MCP 선택 시스템
+
+**MCP 선택 UI 컴포넌트**:
+```typescript
+// API 호출 시 MCP 선택 인터페이스
+interface MCPSelector {
+  // 사용 가능한 MCP 서버 목록 조회
+  getAvailableServers(): Promise<MCPServer[]>
+  
+  // 태스크에 적합한 MCP 자동 추천
+  recommendServers(task: TaskType): Promise<MCPServer[]>
+  
+  // 선택된 MCP로 컨텍스트 구성
+  buildContext(selectedServers: MCPServer[]): Promise<MCPContext>
+  
+  // MCP 기능 실행
+  executeFunction(server: MCPServer, func: string, params: any): Promise<any>
+}
+```
+
+**사용자 워크플로우**:
+1. AI 기능 사용 시 MCP 선택 UI 표시
+2. 필요한 MCP 서버 선택 (복수 선택 가능)
+3. 선택된 MCP의 기능이 AI 컨텍스트에 포함
+4. AI가 MCP 기능을 활용하여 작업 수행
+
+#### 5. MCP 활용 예시
+
+**예시 1: 데이터베이스 스키마 기반 코드 생성**
+```typescript
+// Supabase MCP를 활용한 CRUD 코드 자동 생성
+const generateCRUD = async (tableName: string) => {
+  // 1. Supabase MCP로 테이블 스키마 조회
+  const schema = await mcpExecute('supabase', 'getTableSchema', { table: tableName })
+  
+  // 2. Claude API에 스키마 정보와 함께 요청
+  const code = await claudeAPI.generate({
+    prompt: "Generate TypeScript CRUD functions",
+    context: { schema },
+    mcp: ['supabase']
+  })
+  
+  return code
+}
+```
+
+**예시 2: GitHub 이슈 기반 개발 작업**
+```typescript
+// GitHub MCP를 활용한 이슈 분석 및 코드 생성
+const implementFeature = async (issueNumber: number) => {
+  // 1. GitHub MCP로 이슈 정보 조회
+  const issue = await mcpExecute('github', 'getIssue', { number: issueNumber })
+  
+  // 2. Context7 MCP로 관련 문서 검색
+  const docs = await mcpExecute('context7', 'searchDocs', { query: issue.title })
+  
+  // 3. Claude API로 구현 코드 생성
+  const implementation = await claudeAPI.generate({
+    prompt: "Implement the feature described in the issue",
+    context: { issue, docs },
+    mcp: ['github', 'context7']
+  })
+  
+  // 4. GitHub MCP로 PR 생성
+  await mcpExecute('github', 'createPR', {
+    title: `Implement: ${issue.title}`,
+    body: implementation.description,
+    files: implementation.files
+  })
+}
+```
+
+#### 6. 보안 및 권한 관리
+
+**보안 정책**:
+- MCP 서버 자격 증명 암호화 저장
+- 역할 기반 접근 제어 (RBAC)
+- API 호출 레이트 리미팅
+- 감사 로그 자동 생성
+- 민감 데이터 마스킹
+
+**권한 레벨**:
+1. **Admin**: 모든 MCP 서버 관리
+2. **Developer**: 승인된 MCP 사용
+3. **Viewer**: MCP 실행 로그 조회만 가능
+
+#### 7. 모니터링 및 분석
+
+**대시보드 메트릭**:
+- MCP 서버별 사용량 통계
+- 응답 시간 및 성공률
+- 오류 발생 패턴 분석
+- 비용 추적 (API 호출 비용)
+- 사용자별 활용도 분석
+
+### 구현 로드맵
+
+**Phase 1: 기본 인프라 구축**
+- DB 테이블 생성
+- Admin UI 기본 구조
+- MCP 서버 등록/관리 기능
+
+**Phase 2: 핵심 MCP 통합**
+- Supabase MCP 연동
+- GitHub MCP 연동
+- 기본 권한 시스템
+
+**Phase 3: 고급 기능**
+- Context7, Playwright MCP 추가
+- 자동 추천 시스템
+- 고급 모니터링 대시보드
+
+**Phase 4: 최적화 및 확장**
+- Custom MCP 지원
+- 성능 최적화
+- 고급 보안 기능
+
+### 기대 효과
+
+1. **생산성 향상**: AI가 실제 시스템과 직접 상호작용
+2. **정확도 개선**: 실시간 데이터 기반 AI 응답
+3. **자동화 확대**: 복잡한 워크플로우 자동 실행
+4. **비용 절감**: 효율적인 리소스 활용
+5. **확장성**: 새로운 MCP 서버 쉽게 추가 가능
+
+**⚠️ 중요: MCP 통합은 AI 기능의 핵심 확장 포인트이므로, 초기 설계부터 확장성과 보안을 고려하여 구현해야 함**
+
+## 🔐 포괄적인 회원 등급 및 권한 관리 시스템 (2025-09-04)
+
+### 개요
+현재 개발된 시스템을 기반으로 10단계 회원 등급 시스템을 구축하고, 등급별 API 사용량 제한, 프로젝트 접근 권한 관리를 통합적으로 개선합니다.
+
+### 현재 구현 상태 분석
+
+#### 기존 시스템 현황
+```sql
+-- 현재 users 테이블 구조
+users: {
+  id, email, name, avatar_url,
+  role: varchar, -- 기존 역할 필드
+  user_role: text, -- 중복된 역할 필드
+  subscription_tier: text, -- 구독 등급
+  is_super_admin: boolean, -- 최고관리자 플래그
+  organization_id: uuid,
+  created_at, updated_at
+}
+
+-- 현재 project_members 테이블 구조  
+project_members: {
+  id, project_id, user_id,
+  role: text, -- 프로젝트 내 역할
+  permissions: jsonb, -- 권한 설정
+  joined_at, created_at
+}
+```
+
+#### 현재 시스템의 문제점
+1. **역할 필드 중복**: `role`과 `user_role` 중복 존재
+2. **등급 체계 부재**: 10단계 등급 시스템 미구현
+3. **API 사용량 제한 없음**: 무제한 API 호출 가능
+4. **권한 체계 모호**: 세분화된 권한 관리 부재
+5. **프로젝트 접근 제한 미흡**: 소유자/멤버 구분 불명확
+
+### 개선된 회원 등급 시스템
+
+#### 1. 10단계 회원 등급 정의
+
+**등급별 권한 및 API 제한**:
+```typescript
+enum UserTier {
+  GUEST = 0,     // 게스트: API 10회/일
+  STARTER = 1,   // 스타터: API 50회/일  
+  BASIC = 2,     // 베이직: API 100회/일
+  STANDARD = 3,  // 스탠다드: API 300회/일
+  PROFESSIONAL = 4, // 프로페셔널: API 500회/일
+  BUSINESS = 5,  // 비즈니스: API 1000회/일
+  ENTERPRISE = 6, // 엔터프라이즈: API 2000회/일
+  PREMIUM = 7,   // 프리미엄: API 5000회/일
+  VIP = 8,       // VIP: API 10000회/일
+  ADMIN = 9      // 관리자: API 무제한
+}
+```
+
+#### 2. 개선된 DB 테이블 설계
+
+**users 테이블 개선**:
+```sql
+-- 기존 필드 정리 및 새 필드 추가
+ALTER TABLE users 
+DROP COLUMN user_role, -- 중복 제거
+ADD COLUMN user_tier INTEGER DEFAULT 0 CHECK (user_tier >= 0 AND user_tier <= 9),
+ADD COLUMN daily_api_limit INTEGER DEFAULT 10,
+ADD COLUMN daily_api_used INTEGER DEFAULT 0,
+ADD COLUMN api_reset_date DATE DEFAULT CURRENT_DATE,
+ADD COLUMN is_active BOOLEAN DEFAULT true,
+ADD COLUMN tier_upgraded_at TIMESTAMP WITH TIME ZONE;
+
+-- 인덱스 추가
+CREATE INDEX idx_users_tier ON users(user_tier);
+CREATE INDEX idx_users_api_usage ON users(daily_api_used, api_reset_date);
+```
+
+**새로운 API 사용량 추적 테이블**:
+```sql
+-- API 사용량 상세 로그 (기존 ai_model_usage_logs 확장)
+CREATE TABLE api_usage_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  api_type VARCHAR(50), -- 'claude', 'openai', 'rfp_analysis' 등
+  endpoint VARCHAR(255),
+  tokens_used INTEGER,
+  cost_usd DECIMAL(10,6),
+  request_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  response_time_ms INTEGER,
+  status VARCHAR(20), -- 'success', 'failed', 'rate_limited'
+  ip_address INET,
+  user_tier INTEGER, -- 요청 시점의 사용자 등급
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_api_usage_user_date ON api_usage_logs(user_id, DATE(created_at));
+CREATE INDEX idx_api_usage_type ON api_usage_logs(api_type, created_at);
+```
+
+**사용자 등급 이력 테이블**:
+```sql
+CREATE TABLE user_tier_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  old_tier INTEGER,
+  new_tier INTEGER,
+  changed_by UUID REFERENCES users(id),
+  change_reason TEXT,
+  effective_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### 3. 프로젝트 접근 권한 강화
+
+**project_members 테이블 개선**:
+```sql
+-- 현재 테이블에 필드 추가
+ALTER TABLE project_members 
+ADD COLUMN access_level INTEGER DEFAULT 1 CHECK (access_level >= 0 AND access_level <= 3),
+ADD COLUMN can_invite_members BOOLEAN DEFAULT false,
+ADD COLUMN can_modify_settings BOOLEAN DEFAULT false,
+ADD COLUMN expires_at TIMESTAMP WITH TIME ZONE;
+
+-- 접근 레벨 정의:
+-- 0: VIEW_ONLY (읽기 전용)
+-- 1: MEMBER (기본 멤버)  
+-- 2: MANAGER (관리자)
+-- 3: OWNER (소유자)
+```
+
+**RFP 분석 접근 권한 테이블**:
+```sql
+CREATE TABLE rfp_analysis_permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rfp_analysis_id UUID REFERENCES rfp_analyses(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  permission_type VARCHAR(20) CHECK (permission_type IN ('owner', 'editor', 'viewer')),
+  granted_by UUID REFERENCES users(id),
+  granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(rfp_analysis_id, user_id)
+);
+```
+
+### 구현해야 할 핵심 기능
+
+#### 1. 등급별 API 제한 미들웨어
+```typescript
+// API 호출 전 등급별 제한 검사
+interface APIRateLimiter {
+  checkDailyLimit(userId: string): Promise<boolean>
+  incrementUsage(userId: string, apiType: string, tokens: number): Promise<void>
+  resetDailyCounters(): Promise<void> // 매일 자정 실행
+  getTierLimits(tier: number): APILimits
+}
+
+interface APILimits {
+  dailyRequests: number
+  maxTokensPerRequest: number
+  concurrentRequests: number
+  premiumFeatures: string[]
+}
+```
+
+#### 2. 권한 검사 시스템
+```typescript
+// 프로젝트 접근 권한 검사
+interface PermissionChecker {
+  canAccessProject(userId: string, projectId: string): Promise<boolean>
+  canAccessRFPAnalysis(userId: string, rfpId: string): Promise<boolean>
+  hasAdminAccess(userId: string): Promise<boolean>
+  getUserPermissions(userId: string): Promise<UserPermissions>
+}
+
+interface UserPermissions {
+  tier: UserTier
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  dailyAPILimit: number
+  dailyAPIUsed: number
+  canCreateProjects: boolean
+  canInviteUsers: boolean
+  canAccessFeatures: string[]
+}
+```
+
+#### 3. Admin 등급 관리 UI
+```typescript
+// Admin 페이지에서 사용자 등급 관리
+interface UserTierManager {
+  listUsers(filters: UserFilters): Promise<User[]>
+  updateUserTier(userId: string, newTier: number, reason: string): Promise<void>
+  bulkUpdateTiers(userIds: string[], newTier: number): Promise<void>
+  getUserUsageStats(userId: string, period: DateRange): Promise<UsageStats>
+  exportUsageReport(filters: ReportFilters): Promise<string>
+}
+```
+
+### 현재 코드에서 수정 필요한 부분
+
+#### 1. 인증 미들웨어 업데이트
+**파일**: `src/lib/supabase/middleware.ts`
+- 사용자 등급 확인 로직 추가
+- API 호출량 체크 로직 삽입
+
+#### 2. 프로젝트 접근 제어 강화
+**파일**: `src/components/projects/ProjectCard.tsx`
+- 프로젝트 소유자/멤버 구분 UI
+- 접근 권한별 기능 제한
+
+#### 3. RFP 분석 권한 관리
+**파일**: `src/app/dashboard/rfp-analyses/[id]/page.tsx`
+- RFP 분석 소유자/공유자 확인
+- 권한별 편집 가능 여부 제어
+
+#### 4. API 라우트 권한 검사
+**모든 API 라우트**:
+- 등급별 API 호출 제한 적용
+- 사용량 로깅 추가
+- 최고관리자 예외 처리
+
+### 마이그레이션 계획
+
+#### Phase 1: DB 스키마 업데이트 (1주)
+```sql
+-- 1. 기존 테이블 정리
+-- 2. 새 필드 추가  
+-- 3. 새 테이블 생성
+-- 4. 인덱스 생성
+-- 5. 기본 데이터 마이그레이션
+```
+
+#### Phase 2: 백엔드 로직 구현 (2주)
+- API 제한 미들웨어
+- 권한 검사 시스템
+- 사용량 추적 로직
+
+#### Phase 3: 프론트엔드 업데이트 (2주)
+- Admin 등급 관리 UI
+- 사용자 대시보드 사용량 표시
+- 권한별 기능 제한 UI
+
+#### Phase 4: 테스트 및 배포 (1주)
+- 등급별 시나리오 테스트
+- 성능 테스트
+- 점진적 배포
+
+### 보안 고려사항
+
+1. **등급 조작 방지**: 클라이언트에서 등급 정보 수정 불가
+2. **API 키 보안**: 등급별 다른 API 키 사용
+3. **감사 로그**: 모든 등급 변경 이력 추적
+4. **IP 기반 제한**: 동일 IP에서 과도한 요청 차단
+5. **세션 관리**: 등급 변경 시 기존 세션 갱신
+
+### 모니터링 및 분석
+
+**대시보드 메트릭**:
+- 등급별 사용자 분포
+- API 사용량 추이
+- 등급 업그레이드 패턴
+- 리소스 사용 효율성
+- 수익 분석 (등급별)
+
+### 기대 효과
+
+1. **수익 모델 구축**: 등급별 차등 서비스로 수익화
+2. **리소스 최적화**: API 사용량 제한으로 비용 절감
+3. **사용자 관리**: 체계적인 권한 관리 시스템
+4. **보안 강화**: 세분화된 접근 제어
+5. **확장성**: 새로운 등급과 권한 쉽게 추가
+
+**⚠️ 중요: 이 시스템은 기존 사용자 경험을 해치지 않으면서 점진적으로 도입해야 하며, 모든 등급 변경은 사용자에게 명확히 안내되어야 함**
