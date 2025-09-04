@@ -16,10 +16,12 @@ import {
   RefreshCw,
   CheckCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AnalysisIntegration } from '@/types/analysis-integration'
+import { AnalysisSourceSelector } from './AnalysisSourceSelector'
 
 interface AnalysisIntegrationDashboardProps {
   projectId: string
@@ -30,6 +32,9 @@ export function AnalysisIntegrationDashboard({ projectId }: AnalysisIntegrationD
   const [integrations, setIntegrations] = useState<AnalysisIntegration[]>([])
   const [loading, setLoading] = useState(true)
   const [processingIntegrations, setProcessingIntegrations] = useState<Set<string>>(new Set())
+  const [showSourceSelector, setShowSourceSelector] = useState(false)
+  const [selectedSources, setSelectedSources] = useState<any[]>([])
+  const [creatingIntegration, setCreatingIntegration] = useState(false)
 
   const loadIntegrations = useCallback(async () => {
     try {
@@ -55,6 +60,54 @@ export function AnalysisIntegrationDashboard({ projectId }: AnalysisIntegrationD
       loadIntegrations()
     }
   }, [projectId, loadIntegrations])
+
+  const createIntegrationFromSources = async () => {
+    if (selectedSources.length === 0) {
+      toast.error('분석 소스를 먼저 선택해주세요.')
+      return
+    }
+
+    try {
+      setCreatingIntegration(true)
+
+      const response = await fetch('/api/analysis-integration/create-from-sources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          sources: selectedSources.map(source => ({
+            id: source.id,
+            type: source.type
+          })),
+          auto_process: false,
+          options: {
+            include_design_system: true,
+            include_publishing_components: true,
+            include_development_docs: true,
+            ai_enhancement: true
+          }
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success(`${selectedSources.length}개 소스로부터 통합이 생성되었습니다.`)
+        setShowSourceSelector(false)
+        setSelectedSources([])
+        loadIntegrations()
+      } else {
+        toast.error(result.error || '통합 생성에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Create integration from sources error:', error)
+      toast.error('통합 생성 중 오류가 발생했습니다.')
+    } finally {
+      setCreatingIntegration(false)
+    }
+  }
 
   const createIntegration = async () => {
     try {
@@ -194,11 +247,69 @@ export function AnalysisIntegrationDashboard({ projectId }: AnalysisIntegrationD
             RFP 분석, 시장 조사, 페르소나를 통합하여 디자인/퍼블리싱/개발 단계로 연동합니다.
           </p>
         </div>
-        <Button onClick={createIntegration}>
-          <GitBranch className="h-4 w-4 mr-2" />
-          새 통합 생성
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setShowSourceSelector(!showSourceSelector)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            소스 선택하여 생성
+          </Button>
+          <Button onClick={createIntegration}>
+            <GitBranch className="h-4 w-4 mr-2" />
+            자동 통합 생성
+          </Button>
+        </div>
       </div>
+
+      {/* 소스 선택기 */}
+      {showSourceSelector && (
+        <div className="space-y-4">
+          <AnalysisSourceSelector
+            projectId={projectId}
+            onSourceSelected={setSelectedSources}
+            selectedSources={selectedSources}
+            maxSelection={4}
+          />
+          
+          {selectedSources.length > 0 && (
+            <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <p className="font-medium text-blue-900">
+                  {selectedSources.length}개의 분석 소스가 선택되었습니다
+                </p>
+                <p className="text-sm text-blue-700">
+                  선택된 소스: {selectedSources.map(s => s.title).join(', ')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedSources([])
+                    setShowSourceSelector(false)
+                  }}
+                >
+                  취소
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={createIntegrationFromSources}
+                  disabled={creatingIntegration}
+                >
+                  {creatingIntegration ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <GitBranch className="h-4 w-4 mr-2" />
+                  )}
+                  통합 생성
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 통합 목록 */}
       {integrations.length === 0 ? (
