@@ -74,7 +74,8 @@
       "WebFetch(domain:ea-plan-new-02.vercel.app)",
       "mcp__playwright-stealth__playwright_close",
       "Bash(npm uninstall:*)",
-      "mcp__playwright-stealth__playwright_post"
+      "mcp__playwright-stealth__playwright_post",
+      "Read(\\/**)"
     ],
     "deny": [],
     "ask": []

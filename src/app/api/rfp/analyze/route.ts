@@ -217,6 +217,37 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     )
 
+    // RFP 분석 완료 후 자동으로 분석 데이터 통합 생성 (백그라운드에서 실행)
+    if (analysisData?.id && rfpDocument?.project_id) {
+      try {
+        console.log('RFP Analysis: Creating analysis integration...', {
+          rfp_analysis_id: analysisData.id,
+          project_id: rfpDocument.project_id
+        })
+        
+        // 분석 데이터 통합 자동 생성 (비동기로 실행하여 응답 지연 방지)
+        setImmediate(async () => {
+          try {
+            const { analysisIntegrationService } = await import('@/services/analysis-integration/integration-service')
+            
+            await analysisIntegrationService.createIntegration({
+              project_id: rfpDocument.project_id,
+              rfp_analysis_id: analysisData.id,
+              auto_process: false // 수동 처리로 설정 (사용자가 원할 때 처리)
+            })
+            
+            console.log('✅ Analysis integration created successfully')
+          } catch (integrationError) {
+            console.error('❌ Failed to create analysis integration:', integrationError)
+            // 통합 생성 실패해도 RFP 분석은 성공으로 처리
+          }
+        })
+      } catch (error) {
+        console.error('❌ Analysis integration setup error:', error)
+        // 에러가 발생해도 RFP 분석 결과는 반환
+      }
+    }
+
     return NextResponse.json(response)
 
   } catch (error) {
