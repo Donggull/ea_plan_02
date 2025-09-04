@@ -137,7 +137,7 @@ export function UserTierManager() {
 
   useEffect(() => {
     fetchUsers()
-  }, [])
+  }, [fetchUsers])
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">로딩 중...</div>

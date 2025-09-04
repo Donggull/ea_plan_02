@@ -150,7 +150,7 @@ export default function RFPAnalysisDetailPage() {
     if (user && analysisId) {
       loadAnalysisData()
     }
-  }, [user, analysisId])
+  }, [user, analysisId, loadAnalysisData])
 
   // 날짜 포맷팅
   const formatDate = (dateString: string) => {

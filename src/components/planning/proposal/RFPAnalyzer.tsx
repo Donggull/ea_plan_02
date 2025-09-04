@@ -102,7 +102,7 @@ export function RFPAnalyzer({
     } else {
       return handleStandardAnalysis()
     }
-  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError, selectedModel, useStreamingMode])
+  }, [rfpDocumentId, onAnalysisComplete, onAnalysisError, selectedModel, useStreamingMode, handleStandardAnalysis, handleStreamingAnalysis])
 
   const handleStreamingAnalysis = async () => {
     try {

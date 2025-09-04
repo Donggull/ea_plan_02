@@ -25,7 +25,7 @@ const supabaseAdmin = createClient(
 )
 
 // 관리자 권한 확인 함수
-async function checkAdminPermission(request: NextRequest) {
+async function checkAdminPermission(_request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies })
     const { data: { session }, error } = await supabase.auth.getSession()

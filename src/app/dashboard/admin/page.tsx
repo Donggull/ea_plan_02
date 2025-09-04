@@ -6,7 +6,6 @@ import {
   Workflow, 
   Bot, 
   Users, 
-  Activity,
   Database,
   Shield,
   ArrowRight,
@@ -17,7 +16,7 @@ import {
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { checkAdminAccess } from '@/hooks/useMenuNavigation'
 import { useAuthStore } from '@/stores/auth-store'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface AdminStats {
   total_projects: number
@@ -285,7 +284,7 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center space-x-3 text-sm">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-gray-600 dark:text-gray-400">새로운 AI 모델 "Claude Sonnet 4"가 추가되었습니다</span>
+                <span className="text-gray-600 dark:text-gray-400">새로운 AI 모델 &ldquo;Claude Sonnet 4&rdquo;가 추가되었습니다</span>
                 <span className="text-gray-500 text-xs">5시간 전</span>
               </div>
               <div className="flex items-center space-x-3 text-sm">

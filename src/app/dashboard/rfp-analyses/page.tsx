@@ -141,7 +141,7 @@ export default function RFPAnalysesPage() {
     if (user) {
       loadAnalyses(1)
     }
-  }, [user, statusFilter, sortBy, sortOrder])
+  }, [user, statusFilter, sortBy, sortOrder, loadAnalyses])
 
   // 페이지 변경
   const handlePageChange = (page: number) => {
