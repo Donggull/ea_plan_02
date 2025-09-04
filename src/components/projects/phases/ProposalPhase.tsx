@@ -14,6 +14,7 @@ import MarketResearchDashboard from '@/components/market-research/MarketResearch
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
 import RFPAnalysisViewer from './RFPAnalysisViewer'
+import { AnalysisIntegrationDashboard } from '@/components/analysis-integration/AnalysisIntegrationDashboard'
 import { 
   FileText, 
   Plus, 
@@ -38,7 +39,7 @@ interface ProposalPhaseProps {
 }
 
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
-  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'rfp_analysis' | 'market_research' | 'persona' | 'proposal_writing'>('rfp')
+  const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'rfp_analysis' | 'market_research' | 'persona' | 'proposal_writing' | 'integration'>('rfp')
   const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
   const [_personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
@@ -269,6 +270,22 @@ disabled={false}
                   구축준비
                 </span>
               )}
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('integration')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'integration'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              데이터 통합
+              <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">
+                New
+              </span>
             </div>
           </button>
         </nav>
@@ -606,6 +623,13 @@ disabled={false}
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* 데이터 통합 탭 */}
+      {activeTab === 'integration' && (
+        <div className="space-y-6">
+          <AnalysisIntegrationDashboard projectId={projectId} />
         </div>
       )}
     </div>

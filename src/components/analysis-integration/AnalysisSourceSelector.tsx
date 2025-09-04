@@ -51,23 +51,35 @@ export function AnalysisSourceSelector({
 
       // RFP 분석 데이터 조회
       try {
-        const rfpResponse = await fetch(`/api/rfp/analyze?project_id=${projectId}`)
+        const rfpResponse = await fetch(`/api/rfp-analyses?project_id=${projectId}`)
         if (rfpResponse.ok) {
           const rfpResult = await rfpResponse.json()
           if (rfpResult.success && rfpResult.data && rfpResult.data.length > 0) {
             rfpResult.data.forEach((analysis: any) => {
+              const projectTitle = analysis.project_overview?.title || 
+                                 analysis.project_overview?.project_name || 
+                                 '제목 없음'
+              const functionalReqs = Array.isArray(analysis.functional_requirements) 
+                ? analysis.functional_requirements.length 
+                : 0
+              const nonFunctionalReqs = Array.isArray(analysis.non_functional_requirements)
+                ? analysis.non_functional_requirements.length
+                : 0
+              
               allSources.push({
                 id: analysis.id,
                 type: 'rfp_analysis',
-                title: `RFP 분석 - ${analysis.project_overview?.title || '제목 없음'}`,
-                description: `${analysis.functional_requirements?.length || 0}개 기능 요구사항, ${analysis.non_functional_requirements?.length || 0}개 비기능 요구사항`,
+                title: `RFP 분석 - ${projectTitle}`,
+                description: `${functionalReqs}개 기능 요구사항, ${nonFunctionalReqs}개 비기능 요구사항`,
                 createdAt: analysis.created_at,
+                status: analysis.analysis_status || 'completed',
                 confidenceScore: analysis.confidence_score,
                 dataPreview: {
-                  projectTitle: analysis.project_overview?.title,
-                  functionalReqs: analysis.functional_requirements?.length || 0,
-                  nonFunctionalReqs: analysis.non_functional_requirements?.length || 0,
-                  technicalSpecs: analysis.technical_specifications ? 'Available' : 'N/A'
+                  projectTitle: projectTitle,
+                  functionalReqs: functionalReqs,
+                  nonFunctionalReqs: nonFunctionalReqs,
+                  technicalSpecs: analysis.technical_specifications ? 'Available' : 'N/A',
+                  rfpDocument: analysis.rfp_documents?.[0]?.title || 'RFP 문서'
                 }
               })
             })
