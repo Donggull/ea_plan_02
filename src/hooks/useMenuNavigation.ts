@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
+import { useAuthStore } from '@/stores/auth-store'
 
 export interface MenuItem {
   id: string
@@ -69,28 +70,56 @@ export const menuStructure: MenuSection[] = [
   {
     section: '⚡ 관리자',
     items: [
+      { id: 'admin-dashboard', label: '관리자 대시보드', href: '/dashboard/admin', icon: 'Shield' },
       { id: 'workflow-management', label: '워크플로우 관리', href: '/dashboard/admin/workflow', icon: 'GitBranch' },
-      { id: 'mcp-management', label: 'MCP 관리', href: '/dashboard/admin/mcp', icon: 'Zap' },
       { id: 'ai-models', label: 'AI 모델 관리', href: '/dashboard/admin/ai-models', icon: 'Brain' },
-      { id: 'user-management', label: '회원 관리', href: '/dashboard/admin/user-management', icon: 'UserCog' }
+      { id: 'user-management', label: '회원 관리', href: '/dashboard/admin/user-management', icon: 'UserCog' },
+      { id: 'mcp-management', label: 'MCP 관리', href: '/dashboard/admin/mcp', icon: 'Zap' }
     ]
   }
 ]
 
+// 관리자 권한을 확인하는 유틸리티 함수
+export const checkAdminAccess = (user: any): boolean => {
+  if (!user) return false
+  
+  // owner, admin 또는 super_admin 권한 확인
+  const isOwner = user.role === 'owner'
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin'  
+  const hasAdminUserRole = user.user_role === 'admin' || user.user_role === 'super_admin'
+  const hasAdminTier = user.user_tier >= 9 // 9: ADMIN, 10: SUPER_ADMIN
+  
+  return isOwner || isAdmin || hasAdminUserRole || hasAdminTier
+}
+
 export function useMenuNavigation() {
   const pathname = usePathname()
+  const { user } = useAuthStore()
+  
+  // 관리자 권한에 따라 메뉴 구조를 필터링
+  const filteredMenuStructure = useMemo(() => {
+    const hasAdminAccess = checkAdminAccess(user)
+    
+    return menuStructure.filter(section => {
+      // 관리자 섹션인 경우 권한 확인
+      if (section.section === '⚡ 관리자') {
+        return hasAdminAccess
+      }
+      return true
+    })
+  }, [user])
   
   const activeMenuItem = useMemo(() => {
-    return menuStructure
+    return filteredMenuStructure
       .flatMap(section => section.items)
       .find(item => pathname.startsWith(item.href))
-  }, [pathname])
+  }, [pathname, filteredMenuStructure])
 
   const activeSection = useMemo(() => {
-    return menuStructure.find(section => 
+    return filteredMenuStructure.find(section => 
       section.items.some(item => pathname.startsWith(item.href))
     )?.section
-  }, [pathname])
+  }, [pathname, filteredMenuStructure])
 
   const breadcrumbs = useMemo(() => {
     const pathSegments = pathname.split('/').filter(Boolean)
@@ -159,9 +188,10 @@ export function useMenuNavigation() {
   }, [pathname])
 
   return {
-    menuStructure,
+    menuStructure: filteredMenuStructure,
     activeMenuItem,
     activeSection,
-    breadcrumbs
+    breadcrumbs,
+    hasAdminAccess: checkAdminAccess(user)
   }
 }
