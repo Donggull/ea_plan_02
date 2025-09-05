@@ -189,11 +189,22 @@ export async function POST(request: NextRequest) {
 
     // 질문 생성이 요청된 경우
     let generatedQuestions = undefined
+    let followUpQuestions: any[] = []
+    
     if (analysis_options?.include_questions) {
       try {
+        // 기존 질문 생성
         const questionResultWithUsage = await generateAnalysisQuestions(analysisData.id, analysis_options, selected_model_id)
         generatedQuestions = questionResultWithUsage.questions || questionResultWithUsage
         totalTokensUsed += questionResultWithUsage.tokensUsed || 0
+        
+        // 시장 조사를 위한 후속 질문 자동 생성
+        const { RFPQuestionGenerator } = await import('@/lib/analysis/RFPQuestionGenerator')
+        const questionGenerator = new RFPQuestionGenerator()
+        followUpQuestions = await questionGenerator.generateMarketResearchQuestions(analysisData as any)
+        
+        console.log('RFP Analysis: Generated follow-up questions:', followUpQuestions.length)
+        
       } catch (error) {
         console.error('Question generation error:', error)
         // 질문 생성 실패는 전체 분석을 실패시키지 않음
@@ -201,7 +212,10 @@ export async function POST(request: NextRequest) {
     }
 
     const response: RFPAnalysisResponse = {
-      analysis: analysisData as any,
+      analysis: {
+        ...analysisData,
+        follow_up_questions: followUpQuestions
+      } as any,
       questions: generatedQuestions as any,
       estimated_duration: Math.ceil((rfpDocument.file_size || 1024) / (1024 * 100)) // 대략적인 추정
     }

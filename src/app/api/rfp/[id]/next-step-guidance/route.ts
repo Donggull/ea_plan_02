@@ -48,8 +48,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const response: NextStepGuidanceResponse = {
       guidance: {
-        ...guidance,
-        rfp_analysis_id: guidance.rfp_analysis_id || id
+        research_scope: guidance.research_scope || '기본 조사',
+        priority_areas: Array.isArray(guidance.priority_areas) 
+          ? guidance.priority_areas 
+          : (guidance.priority_areas ? JSON.parse(guidance.priority_areas as string) : []),
+        recommended_tools: Array.isArray(guidance.recommended_tools)
+          ? guidance.recommended_tools
+          : (guidance.recommended_tools ? JSON.parse(guidance.recommended_tools as string) : []),
+        estimated_duration: guidance.estimated_duration?.toString() || '1-2주',
+        next_phase_preparation: '시장 조사를 바탕으로 페르소나 분석 진행'
       } as MarketResearchGuidance,
       recommended_actions: recommendedActions
     }
@@ -154,8 +161,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const response: NextStepGuidanceResponse = {
       guidance: {
-        ...savedGuidance,
-        rfp_analysis_id: savedGuidance.rfp_analysis_id || id
+        research_scope: savedGuidance.research_scope || '기본 조사',
+        priority_areas: Array.isArray(savedGuidance.priority_areas) 
+          ? savedGuidance.priority_areas 
+          : (savedGuidance.priority_areas ? JSON.parse(savedGuidance.priority_areas as string) : []),
+        recommended_tools: Array.isArray(savedGuidance.recommended_tools)
+          ? savedGuidance.recommended_tools
+          : (savedGuidance.recommended_tools ? JSON.parse(savedGuidance.recommended_tools as string) : []),
+        estimated_duration: savedGuidance.estimated_duration?.toString() || '1-2주',
+        next_phase_preparation: '시장 조사를 바탕으로 페르소나 분석 진행'
       } as MarketResearchGuidance,
       recommended_actions: recommendedActions
     }

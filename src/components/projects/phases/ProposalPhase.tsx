@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams as _useParams } from 'next/navigation'
 import { 
   useRfpDocuments, 
@@ -12,7 +12,7 @@ import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
-import ProposalRFPAnalysisResults from './ProposalRFPAnalysisResults'
+import EnhancedRFPAnalysisResults from './EnhancedRFPAnalysisResults'
 import RFPDocumentUpload from './RFPDocumentUpload'
 import { AnalysisIntegrationDashboard } from '@/components/analysis-integration/AnalysisIntegrationDashboard'
 import { AIModelSelector } from '@/components/ai/AIModelSelector'
@@ -44,6 +44,26 @@ interface ProposalPhaseProps {
 
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'rfp_analysis' | 'market_research' | 'persona' | 'proposal_writing' | 'integration'>('rfp')
+
+  // RFP 분석 결과에서 다음 단계로 전환하는 이벤트 리스너
+  useEffect(() => {
+    const handleNextStepTransition = (event: CustomEvent) => {
+      const { nextStep, analysisData } = event.detail
+      console.log('RFP 분석 다음 단계 전환:', nextStep, analysisData)
+      
+      if (nextStep === 'market_research') {
+        setActiveTab('market_research')
+      } else if (nextStep === 'persona_analysis') {
+        setActiveTab('persona')
+      }
+    }
+
+    window.addEventListener('rfp-analysis-next-step', handleNextStepTransition as EventListener)
+
+    return () => {
+      window.removeEventListener('rfp-analysis-next-step', handleNextStepTransition as EventListener)
+    }
+  }, [])
   const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
   const [_personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
@@ -587,7 +607,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       {/* RFP 분석 결과 탭 */}
       {activeTab === 'rfp_analysis' && (
         <div className="space-y-6">
-          <ProposalRFPAnalysisResults projectId={projectId} />
+          <EnhancedRFPAnalysisResults projectId={projectId} />
         </div>
       )}
 

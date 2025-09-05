@@ -56,6 +56,9 @@ export interface RFPAnalysis {
 
   questions_for_client: string[];
   
+  // AI 생성 후속 질문 (시장 조사를 위한)
+  follow_up_questions: AnalysisQuestion[];
+  
   confidence_score: number; // 0-1
   
   created_at: string;
@@ -117,27 +120,11 @@ export interface QuestionResponse {
 }
 
 export interface MarketResearchGuidance {
-  id: string;
-  rfp_analysis_id: string;
   research_scope: string;
-  priority_areas: Array<{
-    area: string;
-    importance: number;
-    rationale: string;
-  }>;
-  recommended_tools: Array<{
-    tool: string;
-    purpose: string;
-    cost_estimate?: string;
-  }>;
-  estimated_duration: number; // in days
-  generated_insights: {
-    key_assumptions: string[];
-    critical_questions: string[];
-    success_factors: string[];
-  };
-  created_at: string;
-  updated_at: string;
+  priority_areas: string[];
+  recommended_tools: string[];
+  estimated_duration: string;
+  next_phase_preparation?: string;
 }
 
 // API 요청/응답 타입
