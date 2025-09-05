@@ -205,7 +205,23 @@ export default function RFPDocumentUpload({
             upsert: false
           })
 
-        if (uploadError) throw uploadError
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError)
+          // Bucket not found 오류인 경우 더 명확한 메시지
+          if (uploadError.message && uploadError.message.includes('Bucket not found')) {
+            throw new Error('파일 저장소 설정에 문제가 있습니다. 관리자에게 문의하세요.')
+          }
+          // 인증 관련 오류
+          if (uploadError.message && uploadError.message.includes('Unauthorized') || uploadError.message && uploadError.message.includes('access_denied')) {
+            throw new Error('파일 업로드 권한이 없습니다. 다시 로그인해주세요.')
+          }
+          // 파일 크기 오류
+          if (uploadError.message && uploadError.message.includes('size')) {
+            throw new Error('파일 크기가 너무 큽니다. 50MB 이하의 파일을 선택해주세요.')
+          }
+          // 기타 오류
+          throw new Error(`파일 업로드 실패: ${uploadError.message}`)
+        }
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 50 }))
 
@@ -251,7 +267,11 @@ export default function RFPDocumentUpload({
 
     } catch (error) {
       console.error('파일 업로드 실패:', error)
-      setError(error instanceof Error ? error.message : '파일 업로드에 실패했습니다.')
+      const errorMessage = error instanceof Error ? error.message : '파일 업로드에 실패했습니다.'
+      setError(errorMessage)
+      
+      // 업로드 진행 상황 초기화
+      setUploadProgress({})
     } finally {
       setUploading(false)
     }
