@@ -37,6 +37,85 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
+  // AI 후속 질문 생성 함수 (첫 번째 - 의존성 없음)
+  const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
+    try {
+      console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
+
+      const response = await fetch('/api/rfp/generate-questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: analysisId,
+          max_questions: 8,
+          categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
+        })
+      })
+
+      if (response.ok) {
+        const { questions } = await response.json()
+        console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
+        
+        setAnalysisData(prev => prev.map(data => 
+          data.analysis.id === analysisId 
+            ? { ...data, follow_up_questions: questions }
+            : data
+        ))
+      } else {
+        console.error('❌ [후속질문-AI] 생성 실패:', response.status)
+      }
+    } catch (error) {
+      console.error('💥 [후속질문-AI] 오류:', error)
+    }
+  }, [setAnalysisData])
+
+  // 후속 질문 로드 함수 (두 번째 - generateAIFollowUpQuestions에 의존)
+  const loadFollowUpQuestions = useCallback(async (analysisId: string) => {
+    try {
+      console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드:', analysisId)
+      
+      // RFP 분석 결과에서 follow_up_questions 필드를 직접 조회
+      const { data: analysis, error } = await supabase
+        .from('rfp_analyses')
+        .select('follow_up_questions')
+        .eq('id', analysisId)
+        .single()
+
+      if (error) {
+        console.error('❌ [후속질문] DB 조회 실패:', error)
+        return
+      }
+
+      const followUpQuestions = (analysis as any)?.follow_up_questions || []
+      console.log('✅ [후속질문] 성공:', {
+        analysisId,
+        questionsCount: followUpQuestions.length,
+        questions: followUpQuestions
+      })
+
+      // 후속 질문이 있으면 상태 업데이트
+      if (followUpQuestions.length > 0) {
+        setAnalysisData(prev => prev.map(data => 
+          data.analysis.id === analysisId 
+            ? { ...data, follow_up_questions: followUpQuestions }
+            : data
+        ))
+      } else {
+        // 후속 질문이 없으면 AI가 자동으로 생성하도록 트리거
+        console.log('🤖 [후속질문] 후속 질문이 없어 AI 자동 생성 시작')
+        await generateAIFollowUpQuestions(analysisId)
+      }
+    } catch (error) {
+      console.error('💥 [후속질문] 전체 오류:', {
+        error: error instanceof Error ? error.message : String(error),
+        analysisId
+      })
+    }
+  }, [generateAIFollowUpQuestions])
+
+  // 분석 결과 조회 함수 (세 번째 - loadFollowUpQuestions에 의존)
   const fetchAnalysisResults = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -81,82 +160,6 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       setIsLoading(false)
     }
   }, [projectId, loadFollowUpQuestions])
-
-  const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
-    try {
-      console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
-
-      const response = await fetch('/api/rfp/generate-questions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          max_questions: 8,
-          categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
-        })
-      })
-
-      if (response.ok) {
-        const { questions } = await response.json()
-        console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
-        
-        setAnalysisData(prev => prev.map(data => 
-          data.analysis.id === analysisId 
-            ? { ...data, follow_up_questions: questions }
-            : data
-        ))
-      } else {
-        console.error('❌ [후속질문-AI] 생성 실패:', response.status)
-      }
-    } catch (error) {
-      console.error('💥 [후속질문-AI] 오류:', error)
-    }
-  }, [setAnalysisData])
-
-  const loadFollowUpQuestions = useCallback(async (analysisId: string) => {
-    try {
-      console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드:', analysisId)
-      
-      // RFP 분석 결과에서 follow_up_questions 필드를 직접 조회
-      const { data: analysis, error } = await supabase
-        .from('rfp_analyses')
-        .select('follow_up_questions')
-        .eq('id', analysisId)
-        .single()
-
-      if (error) {
-        console.error('❌ [후속질문] DB 조회 실패:', error)
-        return
-      }
-
-      const followUpQuestions = (analysis as any)?.follow_up_questions || []
-      console.log('✅ [후속질문] 성공:', {
-        analysisId,
-        questionsCount: followUpQuestions.length,
-        questions: followUpQuestions
-      })
-
-      // 후속 질문이 있으면 상태 업데이트
-      if (followUpQuestions.length > 0) {
-        setAnalysisData(prev => prev.map(data => 
-          data.analysis.id === analysisId 
-            ? { ...data, follow_up_questions: followUpQuestions }
-            : data
-        ))
-      } else {
-        // 후속 질문이 없으면 AI가 자동으로 생성하도록 트리거
-        console.log('🤖 [후속질문] 후속 질문이 없어 AI 자동 생성 시작')
-        await generateAIFollowUpQuestions(analysisId)
-      }
-    } catch (error) {
-      console.error('💥 [후속질문] 전체 오류:', {
-        error: error instanceof Error ? error.message : String(error),
-        analysisId
-      })
-    }
-  }, [generateAIFollowUpQuestions])  // generateAIFollowUpQuestions 의존성 추가
 
   useEffect(() => {
     fetchAnalysisResults()
