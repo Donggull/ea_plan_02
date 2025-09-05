@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   Clock,
   BarChart3,
-  PieChart,
   Lightbulb,
   Shield,
   Zap
@@ -98,11 +97,11 @@ interface AIMarketAnalysisDashboardProps {
 
 export default function AIMarketAnalysisDashboard({
   projectId,
-  rfpAnalysisId,
-  onAnalysisComplete
+  rfpAnalysisId: _rfpAnalysisId,
+  onAnalysisComplete: _onAnalysisComplete
 }: AIMarketAnalysisDashboardProps) {
   const [marketResearch, setMarketResearch] = useState<MarketResearchRecord | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, _setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisHistory, setAnalysisHistory] = useState<MarketResearchRecord[]>([]);
 

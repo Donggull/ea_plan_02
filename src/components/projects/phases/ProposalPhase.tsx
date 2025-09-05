@@ -10,7 +10,6 @@ import {
 import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
-import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
 import AIMarketAnalysisDashboard from '@/components/market-research/AIMarketAnalysisDashboard'
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
@@ -145,7 +144,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     }
   }
 
-  const handleMarketResearchComplete = (research: MarketResearch) => {
+  const _handleMarketResearchComplete = (research: MarketResearch) => {
     setCurrentResearch(research)
     setActiveTab('persona') // 시장 조사 완료 후 페르소나 탭으로 이동
   }

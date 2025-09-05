@@ -47,7 +47,7 @@ export default function ProposalWritingDashboard({
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [aiGenerationInProgress, setAiGenerationInProgress] = useState(false)
-  const [aiProposalData, setAiProposalData] = useState<any>(null)
+  const [_aiProposalData, _setAiProposalData] = useState<any>(null)
   const [proposalType, setProposalType] = useState<'technical' | 'business' | 'hybrid'>('hybrid')
 
   // AI 제안서 자동 생성 함수
@@ -79,7 +79,7 @@ export default function ProposalWritingDashboard({
       const result = await response.json()
       console.log('✅ [제안서] AI 생성 완료:', result)
 
-      setAiProposalData(result.proposal_data)
+      _setAiProposalData(result.proposal_data)
       setCurrentStep('writing')
       
     } catch (error) {

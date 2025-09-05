@@ -80,7 +80,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId])
+  }, [projectId, loadFollowUpQuestions])
 
   const loadFollowUpQuestions = async (analysisId: string) => {
     try {
@@ -98,7 +98,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         return
       }
 
-      const followUpQuestions = analysis?.follow_up_questions || []
+      const followUpQuestions = (analysis as any)?.follow_up_questions || []
       console.log('✅ [후속질문] 성공:', {
         analysisId,
         questionsCount: followUpQuestions.length,

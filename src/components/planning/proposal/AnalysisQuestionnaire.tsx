@@ -44,7 +44,7 @@ export function AnalysisQuestionnaire({
   const [selectedCategories, setSelectedCategories] = useState<QuestionCategory[]>([])
   const [maxQuestions, setMaxQuestions] = useState(10)
   const [guidance, setGuidance] = useState<NextStepGuidanceResponse | null>(null)
-  const [isGeneratingMarketResearch, setIsGeneratingMarketResearch] = useState(false)
+  const [_isGeneratingMarketResearch, _setIsGeneratingMarketResearch] = useState(false)
 
   const categoryOptions: { key: QuestionCategory; label: string; description: string }[] = [
     { key: 'market_context', label: '시장 상황', description: '시장 환경 및 경쟁 상황' },
@@ -94,13 +94,13 @@ export function AnalysisQuestionnaire({
     }
   }, [analysisId, selectedCategories, maxQuestions, onQuestionsGenerated, onError])
 
-  const triggerMarketResearchAnalysis = async (submittedResponses: any[]) => {
+  const triggerMarketResearchAnalysis = async (_submittedResponses: any[]) => {
     if (!projectId || !analysisId) {
       console.warn('⚠️ [시장조사-AI] projectId 또는 analysisId가 없어서 시장 조사 분석을 건너뜁니다.')
       return
     }
 
-    setIsGeneratingMarketResearch(true)
+    _setIsGeneratingMarketResearch(true)
 
     try {
       console.log('🚀 [시장조사-AI] AI 기반 시장 조사 분석 시작')
@@ -167,7 +167,7 @@ export function AnalysisQuestionnaire({
         onError(`시장 조사 AI 분석 실패: ${errorMessage}`)
       }
     } finally {
-      setIsGeneratingMarketResearch(false)
+      _setIsGeneratingMarketResearch(false)
     }
   }
 

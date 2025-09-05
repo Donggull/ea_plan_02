@@ -99,7 +99,7 @@ export default function PersonaAnalysisDashboard({
     } finally {
       setAiAnalysisInProgress(false);
     }
-  }, [marketResearch, projectId]);
+  }, [marketResearch, projectId, loadExistingPersonas]);
 
   const loadExistingPersonas = useCallback(async () => {
     try {
