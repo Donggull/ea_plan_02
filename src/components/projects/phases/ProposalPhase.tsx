@@ -50,7 +50,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
   const [developmentGuidance, setDevelopmentGuidance] = useState<DevelopmentPlanningGuidance | null>(null)
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null)
+  const [_isAnalyzing, setIsAnalyzing] = useState<string | null>(null)
   
   const { data: rfpDocs = [], isLoading: rfpLoading } = useRfpDocuments(projectId, 'proposal')
   const { data: tasks = [], isLoading: tasksLoading } = useProposalTasks(projectId)

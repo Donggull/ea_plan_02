@@ -102,6 +102,7 @@ export function RFPAnalyzer({
     } else {
       return handleStandardAnalysis()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfpDocumentId, useStreamingMode, onAnalysisError])
 
   const handleStreamingAnalysis = useCallback(async () => {

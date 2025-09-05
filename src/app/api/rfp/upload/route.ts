@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         if (tokenError || !tokenUser) {
           console.error('RFP Upload: Token validation failed:', tokenError)
           return NextResponse.json(
-            { message: '인증 실패: ' + (tokenError?.message || cookieError.message || 'Unknown error') },
+            { message: '인증 실패: ' + (tokenError?.message || (cookieError instanceof Error ? cookieError.message : String(cookieError)) || 'Unknown error') },
             { status: 401 }
           )
         }
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         console.log('RFP Upload: User authenticated via token (fallback):', user.email)
       } else {
         return NextResponse.json(
-          { message: '쿠키 인증 오류가 발생했습니다: ' + cookieError.message },
+          { message: '쿠키 인증 오류가 발생했습니다: ' + (cookieError instanceof Error ? cookieError.message : String(cookieError)) },
           { status: 401 }
         )
       }
