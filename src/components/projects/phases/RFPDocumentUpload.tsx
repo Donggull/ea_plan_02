@@ -185,6 +185,7 @@ export default function RFPDocumentUpload({
     const uploadedDocs: RFPDocument[] = []
     
     try {
+      // RFP 분석 자동화와 동일한 방식으로 업로드
       // 각 파일을 순차적으로 업로드
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
@@ -193,60 +194,66 @@ export default function RFPDocumentUpload({
         // 파일별 진행상황 초기화
         setUploadProgress(prev => ({ ...prev, [fileKey]: 0 }))
 
-        // 1. 파일을 Supabase Storage에 업로드
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Date.now()}-${i}-${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `rfp-documents/${projectId}/${fileName}`
+        // FormData 생성 (RFP 분석 자동화와 동일)
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        // 제목 설정 (여러 파일인 경우 번호 추가)
+        const documentTitle = selectedFiles.length === 1 ? title.trim() : `${title.trim()} - ${i + 1}`
+        formData.append('title', documentTitle)
+        
+        if (description.trim()) {
+          formData.append('description', description.trim())
+        }
+        formData.append('project_id', projectId)
 
-        const { error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          })
+        setUploadProgress(prev => ({ ...prev, [fileKey]: 25 }))
 
-        if (uploadError) {
-          console.error('Storage upload error:', uploadError)
-          // Bucket not found 오류인 경우 더 명확한 메시지
-          if (uploadError.message && uploadError.message.includes('Bucket not found')) {
-            throw new Error('파일 저장소 설정에 문제가 있습니다. 관리자에게 문의하세요.')
-          }
-          // 인증 관련 오류
-          if (uploadError.message && uploadError.message.includes('Unauthorized') || uploadError.message && uploadError.message.includes('access_denied')) {
-            throw new Error('파일 업로드 권한이 없습니다. 다시 로그인해주세요.')
-          }
-          // 파일 크기 오류
-          if (uploadError.message && uploadError.message.includes('size')) {
-            throw new Error('파일 크기가 너무 큽니다. 50MB 이하의 파일을 선택해주세요.')
-          }
-          // 기타 오류
-          throw new Error(`파일 업로드 실패: ${uploadError.message}`)
+        // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가 (RFP 분석 자동화와 동일)
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('RFP Upload: Client session check:', session ? 'session exists' : 'no session')
+        
+        const headers: Record<string, string> = {}
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`
+          console.log('RFP Upload: Added Authorization header')
         }
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 50 }))
-
-        // 2. 파일 정보를 DB에 저장
-        const documentTitle = selectedFiles.length === 1 ? title.trim() : `${title.trim()} - ${i + 1}`
         
-        const { data: rfpDocument, error: dbError } = await supabase
-          .from('rfp_documents')
-          .insert({
-            project_id: projectId,
-            phase_type: 'proposal',
-            title: documentTitle,
-            description: description.trim() || null,
-            content: null,
-            file_path: filePath,
-            file_name: file.name,
-            file_size: file.size,
-            status: 'draft'
-          })
-          .select()
-          .single()
+        // RFP 분석 자동화와 동일한 API 엔드포인트 사용
+        const response = await fetch('/api/rfp/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include', // 쿠키 포함해서 전송
+          headers, // Authorization 헤더 추가
+        })
 
-        if (dbError) throw dbError
+        console.log('RFP Upload: Response status:', response.status)
 
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error('RFP Upload: Error response:', errorData)
+          throw new Error(errorData.message || 'RFP 업로드 중 오류가 발생했습니다.')
+        }
+
+        const result = await response.json()
+        
         setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }))
+        
+        // 업로드된 문서 정보 구성
+        const rfpDocument: RFPDocument = {
+          id: result.rfp_document_id,
+          title: documentTitle,
+          description: description.trim() || undefined,
+          file_name: file.name,
+          file_size: file.size,
+          created_at: new Date().toISOString(),
+          status: 'draft',
+          project_id: projectId
+        }
+        
         uploadedDocs.push(rfpDocument)
       }
       
