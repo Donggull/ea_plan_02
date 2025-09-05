@@ -75,7 +75,15 @@
       "mcp__playwright-stealth__playwright_close",
       "Bash(npm uninstall:*)",
       "mcp__playwright-stealth__playwright_post",
-      "Read(\\/**)"
+      "Read(\\/**)",
+      "Read(/D:\\ea_plan_02/**)",
+      "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
+      "Read(/D:\\ea_plan_02\\src\\components\\analysis-integration/**)",
+      "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
+      "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\design/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\publishing/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\development/**)"
     ],
     "deny": [],
     "ask": []

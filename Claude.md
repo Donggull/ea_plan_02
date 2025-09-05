@@ -533,29 +533,57 @@ RFP 분석 자동화에서 개발된 핵심 기능들을 프로젝트 전반에 
 - 분석 결과를 기반으로 프로젝트 초기 설정 자동화
 - 각 단계별 필요 데이터 선택적 활용 가능
 
-## ⚠️ 중요: 분석 데이터 기반 디자인/퍼블리싱/개발 통합 시스템 구축 (2025-09-04)
+## ⚠️ 중요: 분석 데이터 기반 디자인/퍼블리싱/개발 통합 시스템 구축 (2025-09-05 수정)
 
-### 🔴 필수 구현 사항 - 모든 개발 시 반드시 참조
+### 🔴 시스템 구조 - 모든 개발 시 반드시 참조
 
-#### 1. 통합 분석 데이터 활용 시스템
-**핵심 요구사항**: 4개 분석 소스(RFP 분석 자동화, 제안 진행 분석, 구축 관리 분석, 운영 관리 분석) 중 하나를 선택하여 디자인/퍼블리싱/개발 영역에서 활용
+#### 1. 분석 데이터 구조
+**핵심 개념**: 
+- 각 프로젝트는 최대 4개의 독립된 분석 데이터를 가질 수 있음
+- 4개 분석 소스: **제안 진행**, **구축 관리**, **운영 관리**, **RFP 분석 자동화**
+- 각 분석은 독립적으로 운영되며, 필요시 서로 연동 가능
+- 제안 진행, 구축 관리, 운영 관리는 내부에 세부 분석 기능 포함
 
-**DB 테이블 설계 (핵심)**
+#### 2. 프로젝트별 분석 데이터 관리 시스템
+**구현 요구사항**:
+- **별도 페이지 필요**: `/dashboard/projects/[id]/analysis-data` 
+- 프로젝트에 연결된 1~4개의 분석 데이터를 한눈에 확인
+- 각 분석 데이터의 상태, 완성도, 생성일 표시
+- 분석 데이터 단일/다중 선택 기능
+- 선택된 데이터를 디자인/퍼블리싱/개발 단계로 전달
+
+**DB 테이블 설계 (수정)**
 ```sql
--- 분석 데이터 통합 테이블
-analysis_integration: {
-  id, 
-  source_type: enum('rfp_auto', 'proposal', 'construction', 'operation'),
-  source_id: uuid (각 분석 테이블의 ID 참조),
+-- 프로젝트별 분석 데이터 현황 테이블
+project_analysis_data: {
+  id: uuid,
   project_id: uuid,
-  selected_at: timestamp,
-  selected_by: uuid
+  analysis_type: enum('proposal', 'construction', 'operation', 'rfp_auto'),
+  analysis_id: uuid, -- 각 분석 테이블의 ID 참조
+  status: enum('in_progress', 'completed', 'failed'),
+  completeness_score: integer, -- 0-100
+  metadata: jsonb, -- 분석별 세부 정보
+  created_at: timestamp,
+  updated_at: timestamp
 }
 
--- 디자인 시스템 테이블
+-- 분석 데이터 선택 테이블 (디자인/퍼블리싱/개발용)
+selected_analysis_data: {
+  id: uuid,
+  project_id: uuid,
+  usage_type: enum('design', 'publishing', 'development'),
+  selected_analyses: uuid[], -- project_analysis_data의 ID 배열
+  selection_mode: enum('single', 'multiple'),
+  selected_by: uuid,
+  selected_at: timestamp,
+  is_active: boolean
+}
+
+-- 디자인 시스템 테이블 (수정)
 design_systems: {
   id,
-  analysis_integration_id: uuid,
+  project_id: uuid,
+  selected_analysis_id: uuid, -- selected_analysis_data 참조
   name, 
   figma_file_url,
   design_tokens: jsonb,
@@ -563,10 +591,11 @@ design_systems: {
   created_at, updated_at
 }
 
--- 퍼블리싱 컴포넌트 테이블  
+-- 퍼블리싱 컴포넌트 테이블 (수정)
 publishing_components: {
   id,
-  design_system_id: uuid,
+  project_id: uuid,
+  selected_analysis_id: uuid, -- selected_analysis_data 참조
   component_name,
   component_code: text,
   component_props: jsonb,
@@ -574,10 +603,11 @@ publishing_components: {
   created_at, updated_at
 }
 
--- 개발 문서 테이블
+-- 개발 문서 테이블 (수정)
 development_documents: {
   id,
-  analysis_integration_id: uuid,
+  project_id: uuid,
+  selected_analysis_id: uuid, -- selected_analysis_data 참조
   document_type: enum('PRD', 'TRD', 'API_SPEC', 'PROMPT'),
   content: text,
   metadata: jsonb,
@@ -586,91 +616,113 @@ development_documents: {
 }
 ```
 
-#### 2. 디자인 영역 - Figma 연동 시스템
-**목표**: 선택된 분석 데이터를 기반으로 Figma에서 시안 자동 생성
+#### 3. 분석 데이터 관리 페이지 UI/UX
+**페이지 경로**: `/dashboard/projects/[id]/analysis-data`
 
-**구현 요구사항**:
-- 분석 데이터 → 디자인 시스템 변환 엔진
-- Figma API 연동 (Figma Make 활용)
-- 디자인 토큰 자동 생성 (색상, 타이포그래피, 스페이싱)
-- UI/UX 컴포넌트 자동 생성 (현재 프로젝트의 메뉴 구조 참조)
-- 디자인 시스템 버전 관리
-
-**추천 구현 방안**:
+**UI 구성요소**:
 ```typescript
-// Figma 디자인 시스템 생성 서비스
-interface DesignSystemGenerator {
-  analyzeRequirements(analysisData: AnalysisData): DesignTokens
-  generateFigmaComponents(tokens: DesignTokens): FigmaFile
-  syncWithProject(figmaFile: FigmaFile, projectId: string): void
+// 분석 데이터 관리 인터페이스
+interface AnalysisDataManager {
+  // 프로젝트의 모든 분석 데이터 조회
+  getProjectAnalyses(projectId: string): ProjectAnalysisData[]
+  
+  // 분석 데이터 선택 (단일/다중)
+  selectAnalyses(projectId: string, analysisIds: string[], usageType: UsageType): void
+  
+  // 선택된 분석 데이터로 작업 시작
+  startWorkWithAnalyses(selectedData: SelectedAnalysisData): void
+  
+  // 분석 데이터 상세 보기
+  viewAnalysisDetails(analysisId: string): AnalysisDetails
 }
 ```
 
-#### 3. 퍼블리싱 영역 - 컴포넌트 시스템
-**목표**: 디자인 시스템 기반 재사용 가능한 컴포넌트 라이브러리 구축
+**화면 구성**:
+1. **분석 데이터 카드 그리드**: 최대 4개의 분석 데이터 카드 표시
+   - 제안 진행 분석 카드 (세부 분석 항목 표시)
+   - 구축 관리 분석 카드 (세부 분석 항목 표시)
+   - 운영 관리 분석 카드 (세부 분석 항목 표시)
+   - RFP 분석 자동화 카드 (독립 분석 결과 표시)
+
+2. **선택 모드 토글**: 단일 선택 / 다중 선택 모드 전환
+3. **활용 영역 선택**: 디자인 / 퍼블리싱 / 개발 선택
+4. **작업 시작 버튼**: 선택된 데이터로 작업 진행
+
+#### 4. 디자인 영역 - Figma 연동 시스템
+**목표**: 선택된 분석 데이터(1~4개)를 기반으로 Figma에서 시안 자동 생성
 
 **구현 요구사항**:
-- 디자인 시스템 → React/Vue/Angular 컴포넌트 변환
-- Storybook 통합 (컴포넌트 문서화 및 테스트)
-- 컴포넌트 버전 관리 및 의존성 관리
-- 실시간 미리보기 및 코드 생성
+- 선택된 분석 데이터 통합 처리
+- Figma API 연동 (Figma Make 활용)
+- 다중 분석 데이터 병합 로직
+- UI/UX 컴포넌트 자동 생성
+
+#### 5. 퍼블리싱 영역 - 컴포넌트 시스템
+**목표**: 선택된 분석 데이터 기반 재사용 가능한 컴포넌트 라이브러리 구축
+
+**구현 요구사항**:
+- 다중 분석 데이터 통합 처리
+- React 컴포넌트 자동 생성
+- Storybook 통합
 - Tailwind CSS / Shadcn UI 통합
 
-**추천 구현 방안**:
-```typescript
-// 컴포넌트 생성 및 관리 서비스
-interface ComponentManager {
-  importFromDesignSystem(designSystemId: string): ComponentLibrary
-  generateComponent(design: DesignSpec): ReactComponent
-  publishToStorybook(component: ReactComponent): StoryBookEntry
-  exportAsPackage(components: ComponentLibrary): NPMPackage
-}
-```
-
-#### 4. 개발 영역 - 문서 및 코드 생성 시스템
-**목표**: 분석 데이터 기반 개발 문서 및 코드 자동 생성
+#### 6. 개발 영역 - 문서 및 코드 생성 시스템
+**목표**: 선택된 분석 데이터 기반 개발 문서 및 코드 자동 생성
 
 **구현 요구사항**:
-- **PRD 문서 생성**: 요구사항 → 상세 기능 명세서
-- **TRD 문서 생성**: 기술 스택, 아키텍처, 구현 상세
-- **단계별 프롬프트 생성**: PRD 기반 개발 가이드라인
-- **API 설계 문서**: OpenAPI/Swagger 스펙 자동 생성
-- **코드 스캐폴딩**: 기본 프로젝트 구조 자동 생성
+- PRD/TRD 문서 생성 (다중 분석 데이터 통합)
+- API 설계 문서 생성
+- 코드 스캐폴딩
 
-**추천 구현 방안**:
-```typescript
-// 개발 문서 생성 서비스
-interface DevelopmentDocGenerator {
-  generatePRD(analysis: AnalysisData): PRDocument
-  generateTRD(prd: PRDocument, techStack: TechStack): TRDocument  
-  generatePrompts(prd: PRDocument): DevelopmentPrompts[]
-  generateAPISpec(requirements: Requirements[]): OpenAPISpec
-  scaffoldProject(spec: ProjectSpec): ProjectStructure
-}
-```
-
-### 🎯 통합 워크플로우
+### 🎯 통합 워크플로우 (수정)
 
 ```mermaid
-graph LR
-    A[분석 데이터 선택] --> B{소스 선택}
-    B --> C[RFP 자동화]
-    B --> D[제안 진행]
-    B --> E[구축 관리]
-    B --> F[운영 관리]
+graph TD
+    A[프로젝트] --> B[분석 데이터 생성]
     
-    C --> G[통합 분석 데이터]
+    B --> C[제안 진행 분석]
+    B --> D[구축 관리 분석]
+    B --> E[운영 관리 분석]
+    B --> F[RFP 분석 자동화]
+    
+    C --> C1[RFP 분석]
+    C --> C2[시장 조사]
+    C --> C3[페르소나 분석]
+    C --> C4[제안서 작성]
+    C --> C5[비용 산정]
+    
+    D --> D1[현황분석정리]
+    D --> D2[요구사항정리]
+    D --> D3[기능정의]
+    D --> D4[화면설계]
+    D --> D5[WBS 일정관리]
+    D --> D6[QA관리]
+    D --> D7[종합 인사이트]
+    
+    E --> E1[기획 요건]
+    E --> E2[디자인 요건]
+    E --> E3[퍼블리싱 요건]
+    E --> E4[개발 요건]
+    
+    C --> G[프로젝트별 분석 데이터 관리 페이지]
     D --> G
     E --> G
     F --> G
     
-    G --> H[디자인 영역]
-    G --> I[퍼블리싱 영역]
-    G --> J[개발 영역]
+    G --> H{데이터 선택}
+    H --> H1[단일 선택]
+    H --> H2[다중 선택]
     
-    H --> K[Figma 디자인 시스템]
-    I --> L[컴포넌트 라이브러리]
-    J --> M[PRD/TRD/API 문서]
+    H1 --> I[활용 영역 선택]
+    H2 --> I
+    
+    I --> J[디자인 작업]
+    I --> K[퍼블리싱 작업]
+    I --> L[개발 작업]
+    
+    J --> M[Figma 시안]
+    K --> N[컴포넌트 라이브러리]
+    L --> O[PRD/TRD/코드]
 ```
 
 ### 📊 예상 효과 및 KPI
@@ -687,12 +739,32 @@ graph LR
 - **개발**: OpenAPI Generator, Plop.js, Yeoman
 - **AI 활용**: Claude/GPT API for 문서 생성 및 코드 생성
 
+### 🔑 핵심 특징
+
+1. **독립성**: 4개의 분석 시스템이 각각 독립적으로 운영
+2. **유연성**: 프로젝트당 1~4개의 분석 데이터 보유 가능
+3. **연동성**: 필요시 분석 데이터 간 상호 연동
+4. **선택성**: 단일 또는 다중 분석 데이터 선택하여 활용
+5. **통합성**: 선택된 데이터를 디자인/퍼블리싱/개발에 통합 활용
+
 ### ⚡ 구현 우선순위
 
-1. **Phase 1**: 분석 데이터 통합 테이블 및 선택 UI
-2. **Phase 2**: 개발 영역 (PRD/TRD 생성) - 가장 즉시 효과적
-3. **Phase 3**: 디자인 시스템 생성 (Figma 연동)
+1. **Phase 1**: 프로젝트별 분석 데이터 관리 페이지 구현
+   - DB 테이블 생성 (project_analysis_data, selected_analysis_data)
+   - 분석 데이터 조회 및 선택 UI 구현
+   - 데이터 선택 로직 구현
+
+2. **Phase 2**: 개발 영역 연동 (PRD/TRD 생성)
+   - 선택된 분석 데이터 기반 문서 생성
+   - 다중 데이터 통합 처리 로직
+
+3. **Phase 3**: 디자인 시스템 연동 (Figma)
+   - Figma API 연동
+   - 분석 데이터 → 디자인 시안 변환
+
 4. **Phase 4**: 퍼블리싱 컴포넌트 자동화
+   - 컴포넌트 라이브러리 생성
+   - Storybook 통합
 
 ### 📝 추가 고려사항
 
