@@ -138,7 +138,9 @@
       "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
       "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
       "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
-      "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)"
+      "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
+      "Bash(echo:*)",
+      "Read(//d/**)"
     ],
     "deny": [],
     "ask": []
