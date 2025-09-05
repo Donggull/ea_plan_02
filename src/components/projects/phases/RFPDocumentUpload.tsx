@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
+import { useDropzone } from 'react-dropzone'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -11,7 +12,9 @@ import {
   AlertCircle, 
   X,
   ExternalLink,
-  Database
+  Database,
+  Trash2,
+  PlusCircle
 } from 'lucide-react'
 
 interface RFPDocument {
@@ -39,16 +42,80 @@ export default function RFPDocumentUpload({
   const [mode, setMode] = useState<'upload' | 'select'>('upload')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
   const [error, setError] = useState<string | null>(null)
   const [availableRfpDocs, setAvailableRfpDocs] = useState<RFPDocument[]>([])
   const [selectedRfpDoc, setSelectedRfpDoc] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [uploadedDocuments, setUploadedDocuments] = useState<RFPDocument[]>([])
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClientComponentClient()
+
+  // 지원하는 파일 타입 정의
+  const acceptedFileTypes = useMemo(() => ({
+    'application/pdf': ['.pdf'],
+    'application/msword': ['.doc'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'text/plain': ['.txt'],
+    'text/markdown': ['.md'],
+    'application/rtf': ['.rtf']
+  }), [])
+
+  // 파일 검증 함수
+  const validateFile = useCallback((file: File): string | null => {
+    const maxSize = 50 * 1024 * 1024 // 50MB
+    
+    if (file.size > maxSize) {
+      return `파일 크기가 너무 큽니다. 최대 50MB까지 지원됩니다.`
+    }
+
+    const acceptedTypes = Object.keys(acceptedFileTypes)
+    if (!acceptedTypes.includes(file.type)) {
+      return '지원되지 않는 파일 형식입니다. PDF, DOC, DOCX, TXT, MD, RTF 파일만 업로드 가능합니다.'
+    }
+
+    return null
+  }, [acceptedFileTypes])
+
+  // 드래그 앤 드롭 처리
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const validFiles: File[] = []
+    const errors: string[] = []
+
+    acceptedFiles.forEach(file => {
+      const error = validateFile(file)
+      if (error) {
+        errors.push(`${file.name}: ${error}`)
+      } else {
+        validFiles.push(file)
+      }
+    })
+
+    if (errors.length > 0) {
+      setError(errors.join('; '))
+    } else {
+      setError(null)
+    }
+
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles])
+      
+      // 제목이 비어있고 첫 번째 파일이면 자동 설정
+      if (!title && validFiles[0]) {
+        const nameWithoutExtension = validFiles[0].name.replace(/\.[^/.]+$/, '')
+        setTitle(nameWithoutExtension)
+      }
+    }
+  }, [validateFile, title])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: acceptedFileTypes,
+    disabled: uploading
+  })
 
   // RFP 분석 자동화 문서 목록 로드
   const loadAvailableRfpDocs = async () => {
@@ -90,94 +157,94 @@ export default function RFPDocumentUpload({
     }
   }
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      // 파일 타입 검증
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain'
-      ]
-      
-      if (!allowedTypes.includes(file.type)) {
-        setError('지원되지 않는 파일 형식입니다. PDF, DOC, DOCX, TXT 파일만 업로드 가능합니다.')
-        return
-      }
+  // 개별 파일 제거 함수
+  const removeFile = useCallback((index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+  }, [])
 
-      // 파일 크기 검증 (10MB 제한)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('파일 크기가 너무 큽니다. 10MB 이하 파일만 업로드 가능합니다.')
-        return
-      }
-
-      setSelectedFile(file)
-      setError(null)
-      
-      // 제목이 비어있으면 파일명으로 자동 설정
-      if (!title) {
-        const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, '')
-        setTitle(nameWithoutExtension)
-      }
+  // 모든 파일 제거 함수
+  const clearAllFiles = useCallback(() => {
+    setSelectedFiles([])
+    setUploadProgress({})
+    setError(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
-  }
+  }, [])
 
   const handleUpload = async () => {
-    if (!selectedFile || !title.trim()) {
+    if (selectedFiles.length === 0 || !title.trim()) {
       setError('파일과 제목을 모두 입력해주세요.')
       return
     }
 
     setUploading(true)
     setError(null)
-    setUploadProgress(0)
+    setUploadProgress({})
 
+    const uploadedDocs: RFPDocument[] = []
+    
     try {
-      // 1. 파일을 Supabase Storage에 업로드
-      const fileExt = selectedFile.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-      const filePath = `rfp-documents/${projectId}/${fileName}`
+      // 각 파일을 순차적으로 업로드
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i]
+        const fileKey = `${file.name}-${i}`
+        
+        // 파일별 진행상황 초기화
+        setUploadProgress(prev => ({ ...prev, [fileKey]: 0 }))
 
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        })
+        // 1. 파일을 Supabase Storage에 업로드
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}-${i}-${Math.random().toString(36).substring(2)}.${fileExt}`
+        const filePath = `rfp-documents/${projectId}/${fileName}`
 
-      if (uploadError) throw uploadError
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
 
-      setUploadProgress(50)
+        if (uploadError) throw uploadError
 
-      // 2. 파일 정보를 DB에 저장
-      const { data: rfpDocument, error: dbError } = await supabase
-        .from('rfp_documents')
-        .insert({
-          project_id: projectId,
-          phase_type: 'proposal',
-          title: title.trim(),
-          description: description.trim() || null,
-          content: null, // 파일 업로드 시에는 content를 null로 설정
-          file_path: filePath,
-          file_name: selectedFile.name,
-          file_size: selectedFile.size,
-          status: 'draft'
-        })
-        .select()
-        .single()
+        setUploadProgress(prev => ({ ...prev, [fileKey]: 50 }))
 
-      if (dbError) throw dbError
+        // 2. 파일 정보를 DB에 저장
+        const documentTitle = selectedFiles.length === 1 ? title.trim() : `${title.trim()} - ${i + 1}`
+        
+        const { data: rfpDocument, error: dbError } = await supabase
+          .from('rfp_documents')
+          .insert({
+            project_id: projectId,
+            phase_type: 'proposal',
+            title: documentTitle,
+            description: description.trim() || null,
+            content: null,
+            file_path: filePath,
+            file_name: file.name,
+            file_size: file.size,
+            status: 'draft'
+          })
+          .select()
+          .single()
 
-      setUploadProgress(100)
+        if (dbError) throw dbError
+
+        setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }))
+        uploadedDocs.push(rfpDocument)
+      }
       
-      // 성공 콜백 실행
-      onUploadSuccess?.(rfpDocument)
+      // 업로드된 문서 목록에 추가
+      setUploadedDocuments(prev => [...prev, ...uploadedDocs])
+      
+      // 성공 콜백 실행 (첫 번째 문서 또는 전체 목록)
+      onUploadSuccess?.(uploadedDocs.length === 1 ? uploadedDocs[0] : uploadedDocs)
       
       // 폼 초기화
       setTitle('')
       setDescription('')
-      setSelectedFile(null)
+      setSelectedFiles([])
+      setUploadProgress({})
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -187,7 +254,6 @@ export default function RFPDocumentUpload({
       setError(error instanceof Error ? error.message : '파일 업로드에 실패했습니다.')
     } finally {
       setUploading(false)
-      setUploadProgress(0)
     }
   }
 
@@ -320,77 +386,121 @@ export default function RFPDocumentUpload({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              파일 *
+              파일 * (다중 선택 가능)
             </label>
             <div 
-              className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
+              {...getRootProps()}
+              className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer transition-colors duration-200 ${
+                isDragActive 
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
+                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+              } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
+              <input {...getInputProps()} ref={fileInputRef} />
               <div className="space-y-1 text-center">
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                <div className="flex text-sm text-gray-600 dark:text-gray-400">
-                  <label
-                    htmlFor="file-upload"
-                    className="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                  >
-                    <span>파일을 선택하거나</span>
-                    <input
-                      id="file-upload"
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={handleFileSelect}
-                      className="sr-only"
-                    />
-                  </label>
-                  <p className="pl-1">드래그 앤 드롭으로 업로드</p>
+                <div className={`mx-auto h-12 w-12 flex items-center justify-center rounded-full transition-colors ${
+                  isDragActive ? 'bg-blue-500 text-white' : 'text-gray-400'
+                }`}>
+                  <Upload className="h-6 w-6" />
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium text-blue-600 hover:text-blue-500">
+                    {selectedFiles.length > 0 ? '더 많은 파일을 선택하거나' : '파일을 선택하거나'}
+                  </span>
+                  <p className="mt-1">드래그 앤 드롭으로 업로드</p>
                 </div>
                 <p className="text-xs text-gray-500">
-                  PDF, DOC, DOCX, TXT up to 10MB
+                  PDF, DOC, DOCX, TXT, MD, RTF up to 50MB
                 </p>
+                {selectedFiles.length > 0 && (
+                  <p className="text-xs text-blue-600 font-medium">
+                    {selectedFiles.length}개 파일 선택됨
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
-          {selectedFile && (
-            <Card className="p-4">
+          {/* 선택된 파일 목록 */}
+          {selectedFiles.length > 0 && (
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {formatFileSize(selectedFile.size)}
-                    </p>
-                  </div>
-                </div>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                  선택된 파일 ({selectedFiles.length}개)
+                </h4>
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    setSelectedFile(null)
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = ''
-                    }
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
+                  onClick={clearAllFiles}
+                  disabled={uploading}
+                  className="text-gray-400 hover:text-gray-600 text-xs"
                 >
-                  <X className="h-4 w-4" />
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  모두 제거
                 </Button>
               </div>
-            </Card>
+              
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {selectedFiles.map((file, index) => {
+                  const fileKey = `${file.name}-${index}`
+                  const progress = uploadProgress[fileKey] || 0
+                  
+                  return (
+                    <Card key={fileKey} className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <FileText className="h-6 w-6 text-blue-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {!uploading ? (
+                          <Button
+                            variant="ghost"
+                            onClick={() => removeFile(index)}
+                            className="text-gray-400 hover:text-gray-600 p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-gray-500">
+                              {progress}%
+                            </div>
+                            <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
           )}
 
-          {uploading && (
+          {/* 전체 업로드 진행 상황 */}
+          {uploading && selectedFiles.length > 1 && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>업로드 중...</span>
-                <span>{uploadProgress}%</span>
+                <span>전체 업로드 진행 중...</span>
+                <span>{Math.round(Object.values(uploadProgress).reduce((sum, progress) => sum + progress, 0) / selectedFiles.length)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
+                  style={{ 
+                    width: `${Math.round(Object.values(uploadProgress).reduce((sum, progress) => sum + progress, 0) / selectedFiles.length)}%` 
+                  }}
                 />
               </div>
             </div>
@@ -478,6 +588,42 @@ export default function RFPDocumentUpload({
         </div>
       )}
 
+      {/* 업로드 완료된 문서 목록 */}
+      {uploadedDocuments.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Check className="h-5 w-5 text-green-600" />
+            <h4 className="text-sm font-medium text-green-800 dark:text-green-400">
+              업로드 완료 ({uploadedDocuments.length}개)
+            </h4>
+          </div>
+          
+          <div className="space-y-2">
+            {uploadedDocuments.map((doc) => (
+              <Card key={doc.id} className="p-3 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="font-medium text-green-900 dark:text-green-100 text-sm">
+                      {doc.title}
+                    </h5>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-green-700 dark:text-green-300">
+                      <span>{doc.file_name}</span>
+                      {doc.file_size && (
+                        <span>{formatFileSize(doc.file_size)}</span>
+                      )}
+                      <span>{formatDate(doc.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 에러 메시지 */}
       {error && (
         <div className="flex items-center gap-2 p-3 text-red-800 bg-red-100 border border-red-300 rounded-md">
@@ -487,32 +633,62 @@ export default function RFPDocumentUpload({
       )}
 
       {/* 액션 버튼 */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button
-          variant="ghost"
-          onClick={onClose}
-          disabled={uploading}
-        >
-          취소
-        </Button>
-        <Button
-          onClick={mode === 'upload' ? handleUpload : handleSelectExisting}
-          disabled={
-            uploading ||
-            (mode === 'upload' && (!selectedFile || !title.trim())) ||
-            (mode === 'select' && !selectedRfpDoc)
-          }
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {uploading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-          ) : mode === 'upload' ? (
-            <Upload className="h-4 w-4 mr-2" />
-          ) : (
-            <Database className="h-4 w-4 mr-2" />
+      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-3">
+          {/* 업로드 완료 후 새 파일 추가 버튼 */}
+          {uploadedDocuments.length > 0 && !uploading && mode === 'upload' && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedFiles([])
+                setUploadProgress({})
+                setError(null)
+                setTitle('')
+                setDescription('')
+              }}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              새 파일 추가
+            </Button>
           )}
-          {uploading ? '처리중...' : mode === 'upload' ? '업로드' : '연동하기'}
-        </Button>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={uploading}
+          >
+            {uploadedDocuments.length > 0 ? '완료' : '취소'}
+          </Button>
+          
+          {/* 업로드/연동 버튼 */}
+          {((mode === 'upload' && selectedFiles.length > 0) || (mode === 'select' && selectedRfpDoc)) && (
+            <Button
+              onClick={mode === 'upload' ? handleUpload : handleSelectExisting}
+              disabled={
+                uploading ||
+                (mode === 'upload' && (selectedFiles.length === 0 || !title.trim())) ||
+                (mode === 'select' && !selectedRfpDoc)
+              }
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {uploading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+              ) : mode === 'upload' ? (
+                <Upload className="h-4 w-4 mr-2" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              {uploading 
+                ? `업로드 중... (${Object.keys(uploadProgress).length}/${selectedFiles.length})` 
+                : mode === 'upload' 
+                  ? `업로드 (${selectedFiles.length}개 파일)`
+                  : '연동하기'
+              }
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
