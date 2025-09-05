@@ -15,7 +15,11 @@ import {
   TrendingUp,
   Users,
   CheckCircle,
-  Loader
+  Loader,
+  BrainCircuit,
+  Lightbulb,
+  BarChart3,
+  UserSearch
 } from 'lucide-react'
 import type { RFPAnalysis, AnalysisQuestion } from '@/types/rfp-analysis'
 
@@ -29,6 +33,37 @@ interface AnalysisData {
   questionnaire_completed: boolean
   next_step_ready: boolean
   market_research_ready?: boolean
+  secondary_analysis?: SecondaryAnalysisResult
+}
+
+interface SecondaryAnalysisResult {
+  market_research_insights: {
+    target_market_definition: string
+    competitor_analysis_direction: string
+    market_size_estimation: string
+    key_market_trends: string[]
+    research_priorities: string[]
+  }
+  persona_analysis_insights: {
+    primary_persona_characteristics: string
+    persona_pain_points: string[]
+    persona_goals_motivations: string[]
+    persona_scenarios: string[]
+    research_focus_areas: string[]
+  }
+  enhanced_recommendations: {
+    market_research_approach: string
+    persona_research_methods: string[]
+    data_collection_strategy: string
+    analysis_timeline: string
+    success_metrics: string[]
+  }
+  integration_points: {
+    project_alignment: string
+    resource_allocation: string
+    timeline_coordination: string
+    deliverable_connections: string[]
+  }
 }
 
 export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAnalysisResultsProps) {
@@ -179,13 +214,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         const analysisWithFollowUp = analysis as any
         console.log('📊 [분석데이터] 로드된 분석:', analysis.id, '후속질문 수:', analysisWithFollowUp.follow_up_questions?.length || 0)
         
+        // 답변 완료 상태 확인 (answers_analyzed가 true인지)
+        const isAnswerCompleted = analysisWithFollowUp.answers_analyzed === true
+        
         return {
           analysis: {
             ...analysis
           } as unknown as RFPAnalysis,
           follow_up_questions: analysisWithFollowUp.follow_up_questions || [], // DB에 저장된 후속 질문 사용
-          questionnaire_completed: false,
-          next_step_ready: false
+          questionnaire_completed: isAnswerCompleted,
+          next_step_ready: isAnswerCompleted,
+          secondary_analysis: analysisWithFollowUp.secondary_analysis || null
         }
       }) || []
 
@@ -359,6 +398,243 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       console.error('❌ [AI답변] 실패:', error)
       throw error
     }
+  }
+
+  // 2차 분석 결과 렌더링 함수
+  const renderSecondaryAnalysis = (secondaryAnalysis: SecondaryAnalysisResult) => {
+    return (
+      <Card className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
+        <div className="flex items-center gap-3 mb-6">
+          <BrainCircuit className="h-6 w-6 text-blue-600" />
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            2차 AI 분석 결과
+          </h3>
+          <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+            분석 완료
+          </span>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* 시장 조사 인사이트 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-5 w-5 text-purple-600" />
+              <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                시장 조사 인사이트
+              </h4>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  타겟 시장 정의
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {secondaryAnalysis.market_research_insights.target_market_definition}
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  경쟁사 분석 방향
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {secondaryAnalysis.market_research_insights.competitor_analysis_direction}
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  시장 규모 추정
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {secondaryAnalysis.market_research_insights.market_size_estimation}
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  핵심 시장 트렌드
+                </h5>
+                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  {secondaryAnalysis.market_research_insights.key_market_trends.map((trend, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-purple-600 mt-1">•</span>
+                      {trend}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  연구 우선순위
+                </h5>
+                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  {secondaryAnalysis.market_research_insights.research_priorities.map((priority, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="bg-purple-100 text-purple-600 px-2 py-1 rounded text-xs font-medium">
+                        {index + 1}
+                      </span>
+                      {priority}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* 페르소나 분석 인사이트 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-3">
+              <UserSearch className="h-5 w-5 text-orange-600" />
+              <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                페르소나 분석 인사이트
+              </h4>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  주요 페르소나 특성
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {secondaryAnalysis.persona_analysis_insights.primary_persona_characteristics}
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  페르소나 고충사항
+                </h5>
+                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  {secondaryAnalysis.persona_analysis_insights.persona_pain_points.map((pain, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-orange-600 mt-1">•</span>
+                      {pain}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  페르소나 목표 및 동기
+                </h5>
+                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  {secondaryAnalysis.persona_analysis_insights.persona_goals_motivations.map((goal, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-green-600 mt-1">•</span>
+                      {goal}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                  사용 시나리오
+                </h5>
+                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  {secondaryAnalysis.persona_analysis_insights.persona_scenarios.map((scenario, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-medium">
+                        {index + 1}
+                      </span>
+                      {scenario}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 통합 권장사항 */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 mb-4">
+            <Lightbulb className="h-5 w-5 text-yellow-600" />
+            <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+              통합 권장사항
+            </h4>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+              <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                시장조사 접근법
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {secondaryAnalysis.enhanced_recommendations.market_research_approach}
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+              <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                데이터 수집 전략
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {secondaryAnalysis.enhanced_recommendations.data_collection_strategy}
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+              <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                분석 일정
+              </h5>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {secondaryAnalysis.enhanced_recommendations.analysis_timeline}
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+              <h5 className="font-medium text-gray-900 dark:text-white mb-2">
+                성공 지표
+              </h5>
+              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                {secondaryAnalysis.enhanced_recommendations.success_metrics.map((metric, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="text-green-600 mt-1">•</span>
+                    {metric}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 다음 단계 액션 */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle className="h-5 w-5 text-blue-600" />
+              <h4 className="font-medium text-blue-900 dark:text-blue-100">
+                2차 분석 완료 - 다음 단계 진행 가능
+              </h4>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+              사용자 답변을 바탕으로 한 심화 분석이 완료되었습니다. 이제 구체적인 데이터로 시장 조사와 페르소나 분석을 진행할 수 있습니다.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleNextStepTransition('market_research')}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                강화된 시장 조사 시작
+              </Button>
+              <Button
+                onClick={() => handleNextStepTransition('persona_analysis')}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                강화된 페르소나 분석 시작
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    )
   }
 
   // 후속 질문 렌더링 함수
@@ -714,6 +990,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           {/* 분석 결과 상세 */}
           {renderAnalysisOverview(selectedAnalysis.analysis)}
           
+          {/* 2차 분석 결과 섹션 */}
+          {selectedAnalysis.secondary_analysis && (
+            <div className="mt-8">
+              {renderSecondaryAnalysis(selectedAnalysis.secondary_analysis)}
+            </div>
+          )}
+
           {/* 후속 질문 섹션 */}
           <div className="mt-8">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
