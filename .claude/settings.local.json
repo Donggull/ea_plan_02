@@ -109,7 +109,15 @@
       "Read(/D:\\ea_plan_02/**)",
       "Read(/D:\\ea_plan_02\\src\\components\\planning\\proposal/**)",
       "Read(/D:\\ea_plan_02\\src\\components\\planning\\proposal/**)",
-      "Read(/D:\\ea_plan_02\\src\\components\\planning\\proposal/**)"
+      "Read(/D:\\ea_plan_02\\src\\components\\planning\\proposal/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)",
+      "Read(/D:\\ea_plan_02\\src\\app\\dashboard\\projects\\[id]/**)"
     ],
     "deny": [],
     "ask": []

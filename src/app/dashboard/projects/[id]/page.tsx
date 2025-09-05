@@ -187,17 +187,6 @@ export default function ProjectDetailPage() {
         {/* 탭 메뉴 */}
         <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
-            onClick={() => setActiveTab('phases')}
-            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'phases'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <Target className="w-4 h-4 mr-1" />
-            단계 관리
-          </button>
-          <button
             onClick={() => setActiveTab('overview')}
             className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'overview'
@@ -207,6 +196,17 @@ export default function ProjectDetailPage() {
           >
             <FileText className="w-4 h-4 mr-1" />
             프로젝트 개요
+          </button>
+          <button
+            onClick={() => setActiveTab('phases')}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'phases'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <Target className="w-4 h-4 mr-1" />
+            단계 관리
           </button>
           <button
             onClick={() => setActiveTab('rfp_analysis')}
