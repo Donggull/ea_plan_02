@@ -232,7 +232,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       if (fetchError) throw fetchError
 
-      const questions = analysis?.follow_up_questions || []
+      const questions = (analysis as any)?.follow_up_questions || []
       const updatedQuestions = questions.map((question: any) => ({
         ...question,
         user_answer: answers[question.id] || '',
@@ -265,14 +265,15 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       
       // 현재 분석의 후속 질문 가져오기
       const currentAnalysis = analysisData.find(data => data.analysis.id === analysisId)
-      if (!currentAnalysis?.follow_up_questions.length) {
+      if (!(currentAnalysis as any)?.follow_up_questions?.length) {
         throw new Error('후속 질문이 없습니다.')
       }
 
       // 각 질문에 대해 suggested_answer를 사용하여 자동 답변 생성
       const autoAnswers: {[key: string]: string} = {}
       
-      currentAnalysis.follow_up_questions.forEach((question: any) => {
+      const questions = (currentAnalysis as any)?.follow_up_questions || []
+      questions.forEach((question: any) => {
         if (question.suggested_answer) {
           autoAnswers[question.id] = question.suggested_answer
         }
