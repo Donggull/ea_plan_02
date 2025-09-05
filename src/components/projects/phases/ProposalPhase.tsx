@@ -12,7 +12,7 @@ import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
-import RFPAnalysisViewer from './RFPAnalysisViewer'
+import ProposalRFPAnalysisResults from './ProposalRFPAnalysisResults'
 import RFPDocumentUpload from './RFPDocumentUpload'
 import { AnalysisIntegrationDashboard } from '@/components/analysis-integration/AnalysisIntegrationDashboard'
 import { 
@@ -329,7 +329,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       {/* RFP 분석 결과 탭 */}
       {activeTab === 'rfp_analysis' && (
         <div className="space-y-6">
-          <RFPAnalysisViewer projectId={projectId} />
+          <ProposalRFPAnalysisResults projectId={projectId} />
         </div>
       )}
 
