@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useParams as _useParams } from 'next/navigation'
 import { 
   useRfpDocuments, 
-  useCreateRfpDocument,
   useProposalTasks,
   useCreateProposalTask
 } from '@/hooks/useProjects'
@@ -14,6 +13,7 @@ import MarketResearchDashboard from '@/components/market-research/MarketResearch
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
 import RFPAnalysisViewer from './RFPAnalysisViewer'
+import RFPDocumentUpload from './RFPDocumentUpload'
 import { AnalysisIntegrationDashboard } from '@/components/analysis-integration/AnalysisIntegrationDashboard'
 import { 
   FileText, 
@@ -30,7 +30,8 @@ import {
   BarChart3,
   Target,
   Eye,
-  GitBranch
+  GitBranch,
+  X
 } from 'lucide-react'
 import type { MarketResearch, PersonaGenerationGuidance } from '@/types/market-research'
 import type { DevelopmentPlanningGuidance } from '@/types/proposal'
@@ -49,14 +50,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   
   const { data: rfpDocs = [], isLoading: rfpLoading } = useRfpDocuments(projectId, 'proposal')
   const { data: tasks = [], isLoading: tasksLoading } = useProposalTasks(projectId)
-  const createRfpMutation = useCreateRfpDocument()
   const createTaskMutation = useCreateProposalTask()
-
-  const [rfpForm, setRfpForm] = useState({
-    title: '',
-    description: '',
-    content: ''
-  })
 
   const [taskForm, setTaskForm] = useState({
     task_type: 'rfp_analysis' as const,
@@ -66,26 +60,6 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     estimated_hours: 0
   })
 
-  const handleCreateRfp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!rfpForm.title.trim()) return
-
-    try {
-      await createRfpMutation.mutateAsync({
-        project_id: projectId,
-        phase_type: 'proposal',
-        title: rfpForm.title,
-        description: rfpForm.description || null,
-        content: rfpForm.content || null,
-        status: 'draft'
-      })
-      
-      setRfpForm({ title: '', description: '', content: '' })
-      setIsCreateRfpOpen(false)
-    } catch (error) {
-      console.error('RFP 문서 생성 실패:', error)
-    }
-  }
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -493,49 +467,31 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         </div>
       )}
 
-      {/* RFP 문서 생성 모달 */}
+      {/* RFP 문서 업로드 모달 */}
       {isCreateRfpOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">새 RFP 문서</h3>
-            <form onSubmit={handleCreateRfp} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">제목 *</label>
-                <Input
-                  type="text"
-                  value={rfpForm.title}
-                  onChange={(e) => setRfpForm({ ...rfpForm, title: e.target.value })}
-                  placeholder="RFP 문서 제목"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">설명</label>
-                <textarea
-                  value={rfpForm.description}
-                  onChange={(e) => setRfpForm({ ...rfpForm, description: e.target.value })}
-                  placeholder="문서 설명"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-3 justify-end">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">RFP 문서 추가</h3>
                 <Button
-                  type="button"
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => setIsCreateRfpOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  취소
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={createRfpMutation.isPending}
-                >
-                  {createRfpMutation.isPending ? '생성 중...' : '생성'}
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
-            </form>
+              <RFPDocumentUpload
+                projectId={projectId}
+                onUploadSuccess={(document) => {
+                  console.log('RFP 문서 업로드 성공:', document)
+                  setIsCreateRfpOpen(false)
+                  // RFP 문서 목록 새로고침은 자동으로 처리됨 (React Query)
+                }}
+                onClose={() => setIsCreateRfpOpen(false)}
+              />
+            </div>
           </div>
         </div>
       )}
