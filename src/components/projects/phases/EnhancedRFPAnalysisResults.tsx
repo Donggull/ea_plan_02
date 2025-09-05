@@ -83,25 +83,68 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
   const loadFollowUpQuestions = async (analysisId: string) => {
     try {
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('🔐 [후속질문] Client session check:', session ? 'session exists' : 'no session')
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('🔑 [후속질문] Added Authorization header')
+      } else {
+        console.warn('⚠️ [후속질문] No session token available')
+      }
+
       const response = await fetch(`/api/rfp/${analysisId}/questions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           focus_categories: ['market_context', 'target_audience', 'competitor_focus'],
           max_questions: 8
         })
       })
 
+      console.log('📡 [후속질문] API 응답 상태:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        hasAuthHeader: !!headers['Authorization']
+      })
+
       if (response.ok) {
         const { questions } = await response.json()
+        console.log('✅ [후속질문] 성공:', {
+          analysisId,
+          questionsCount: questions?.length || 0
+        })
         setAnalysisData(prev => prev.map(data => 
           data.analysis.id === analysisId 
             ? { ...data, follow_up_questions: questions }
             : data
         ))
+      } else {
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
+        }
+        console.error('❌ [후속질문] API 실패:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          analysisId,
+          hasAuthHeader: !!headers['Authorization']
+        })
       }
     } catch (error) {
-      console.error('Failed to load follow-up questions:', error)
+      console.error('💥 [후속질문] 전체 오류:', {
+        error: error instanceof Error ? error.message : String(error),
+        analysisId
+      })
     }
   }
 
