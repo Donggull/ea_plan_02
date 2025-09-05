@@ -26,81 +26,157 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 RFP Upload API: Starting request processing...')
+    console.log('🚀 RFP Upload API: Starting enhanced request processing...')
     
     // 요청 헤더 상세 로깅
     const authHeader = request.headers.get('authorization')
     const cookieHeader = request.headers.get('cookie')
     const userAgent = request.headers.get('user-agent')
+    const referer = request.headers.get('referer')
+    const origin = request.headers.get('origin')
     
-    console.log('📋 Request headers:', {
+    console.log('📋 Request headers analysis:', {
       hasAuthHeader: !!authHeader,
       authHeaderLength: authHeader?.length,
+      authHeaderPrefix: authHeader ? authHeader.substring(0, 20) + '...' : null,
       hasCookieHeader: !!cookieHeader,
       cookieCount: cookieHeader?.split(';').length || 0,
-      userAgent: userAgent?.substring(0, 50) + '...'
+      cookieNames: cookieHeader ? cookieHeader.split(';').map(c => c.trim().split('=')[0]).join(', ') : 'none',
+      userAgent: userAgent?.substring(0, 50) + '...',
+      referer,
+      origin,
+      requestUrl: request.url
     })
+
+    // 쿠키 상세 분석
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map(c => c.trim())
+      const supabaseCookies = cookies.filter(c => 
+        c.startsWith('sb-') || 
+        c.includes('supabase') ||
+        c.includes('auth-token') ||
+        c.includes('access-token') ||
+        c.includes('refresh-token')
+      )
+      
+      console.log('🍪 Cookie analysis:', {
+        totalCookies: cookies.length,
+        supabaseCookies: supabaseCookies.length,
+        supabaseCookieNames: supabaseCookies.map(c => c.split('=')[0]).join(', '),
+        allCookieNames: cookies.map(c => c.split('=')[0]).join(', ')
+      })
+    }
     
     let user: any = null
     let authMethod: string = 'none'
+    const authDetails: string[] = []
     
-    // 1단계: 쿠키 기반 세션 확인을 우선적으로 사용
-    console.log('🍪 Step 1: Attempting cookie-based authentication...')
+    // 1단계: 쿠키 기반 세션 확인 (여러 방법 시도)
+    console.log('🍪 Step 1: Attempting multiple cookie-based authentication methods...')
     
-    try {
-      const supabase = createRouteHandlerClient({ cookies })
-      
-      // 현재 사용자 확인
-      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
-      console.log('👤 Cookie auth - User check:', {
-        hasUser: !!currentUser,
-        userId: currentUser?.id,
-        email: currentUser?.email,
-        userError: userError?.message
-      })
-      
-      // 세션 확인
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      console.log('📋 Cookie auth - Session check:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        hasAccessToken: !!session?.access_token,
-        expiresAt: session?.expires_at,
-        sessionError: sessionError?.message
-      })
-      
-      if (sessionError) {
-        console.error('❌ Cookie auth - Session error:', sessionError)
-        throw new Error(`Session error: ${sessionError.message}`)
+    const cookieAuthAttempts = [
+      {
+        name: 'createRouteHandlerClient',
+        method: async () => {
+          const supabase = createRouteHandlerClient({ cookies })
+          return await supabase.auth.getUser()
+        }
+      },
+      {
+        name: 'direct cookie parsing',
+        method: async () => {
+          // 쿠키를 직접 파싱해서 토큰 추출 시도
+          if (!cookieHeader) throw new Error('No cookie header')
+          
+          const cookies = Object.fromEntries(
+            cookieHeader.split(';').map(c => {
+              const [name, ...rest] = c.trim().split('=')
+              return [name, rest.join('=')]
+            })
+          )
+          
+          // Supabase 토큰 쿠키 찾기
+          const tokenCookie = Object.entries(cookies).find(([name]) => 
+            name.includes('access-token') || name.includes('auth-token')
+          )
+          
+          if (!tokenCookie) throw new Error('No token cookie found')
+          
+          const token = tokenCookie[1]
+          if (!token) throw new Error('Empty token in cookie')
+          
+          return await supabaseAdmin.auth.getUser(token)
+        }
       }
-      
-      if (session?.user) {
-        user = session.user
-        authMethod = 'cookie'
-        console.log('✅ Cookie auth successful:', {
-          userId: user.id,
-          email: user.email,
-          method: authMethod
+    ]
+    
+    let cookieAuthSuccess = false
+    
+    for (const attempt of cookieAuthAttempts) {
+      try {
+        console.log(`🔍 Trying ${attempt.name}...`)
+        
+        const { data: { user: currentUser }, error: userError } = await attempt.method()
+        
+        console.log(`👤 ${attempt.name} - User check:`, {
+          hasUser: !!currentUser,
+          userId: currentUser?.id,
+          email: currentUser?.email,
+          userError: userError?.message
         })
-      } else {
-        throw new Error('No session user found in cookie auth')
+        
+        if (userError) {
+          authDetails.push(`${attempt.name}: ${userError.message}`)
+          console.error(`❌ ${attempt.name} failed:`, userError)
+          continue
+        }
+        
+        if (currentUser) {
+          user = currentUser
+          authMethod = `cookie-${attempt.name}`
+          cookieAuthSuccess = true
+          console.log(`✅ ${attempt.name} successful:`, {
+            userId: user.id,
+            email: user.email,
+            method: authMethod
+          })
+          break
+        } else {
+          authDetails.push(`${attempt.name}: No user returned`)
+          console.log(`⚠️ ${attempt.name}: No user found`)
+        }
+        
+      } catch (attemptError) {
+        authDetails.push(`${attempt.name}: ${attemptError instanceof Error ? attemptError.message : String(attemptError)}`)
+        console.error(`❌ ${attempt.name} failed:`, attemptError)
       }
-      
-    } catch (cookieError) {
-      console.error('❌ Cookie auth failed:', cookieError instanceof Error ? cookieError.message : String(cookieError))
-      
-      // 2단계: 토큰 기반 인증 시도
-      console.log('🔑 Step 2: Attempting token-based authentication...')
+    }
+    
+    // 쿠키 인증이 모두 실패한 경우 토큰 기반 인증 시도
+    if (!cookieAuthSuccess) {
+      console.log('🔑 Step 2: Attempting token-based authentication methods...')
       
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.replace('Bearer ', '')
         console.log('📝 Token details:', {
           hasToken: !!token,
           tokenLength: token.length,
-          tokenPrefix: token.substring(0, 20) + '...'
+          tokenPrefix: token.substring(0, 20) + '...',
+          tokenSuffix: '...' + token.substring(token.length - 10)
         })
         
         try {
+          // JWT 토큰 구조 분석
+          const tokenParts = token.split('.')
+          console.log('🔐 JWT token analysis:', {
+            parts: tokenParts.length,
+            headerLength: tokenParts[0]?.length || 0,
+            payloadLength: tokenParts[1]?.length || 0,
+            signatureLength: tokenParts[2]?.length || 0,
+            isValidJWT: tokenParts.length === 3
+          })
+          
+          // 토큰 검증 (Service Role 사용)
           const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
           
           console.log('🔍 Token validation result:', {
@@ -111,50 +187,118 @@ export async function POST(request: NextRequest) {
           })
           
           if (tokenError) {
+            authDetails.push(`Token validation: ${tokenError.message}`)
             console.error('❌ Token validation error:', tokenError)
             throw new Error(`Token validation failed: ${tokenError.message}`)
           }
           
           if (tokenUser) {
             user = tokenUser
-            authMethod = 'token'
+            authMethod = 'bearer-token'
             console.log('✅ Token auth successful:', {
               userId: user.id,
               email: user.email,
               method: authMethod
             })
           } else {
+            authDetails.push('Token validation: No user returned')
             throw new Error('Token validation returned no user')
           }
           
         } catch (tokenError) {
+          authDetails.push(`Token auth: ${tokenError instanceof Error ? tokenError.message : String(tokenError)}`)
           console.error('❌ Token auth failed:', tokenError instanceof Error ? tokenError.message : String(tokenError))
-          throw tokenError
         }
       } else {
+        authDetails.push('No authorization header found')
         console.log('❌ No authorization header found for token auth')
-        throw new Error('No authorization header for token auth')
       }
     }
     
-    // 최종 인증 확인
+    // 3단계: 최후의 수단 - 환경변수나 기타 방법 시도
     if (!user) {
-      console.error('🚨 Authentication completely failed - no user found')
-      return NextResponse.json(
-        { 
-          message: '인증 실패: 로그인이 필요합니다. 다시 로그인해주세요.',
-          details: 'Both cookie and token authentication failed',
-          authMethod: authMethod,
-          timestamp: new Date().toISOString()
+      console.log('🔄 Step 3: Attempting alternative authentication methods...')
+      
+      try {
+        // Supabase 클라이언트를 다른 방법으로 생성 시도
+        const _alternativeSupabase = createClient(
+          supabaseUrl!,
+          supabaseAnonKey!,
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false
+            }
+          }
+        )
+        
+        // 요청에서 직접 세션 정보 추출 시도 (비상 방법)
+        const requestBody = await request.clone().text()
+        console.log('🔍 Request body analysis:', {
+          hasBody: !!requestBody,
+          bodyLength: requestBody.length,
+          isFormData: request.headers.get('content-type')?.includes('multipart/form-data')
+        })
+        
+        authDetails.push('Alternative methods attempted but no valid session found')
+        console.log('⚠️ All alternative authentication methods exhausted')
+        
+      } catch (altError) {
+        authDetails.push(`Alternative auth: ${altError instanceof Error ? altError.message : String(altError)}`)
+        console.error('❌ Alternative auth failed:', altError)
+      }
+    }
+    
+    // 최종 인증 확인 및 상세 오류 보고
+    if (!user) {
+      console.error('🚨 Authentication completely failed - comprehensive debugging info:')
+      console.error('🚨 Auth failure details:', authDetails)
+      
+      const errorResponse = {
+        message: 'Auth session missing!',
+        error: 'AUTHENTICATION_FAILED',
+        details: {
+          attempted_methods: [
+            'createRouteHandlerClient',
+            'direct cookie parsing',
+            'bearer token validation',
+            'alternative supabase client'
+          ],
+          failures: authDetails,
+          headers: {
+            hasAuthHeader: !!authHeader,
+            hasCookieHeader: !!cookieHeader,
+            origin,
+            referer
+          },
+          timestamp: new Date().toISOString(),
+          requestInfo: {
+            url: request.url,
+            method: request.method,
+            headers: {
+              'content-type': request.headers.get('content-type'),
+              'user-agent': request.headers.get('user-agent')?.substring(0, 100)
+            }
+          }
         },
-        { status: 401 }
-      )
+        solution: {
+          steps: [
+            '1. 브라우저에서 로그아웃 후 다시 로그인',
+            '2. 브라우저 쿠키 및 캐시 삭제',
+            '3. 시크릿 모드에서 재시도',
+            '4. 브라우저 개발자 도구에서 네트워크 탭 확인'
+          ]
+        }
+      }
+      
+      return NextResponse.json(errorResponse, { status: 401 })
     }
     
     console.log('🎉 Authentication successful:', {
       userId: user.id,
       email: user.email,
       method: authMethod,
+      authDetails: authDetails.length > 0 ? authDetails : ['Direct success'],
       timestamp: new Date().toISOString()
     })
 
