@@ -70,7 +70,15 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
   const [developmentGuidance, setDevelopmentGuidance] = useState<DevelopmentPlanningGuidance | null>(null)
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel | null>(null)
-  const [_isAnalyzing, setIsAnalyzing] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null)
+  const [isBatchMode, setIsBatchMode] = useState(false)
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
+  const [batchAnalysisProgress, setBatchAnalysisProgress] = useState<{
+    total: number
+    completed: number
+    current: number
+    isRunning: boolean
+  }>({ total: 0, completed: 0, current: 0, isRunning: false })
   
   const { data: rfpDocs = [], isLoading: rfpLoading } = useRfpDocuments(projectId, 'proposal')
   const { data: tasks = [], isLoading: tasksLoading } = useProposalTasks(projectId)
@@ -197,6 +205,96 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       alert(errorMessage)
     } finally {
       setIsAnalyzing(null)
+    }
+  }
+
+  // 일괄 분석 기능
+  const handleBatchAnalysis = async () => {
+    if (!selectedAIModel) {
+      alert('AI 모델을 먼저 선택해주세요.')
+      return
+    }
+
+    if (selectedDocuments.size === 0) {
+      alert('분석할 문서를 선택해주세요.')
+      return
+    }
+
+    const documentsToAnalyze = Array.from(selectedDocuments)
+    setBatchAnalysisProgress({
+      total: documentsToAnalyze.length,
+      completed: 0,
+      current: 0,
+      isRunning: true
+    })
+
+    try {
+      for (let i = 0; i < documentsToAnalyze.length; i++) {
+        const documentId = documentsToAnalyze[i]
+        setBatchAnalysisProgress(prev => ({ ...prev, current: i + 1 }))
+
+        try {
+          const response = await fetch('/api/rfp/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              rfp_document_id: documentId,
+              project_id: projectId,
+              analysis_options: {
+                include_questions: true,
+                depth_level: 'comprehensive'
+              },
+              selected_model_id: selectedAIModel.id
+            })
+          })
+
+          if (!response.ok) {
+            console.error(`문서 ${i + 1} 분석 실패:`, response.statusText)
+          } else {
+            setBatchAnalysisProgress(prev => ({ ...prev, completed: prev.completed + 1 }))
+          }
+        } catch (error) {
+          console.error(`문서 ${i + 1} 분석 오류:`, error)
+        }
+
+        // API 부하 방지를 위한 대기 (마지막 문서가 아닌 경우)
+        if (i < documentsToAnalyze.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
+
+      // 분석 완료 후 결과 탭으로 이동
+      setActiveTab('rfp_analysis')
+      alert(`${batchAnalysisProgress.completed}개 문서 분석이 완료되었습니다.`)
+
+    } catch (error) {
+      console.error('일괄 분석 오류:', error)
+      alert('일괄 분석 중 오류가 발생했습니다.')
+    } finally {
+      setBatchAnalysisProgress(prev => ({ ...prev, isRunning: false }))
+    }
+  }
+
+  // 문서 선택/해제 핸들러
+  const handleDocumentToggle = (documentId: string) => {
+    const newSelection = new Set(selectedDocuments)
+    if (newSelection.has(documentId)) {
+      newSelection.delete(documentId)
+    } else {
+      newSelection.add(documentId)
+    }
+    setSelectedDocuments(newSelection)
+  }
+
+  // 모든 문서 선택/해제
+  const handleSelectAllDocuments = () => {
+    if (selectedDocuments.size === rfpDocs.length) {
+      setSelectedDocuments(new Set())
+    } else {
+      setSelectedDocuments(new Set(rfpDocs.map(doc => doc.id)))
     }
   }
 
@@ -528,14 +626,89 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">RFP 문서</h3>
-            <Button
-              onClick={() => setIsCreateRfpOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              새 RFP 문서
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* 일괄 분석 모드 토글 */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  일괄 분석 모드
+                </label>
+                <input
+                  type="checkbox"
+                  checked={isBatchMode}
+                  onChange={(e) => {
+                    setIsBatchMode(e.target.checked)
+                    if (!e.target.checked) {
+                      setSelectedDocuments(new Set())
+                    }
+                  }}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+              </div>
+              <Button
+                onClick={() => setIsCreateRfpOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                새 RFP 문서
+              </Button>
+            </div>
           </div>
+
+          {/* 일괄 분석 컨트롤 */}
+          {isBatchMode && (
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={handleSelectAllDocuments}
+                    variant="outline"
+                    className="text-sm"
+                  >
+                    {selectedDocuments.size === rfpDocs.length ? '전체 해제' : '전체 선택'}
+                  </Button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedDocuments.size}개 문서 선택됨
+                  </span>
+                </div>
+                <Button
+                  onClick={handleBatchAnalysis}
+                  disabled={selectedDocuments.size === 0 || batchAnalysisProgress.isRunning || !selectedAIModel}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {batchAnalysisProgress.isRunning ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      일괄 분석 중... ({batchAnalysisProgress.current}/{batchAnalysisProgress.total})
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      선택된 문서 일괄 분석
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* 일괄 분석 진행률 표시 */}
+              {batchAnalysisProgress.isRunning && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                    <span>진행률: {batchAnalysisProgress.completed}/{batchAnalysisProgress.total}</span>
+                    <span>{Math.round((batchAnalysisProgress.completed / batchAnalysisProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(batchAnalysisProgress.completed / batchAnalysisProgress.total) * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    현재 분석 중: 문서 {batchAnalysisProgress.current}/{batchAnalysisProgress.total}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* RFP 문서 목록 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -551,52 +724,89 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
               </div>
             ) : (
               rfpDocs.map((doc) => (
-                <div key={doc.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <div 
+                  key={doc.id} 
+                  className={`bg-white dark:bg-gray-800 rounded-lg border p-4 transition-all duration-200 ${
+                    isBatchMode && selectedDocuments.has(doc.id)
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-blue-100 dark:shadow-blue-900/20 shadow-lg'
+                      : 'border-gray-200 dark:border-gray-700'
+                  }`}
+                >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white">{doc.title}</h4>
-                      {doc.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          {doc.description.length > 100 
-                            ? `${doc.description.substring(0, 100)}...` 
-                            : doc.description
-                          }
-                        </p>
+                    <div className="flex items-start gap-3 flex-1">
+                      {/* 일괄 모드에서 체크박스 표시 */}
+                      {isBatchMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.has(doc.id)}
+                          onChange={() => handleDocumentToggle(doc.id)}
+                          className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
                       )}
-                      <div className="flex items-center gap-2 mt-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          doc.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          doc.status === 'analyzing' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {doc.status === 'draft' ? '초안' :
-                           doc.status === 'analyzing' ? '분석중' :
-                           doc.status === 'completed' ? '완료' : '보관됨'}
-                        </span>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white">{doc.title}</h4>
+                        {doc.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {doc.description.length > 100 
+                              ? `${doc.description.substring(0, 100)}...` 
+                              : doc.description
+                            }
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            doc.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            doc.status === 'analyzing' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {doc.status === 'draft' ? '초안' :
+                             doc.status === 'analyzing' ? '분석중' :
+                             doc.status === 'completed' ? '완료' : '보관됨'}
+                          </span>
+                          {/* 분석 상태 표시 */}
+                          {isAnalyzing === doc.id && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              분석 진행 중
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* AI 분석 버튼 */}
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleStartRFPAnalysis(doc.id)}
-                      disabled={doc.status === 'analyzing'}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
-                    >
-                      {doc.status === 'analyzing' ? (
-                        <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
-                          분석 중...
-                        </>
+                  {/* AI 분석 버튼 - 일괄 모드가 아닐 때만 표시 */}
+                  {!isBatchMode && (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleStartRFPAnalysis(doc.id)}
+                        disabled={doc.status === 'analyzing' || isAnalyzing === doc.id || !selectedAIModel}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                      >
+                        {isAnalyzing === doc.id ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                            분석 중...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3 w-3 mr-2" />
+                            AI 분석
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* 일괄 모드에서 선택 안내 */}
+                  {isBatchMode && (
+                    <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      {selectedDocuments.has(doc.id) ? (
+                        <span className="text-blue-600">✓ 일괄 분석에 포함됨</span>
                       ) : (
-                        <>
-                          <Eye className="h-3 w-3 mr-2" />
-                          AI 분석
-                        </>
+                        <span>체크박스를 선택하여 일괄 분석에 포함</span>
                       )}
-                    </Button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
