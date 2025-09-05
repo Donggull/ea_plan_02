@@ -430,7 +430,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   타겟 시장 정의
                 </h5>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {secondaryAnalysis.market_research_insights.target_market_definition}
+                  {secondaryAnalysis.market_research_insights?.target_market_definition || '타겟 시장 정보가 없습니다.'}
                 </p>
               </div>
 
@@ -439,7 +439,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   경쟁사 분석 방향
                 </h5>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {secondaryAnalysis.market_research_insights.competitor_analysis_direction}
+                  {secondaryAnalysis.market_research_insights?.competitor_analysis_direction || '경쟁사 분석 방향 정보가 없습니다.'}
                 </p>
               </div>
 
@@ -448,7 +448,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   시장 규모 추정
                 </h5>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {secondaryAnalysis.market_research_insights.market_size_estimation}
+                  {secondaryAnalysis.market_research_insights?.market_size_estimation || '시장 규모 추정 정보가 없습니다.'}
                 </p>
               </div>
 
@@ -457,12 +457,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   핵심 시장 트렌드
                 </h5>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  {secondaryAnalysis.market_research_insights.key_market_trends.map((trend, index) => (
+                  {secondaryAnalysis.market_research_insights?.key_market_trends?.map((trend, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-purple-600 mt-1">•</span>
                       {trend}
                     </li>
-                  ))}
+                  )) || (
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 mt-1">•</span>
+                      핵심 시장 트렌드 정보가 없습니다.
+                    </li>
+                  )}
                 </ul>
               </div>
 
@@ -471,14 +476,21 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   연구 우선순위
                 </h5>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  {secondaryAnalysis.market_research_insights.research_priorities.map((priority, index) => (
+                  {secondaryAnalysis.market_research_insights?.research_priorities?.map((priority, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="bg-purple-100 text-purple-600 px-2 py-1 rounded text-xs font-medium">
                         {index + 1}
                       </span>
                       {priority}
                     </li>
-                  ))}
+                  )) || (
+                    <li className="flex items-start gap-2">
+                      <span className="bg-purple-100 text-purple-600 px-2 py-1 rounded text-xs font-medium">
+                        1
+                      </span>
+                      연구 우선순위 정보가 없습니다.
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -499,7 +511,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   주요 페르소나 특성
                 </h5>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {secondaryAnalysis.persona_analysis_insights.primary_persona_characteristics}
+                  {secondaryAnalysis.persona_analysis_insights?.primary_persona_characteristics || '주요 페르소나 특성 정보가 없습니다.'}
                 </p>
               </div>
 
@@ -508,12 +520,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   페르소나 고충사항
                 </h5>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  {secondaryAnalysis.persona_analysis_insights.persona_pain_points.map((pain, index) => (
+                  {secondaryAnalysis.persona_analysis_insights?.persona_pain_points?.map((pain, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-orange-600 mt-1">•</span>
                       {pain}
                     </li>
-                  ))}
+                  )) || (
+                    <li className="flex items-start gap-2">
+                      <span className="text-orange-600 mt-1">•</span>
+                      페르소나 고충사항 정보가 없습니다.
+                    </li>
+                  )}
                 </ul>
               </div>
 
@@ -522,12 +539,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   페르소나 목표 및 동기
                 </h5>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  {secondaryAnalysis.persona_analysis_insights.persona_goals_motivations.map((goal, index) => (
+                  {secondaryAnalysis.persona_analysis_insights?.persona_goals_motivations?.map((goal, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-green-600 mt-1">•</span>
                       {goal}
                     </li>
-                  ))}
+                  )) || (
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-600 mt-1">•</span>
+                      페르소나 목표 및 동기 정보가 없습니다.
+                    </li>
+                  )}
                 </ul>
               </div>
 
@@ -536,14 +558,21 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   사용 시나리오
                 </h5>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                  {secondaryAnalysis.persona_analysis_insights.persona_scenarios.map((scenario, index) => (
+                  {secondaryAnalysis.persona_analysis_insights?.persona_scenarios?.map((scenario, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-medium">
                         {index + 1}
                       </span>
                       {scenario}
                     </li>
-                  ))}
+                  )) || (
+                    <li className="flex items-start gap-2">
+                      <span className="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-medium">
+                        1
+                      </span>
+                      사용 시나리오 정보가 없습니다.
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -565,7 +594,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                 시장조사 접근법
               </h5>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {secondaryAnalysis.enhanced_recommendations.market_research_approach}
+                {secondaryAnalysis.enhanced_recommendations?.market_research_approach || '시장조사 접근법 정보가 없습니다.'}
               </p>
             </div>
 
@@ -574,7 +603,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                 데이터 수집 전략
               </h5>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {secondaryAnalysis.enhanced_recommendations.data_collection_strategy}
+                {secondaryAnalysis.enhanced_recommendations?.data_collection_strategy || '데이터 수집 전략 정보가 없습니다.'}
               </p>
             </div>
 
@@ -583,7 +612,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                 분석 일정
               </h5>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {secondaryAnalysis.enhanced_recommendations.analysis_timeline}
+                {secondaryAnalysis.enhanced_recommendations?.analysis_timeline || '분석 일정 정보가 없습니다.'}
               </p>
             </div>
 
@@ -592,12 +621,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                 성공 지표
               </h5>
               <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                {secondaryAnalysis.enhanced_recommendations.success_metrics.map((metric, index) => (
+                {secondaryAnalysis.enhanced_recommendations?.success_metrics?.map((metric, index) => (
                   <li key={index} className="flex items-start gap-2">
                     <span className="text-green-600 mt-1">•</span>
                     {metric}
                   </li>
-                ))}
+                )) || (
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-1">•</span>
+                    성공 지표 정보가 없습니다.
+                  </li>
+                )}
               </ul>
             </div>
           </div>
