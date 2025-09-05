@@ -7,6 +7,7 @@ import {
   useProposalTasks,
   useCreateProposalTask
 } from '@/hooks/useProjects'
+import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
@@ -181,10 +182,26 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       if (!documentId || !projectId) {
         throw new Error(`필수 정보가 누락되었습니다. 문서 ID: ${documentId}, 프로젝트 ID: ${projectId}`)
       }
+
+      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('🔐 [제안진행] Client session check:', session ? 'session exists' : 'no session')
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+        console.log('🔑 [제안진행] Added Authorization header')
+      } else {
+        console.warn('⚠️ [제안진행] No session token available')
+      }
       
       console.log('📝 [제안진행] API 요청 준비:', {
         url: '/api/rfp/analyze',
         method: 'POST',
+        hasAuthHeader: !!headers['Authorization'],
         payload: {
           rfp_document_id: documentId,
           project_id: projectId,
@@ -196,9 +213,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       // RFP 분석 자동화의 API를 활용하여 분석 수행
       const response = await fetch('/api/rfp/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           rfp_document_id: documentId,
@@ -354,6 +369,21 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       timestamp: new Date().toISOString()
     })
 
+    // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가 (일괄 분석용)
+    const { data: { session } } = await supabase.auth.getSession()
+    console.log('🔐 [제안진행-일괄] Client session check:', session ? 'session exists' : 'no session')
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+      console.log('🔑 [제안진행-일괄] Added Authorization header')
+    } else {
+      console.warn('⚠️ [제안진행-일괄] No session token available')
+    }
+
     let successCount = 0
     const errorDetails: string[] = []
 
@@ -367,9 +397,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         try {
           const response = await fetch('/api/rfp/analyze', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers,
             credentials: 'include',
             body: JSON.stringify({
               rfp_document_id: documentId,
