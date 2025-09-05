@@ -131,7 +131,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   }, [setAnalysisData])
 
   // 후속 질문 로드 함수 (두 번째 - generateAIFollowUpQuestions에 의존)
-  const loadFollowUpQuestions = useCallback(async (analysisId: string) => {
+  const _loadFollowUpQuestions = useCallback(async (analysisId: string) => {
     try {
       console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드 시작:', analysisId)
       console.log('📋 [후속질문] 현재 분석 ID:', analysisId)

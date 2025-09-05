@@ -209,7 +209,7 @@ ${Object.entries(rfpAnalysis.follow_up_answers).map(([question, answer]) =>
     }
 
     // 2차 분석 결과를 데이터베이스에 저장
-    const { data: updatedAnalysis, error: updateError } = await supabaseAdmin
+    const { data: _updatedAnalysis, error: updateError } = await supabaseAdmin
       .from('rfp_analyses')
       .update({
         secondary_analysis: secondaryAnalysisData,

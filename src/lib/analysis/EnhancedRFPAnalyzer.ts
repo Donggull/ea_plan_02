@@ -315,7 +315,7 @@ export class EnhancedRFPAnalyzer {
    * 확장된 분석을 위한 프롬프트 생성
    */
   private generateEnhancedAnalysisPrompt(text: string, options: any): string {
-    const depthLevel = options.depth_level || 'comprehensive'
+    const _depthLevel = options.depth_level || 'comprehensive'
     
     return `
 당신은 경험 많은 프로젝트 매니저이자 기술 컨설턴트입니다. 다음 RFP(제안요청서) 문서를 분석하여 제안 진행, 구축, 운영 각 단계에서의 실행 가능성과 구체적인 계획을 수립해주세요.

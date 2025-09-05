@@ -8,7 +8,6 @@ import {
   Save, 
   Send, 
   AlertCircle, 
-  CheckCircle, 
   Clock,
   Star,
   BarChart,
@@ -55,8 +54,7 @@ export function EnhancedQuestionnaireSystem({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
-  const [currentStep, setCurrentStep] = useState(0)
-  const [showSuggested, setShowSuggested] = useState<Record<string, boolean>>({})
+  const [_showSuggested, setShowSuggested] = useState<Record<string, boolean>>({})
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -226,7 +224,7 @@ export function EnhancedQuestionnaireSystem({
 
     } catch (error) {
       console.error('❌ Enhanced Questionnaire: Submit failed:', error)
-      onError?(`답변 제출 실패: ${error instanceof Error ? error.message : String(error)}`)
+      onError?.(`답변 제출 실패: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setIsSubmitting(false)
     }

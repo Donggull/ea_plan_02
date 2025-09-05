@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { rfp_analysis_id, project_id, follow_up_answers, completeness_score } = body
+    const { rfp_analysis_id, project_id: _project_id, follow_up_answers, completeness_score } = body
 
     if (!rfp_analysis_id || !follow_up_answers) {
       return NextResponse.json(
