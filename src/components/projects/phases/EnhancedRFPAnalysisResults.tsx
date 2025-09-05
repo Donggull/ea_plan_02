@@ -99,7 +99,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   const loadFollowUpQuestions = useCallback(async (analysisId: string) => {
     try {
       console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드 시작:', analysisId)
-      console.log('📋 [후속질문] 현재 analysisData 상태:', analysisData.length, '개')
+      console.log('📋 [후속질문] 현재 분석 ID:', analysisId)
       
       // RFP 분석 결과에서 follow_up_questions 필드를 직접 조회
       const { data: analysis, error } = await supabase
@@ -124,7 +124,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       // 후속 질문이 있으면 상태 업데이트
       if (followUpQuestions.length > 0) {
-        console.log('🔄 [후속질문] 상태 업데이트 시작 - 현재 분석 데이터:', analysisData.length, '개')
+        console.log('🔄 [후속질문] 상태 업데이트 시작 - 분석 ID:', analysisId)
         
         setAnalysisData(prev => {
           console.log('🔄 [후속질문] 상태 업데이트 내부 - 이전 상태:', prev.length, '개')
@@ -176,13 +176,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       if (error) throw error
 
       const analysisDataList: AnalysisData[] = analyses?.map(analysis => {
-        console.log('📊 [분석데이터] 로드된 분석:', analysis.id, '후속질문 수:', analysis.follow_up_questions?.length || 0)
+        const analysisWithFollowUp = analysis as any
+        console.log('📊 [분석데이터] 로드된 분석:', analysis.id, '후속질문 수:', analysisWithFollowUp.follow_up_questions?.length || 0)
         
         return {
           analysis: {
             ...analysis
           } as unknown as RFPAnalysis,
-          follow_up_questions: analysis.follow_up_questions || [], // DB에 저장된 후속 질문 사용
+          follow_up_questions: analysisWithFollowUp.follow_up_questions || [], // DB에 저장된 후속 질문 사용
           questionnaire_completed: false,
           next_step_ready: false
         }
@@ -208,7 +209,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, loadFollowUpQuestions])
+  }, [projectId, generateAIFollowUpQuestions])
 
   useEffect(() => {
     fetchAnalysisResults()
