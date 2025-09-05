@@ -175,22 +175,33 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       if (error) throw error
 
-      const analysisDataList: AnalysisData[] = analyses?.map(analysis => ({
-        analysis: {
-          ...analysis,
-          follow_up_questions: [] // 기본값으로 빈 배열 설정
-        } as unknown as RFPAnalysis,
-        follow_up_questions: [], // 이후 API에서 로드
-        questionnaire_completed: false,
-        next_step_ready: false
-      })) || []
+      const analysisDataList: AnalysisData[] = analyses?.map(analysis => {
+        console.log('📊 [분석데이터] 로드된 분석:', analysis.id, '후속질문 수:', analysis.follow_up_questions?.length || 0)
+        
+        return {
+          analysis: {
+            ...analysis
+          } as unknown as RFPAnalysis,
+          follow_up_questions: analysis.follow_up_questions || [], // DB에 저장된 후속 질문 사용
+          questionnaire_completed: false,
+          next_step_ready: false
+        }
+      }) || []
 
       setAnalysisData(analysisDataList)
       
       // 첫 번째 분석이 있으면 자동 선택
       if (analysisDataList.length > 0) {
         setSelectedAnalysis(analysisDataList[0])
-        await loadFollowUpQuestions(analysisDataList[0].analysis.id)
+        
+        // DB에 후속 질문이 없으면 자동 생성 트리거
+        const firstAnalysis = analysisDataList[0]
+        if (firstAnalysis.follow_up_questions.length === 0) {
+          console.log('🤖 [분석데이터] 후속 질문이 없어 자동 생성 트리거')
+          await generateAIFollowUpQuestions(firstAnalysis.analysis.id)
+        } else {
+          console.log('✅ [분석데이터] 기존 후속 질문 발견:', firstAnalysis.follow_up_questions.length, '개')
+        }
       }
     } catch (error) {
       console.error('Failed to fetch analysis results:', error)
