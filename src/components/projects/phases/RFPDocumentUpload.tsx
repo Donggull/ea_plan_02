@@ -232,7 +232,7 @@ export default function RFPDocumentUpload({
     }
   }
 
-  // AI 분석 기능 개선 - 인증 헤더 및 AI 모델 지원
+  // AI 분석 기능 개선 - 강화된 오류 처리
   const handleAIAnalysis = async (documentId: string, selectedAIModelId?: string) => {
     if (!documentId) {
       setError('분석할 RFP 문서를 선택해주세요.')
@@ -243,100 +243,170 @@ export default function RFPDocumentUpload({
       setLoading(true)
       setError(null)
       
-      console.log('RFP Analysis: Starting analysis with params:', {
-        documentId,
-        projectId,
-        selectedAIModelId
+      console.log('🚀 RFP Analysis: Starting analysis', {
+        documentId: documentId.substring(0, 8) + '...',
+        projectId: projectId.substring(0, 8) + '...',
+        selectedAIModelId,
+        timestamp: new Date().toISOString()
       })
 
-      // 인증 토큰 가져오기
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      // 강화된 인증 토큰 확인
+      let session = null
+      let retryCount = 0
+      const maxRetries = 2
       
-      if (sessionError) {
-        console.error('Session error:', sessionError)
-        throw new Error('인증 세션을 가져올 수 없습니다: ' + sessionError.message)
+      while (!session && retryCount < maxRetries) {
+        try {
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+          
+          if (sessionError) {
+            console.error(`🔐 Session error (attempt ${retryCount + 1}):`, sessionError.message)
+            if (retryCount === maxRetries - 1) {
+              throw new Error('세션 가져오기 실패: ' + sessionError.message)
+            }
+          } else if (sessionData?.session?.access_token) {
+            session = sessionData.session
+            console.log('✅ Authentication successful')
+            break
+          }
+          
+          retryCount++
+          if (retryCount < maxRetries) {
+            console.log(`🔄 Retrying authentication (${retryCount}/${maxRetries})...`)
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        } catch (authError) {
+          console.error(`❌ Auth attempt ${retryCount + 1} failed:`, authError)
+          retryCount++
+        }
       }
       
       if (!session?.access_token) {
-        throw new Error('로그인이 필요합니다. 다시 로그인 후 시도해주세요.')
+        throw new Error('🔐 로그인 세션이 만료되었습니다. 페이지를 새로고침하고 다시 로그인해주세요.')
       }
 
-      console.log('RFP Analysis: Using session token for authentication')
+      // 네트워크 연결 상태 확인
+      if (!navigator.onLine) {
+        throw new Error('🌐 인터넷 연결을 확인해주세요.')
+      }
       
-      // RFP 분석 API 호출 - 인증 헤더 포함
-      const response = await fetch('/api/rfp/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          rfp_document_id: documentId,
-          project_id: projectId,
-          selected_model_id: selectedAIModelId || null,
-          analysis_options: {
-            include_questions: true,
-            detailed_analysis: true
-          }
+      // API 호출 with timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2분 타임아웃
+      
+      try {
+        console.log('📡 Making API request to /api/rfp/analyze...')
+        const response = await fetch('/api/rfp/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            rfp_document_id: documentId,
+            project_id: projectId,
+            selected_model_id: selectedAIModelId || null,
+            analysis_options: {
+              include_questions: true,
+              detailed_analysis: true
+            }
+          }),
+          signal: controller.signal
         })
-      })
 
-      console.log('RFP Analysis: API response status:', response.status)
+        clearTimeout(timeoutId)
+        console.log(`📨 API response: ${response.status} ${response.statusText}`)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('RFP Analysis: API error response:', errorText)
+        if (!response.ok) {
+          let errorData: any = {}
+          const contentType = response.headers.get('content-type')
+          
+          try {
+            if (contentType && contentType.includes('application/json')) {
+              errorData = await response.json()
+            } else {
+              const errorText = await response.text()
+              errorData = { message: errorText }
+            }
+          } catch (parseError) {
+            console.error('❌ Error parsing response:', parseError)
+            errorData = { message: '서버 응답을 파싱할 수 없습니다.' }
+          }
+          
+          const statusMessages: { [key: number]: string } = {
+            400: '잘못된 요청입니다. 문서 정보를 확인해주세요.',
+            401: '인증이 필요합니다. 다시 로그인해주세요.',
+            403: '이 문서에 접근할 권한이 없습니다.',
+            404: 'RFP 문서를 찾을 수 없습니다.',
+            429: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.',
+            500: '서버 내부 오류가 발생했습니다.',
+            503: '서비스가 일시적으로 이용 불가능합니다.'
+          }
+          
+          const errorMessage = errorData.message || statusMessages[response.status] || '알 수 없는 오류가 발생했습니다.'
+          throw new Error(`${errorMessage} (상태코드: ${response.status})`)
+        }
+
+        const result = await response.json()
+        console.log('✅ Analysis completed successfully')
         
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError)
-          throw new Error(`AI 분석 중 서버 오류가 발생했습니다 (${response.status}): ${errorText}`)
+        // 결과 검증
+        if (!result.analysis) {
+          throw new Error('분석 결과가 비어있습니다. 다시 시도해주세요.')
         }
         
-        throw new Error(errorData.message || errorData.error || 'AI 분석 중 오류가 발생했습니다.')
+        // 성공 메시지
+        const analysisInfo = result.analysis
+        const successMessage = [
+          '🎉 AI 분석이 완료되었습니다!',
+          '',
+          '📊 분석 결과:',
+          `• 기능적 요구사항: ${analysisInfo.functional_requirements?.length || 0}개`,
+          `• 비기능적 요구사항: ${analysisInfo.non_functional_requirements?.length || 0}개`,
+          `• 위험 요소: ${analysisInfo.risk_factors?.length || 0}개`,
+          `• 키워드: ${analysisInfo.keywords?.length || 0}개`,
+          `• 확신도: ${Math.round((analysisInfo.confidence_score || 0) * 100)}%`,
+          '',
+          '🔄 페이지를 새로고침하여 결과를 확인하세요.'
+        ].join('\n')
+        
+        alert(successMessage)
+        await loadAvailableRfpDocs()
+        
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId)
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error('⏱️ 요청이 시간 초과되었습니다. 네트워크 연결을 확인하고 다시 시도해주세요.')
+        }
+        
+        throw fetchError
       }
-
-      const result = await response.json()
-      console.log('RFP Analysis: 분석 결과 수신:', result)
       
-      // 분석 완료 후 상세 성공 메시지
-      const analysisInfo = result.analysis || {}
-      const successMessage = [
-        '🎉 AI 분석이 완료되었습니다!',
-        '',
-        '📊 분석 결과:',
-        `• 기능적 요구사항: ${analysisInfo.functional_requirements?.length || 0}개`,
-        `• 비기능적 요구사항: ${analysisInfo.non_functional_requirements?.length || 0}개`,
-        `• 위험 요소: ${analysisInfo.risk_factors?.length || 0}개`,
-        `• 키워드: ${analysisInfo.keywords?.length || 0}개`,
-        `• 확신도: ${Math.round((analysisInfo.confidence_score || 0) * 100)}%`,
-        '',
-        '🔄 페이지를 새로고침하여 결과를 확인하세요.'
-      ].join('\n')
-      
-      alert(successMessage)
-      
-      // 문서 목록 새로고침
-      await loadAvailableRfpDocs()
-      
-    } catch (error) {
-      console.error('RFP Analysis: 분석 실패:', error)
-      console.error('RFP Analysis: Error details:', {
-        name: error?.constructor?.name,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
+    } catch (error: any) {
+      console.error('❌ RFP Analysis failed:', {
+        error: error.message,
+        stack: error.stack?.substring(0, 300),
+        timestamp: new Date().toISOString()
       })
       
       const errorMessage = error instanceof Error ? error.message : 'AI 분석에 실패했습니다.'
-      setError(`❌ AI 분석 실패: ${errorMessage}`)
+      setError(`❌ ${errorMessage}`)
+      
+      // 인증 오류인 경우 페이지 새로고침 제안
+      if (errorMessage.includes('로그인') || errorMessage.includes('인증') || errorMessage.includes('401')) {
+        setTimeout(() => {
+          if (confirm('인증 문제가 발생했습니다. 페이지를 새로고침하시겠습니까?')) {
+            window.location.reload()
+          }
+        }, 2000)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  // 여러 문서 동시 분석 기능 추가
+  // 여러 문서 동시 분석 기능 - 강화된 오류 처리
   const handleBatchAIAnalysis = async (documentIds: string[], selectedAIModelId?: string) => {
     if (!documentIds || documentIds.length === 0) {
       setError('분석할 RFP 문서를 선택해주세요.')
@@ -347,28 +417,42 @@ export default function RFPDocumentUpload({
       setLoading(true)
       setError(null)
       
-      console.log('Batch RFP Analysis: Starting batch analysis:', {
+      console.log('🚀 Batch Analysis: Starting batch analysis', {
         documentCount: documentIds.length,
-        documentIds,
-        selectedAIModelId
+        selectedAIModelId,
+        timestamp: new Date().toISOString()
       })
 
-      // 인증 토큰 가져오기
+      // 강화된 인증 확인
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError || !session?.access_token) {
-        throw new Error('로그인이 필요합니다. 다시 로그인 후 시도해주세요.')
+        throw new Error('🔐 배치 분석을 위해서는 로그인이 필요합니다.')
       }
 
-      const results = []
-      const errors = []
+      // 네트워크 상태 확인
+      if (!navigator.onLine) {
+        throw new Error('🌐 인터넷 연결을 확인해주세요.')
+      }
 
-      // 각 문서를 순차적으로 분석 (너무 많은 동시 요청 방지)
+      const results: { documentId: string, result: any }[] = []
+      const errors: { documentId: string, error: string }[] = []
+      let processedCount = 0
+
+      // 각 문서를 순차적으로 분석
       for (let i = 0; i < documentIds.length; i++) {
         const documentId = documentIds[i]
-        console.log(`Batch Analysis: Processing document ${i + 1}/${documentIds.length}: ${documentId}`)
+        const docNumber = i + 1
+        
+        console.log(`📄 Processing document ${docNumber}/${documentIds.length}`)
 
         try {
+          // 진행 상황 업데이트 (UI에 표시할 수 있도록)
+          setError(`📊 배치 분석 진행 중... (${docNumber}/${documentIds.length})`)
+
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 90000) // 90초 타임아웃
+          
           const response = await fetch('/api/rfp/analyze', {
             method: 'POST',
             headers: {
@@ -383,71 +467,128 @@ export default function RFPDocumentUpload({
                 include_questions: true,
                 detailed_analysis: true
               }
-            })
+            }),
+            signal: controller.signal
           })
+
+          clearTimeout(timeoutId)
+          processedCount++
 
           if (response.ok) {
             const result = await response.json()
             results.push({ documentId, result })
-            console.log(`Batch Analysis: Document ${documentId} analyzed successfully`)
+            console.log(`✅ Document ${docNumber} analyzed successfully`)
           } else {
-            const errorText = await response.text()
-            console.error(`Batch Analysis: Document ${documentId} failed:`, errorText)
-            errors.push({ documentId, error: errorText })
+            let errorMessage = `HTTP ${response.status}`
+            try {
+              const errorData = await response.json()
+              errorMessage = errorData.message || errorMessage
+            } catch {
+              const errorText = await response.text()
+              errorMessage = errorText || errorMessage
+            }
+            
+            console.error(`❌ Document ${docNumber} failed: ${errorMessage}`)
+            errors.push({ documentId, error: errorMessage })
           }
 
-          // 요청 사이에 잠시 대기 (Rate Limiting 방지)
+          // Rate limiting 방지를 위한 대기 (마지막 문서 제외)
           if (i < documentIds.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            console.log('⏳ Waiting 2 seconds before next analysis...')
+            await new Promise(resolve => setTimeout(resolve, 2000))
           }
 
-        } catch (error) {
-          console.error(`Batch Analysis: Document ${documentId} error:`, error)
-          errors.push({ documentId, error: error instanceof Error ? error.message : String(error) })
+        } catch (fetchError: any) {
+          processedCount++
+          let errorMessage = 'Unknown error'
+          
+          if (fetchError.name === 'AbortError') {
+            errorMessage = `문서 ${docNumber} 분석이 시간 초과되었습니다`
+          } else if (fetchError instanceof Error) {
+            errorMessage = fetchError.message
+          }
+          
+          console.error(`❌ Document ${docNumber} error:`, errorMessage)
+          errors.push({ documentId, error: errorMessage })
         }
       }
 
-      console.log('Batch Analysis: Completed:', {
-        successCount: results.length,
-        errorCount: errors.length
+      setError(null) // 진행 상황 메시지 제거
+
+      console.log('🏁 Batch Analysis completed:', {
+        total: documentIds.length,
+        successful: results.length,
+        failed: errors.length,
+        processed: processedCount
       })
 
-      // 결과 요약 메시지
-      let summaryMessage = `🎉 배치 분석 완료!\n\n`
-      summaryMessage += `✅ 성공: ${results.length}개 문서\n`
-      if (errors.length > 0) {
-        summaryMessage += `❌ 실패: ${errors.length}개 문서\n`
-      }
-      summaryMessage += `\n📊 총 분석된 요구사항:\n`
-      
+      // 결과 통계 계산
       let totalFunctional = 0
       let totalNonFunctional = 0
       let totalKeywords = 0
+      let totalRisks = 0
 
       results.forEach(({ result }) => {
         const analysis = result.analysis || {}
         totalFunctional += analysis.functional_requirements?.length || 0
         totalNonFunctional += analysis.non_functional_requirements?.length || 0
         totalKeywords += analysis.keywords?.length || 0
+        totalRisks += analysis.risk_factors?.length || 0
       })
 
-      summaryMessage += `• 기능적 요구사항: ${totalFunctional}개\n`
-      summaryMessage += `• 비기능적 요구사항: ${totalNonFunctional}개\n`
-      summaryMessage += `• 키워드: ${totalKeywords}개\n`
+      // 상세 결과 메시지
+      const summaryLines = [
+        '🎉 배치 분석이 완료되었습니다!',
+        '',
+        '📊 처리 결과:',
+        `✅ 성공: ${results.length}개 문서`,
+        errors.length > 0 ? `❌ 실패: ${errors.length}개 문서` : null,
+        '',
+        '📈 분석 통계:',
+        `• 기능적 요구사항: ${totalFunctional}개`,
+        `• 비기능적 요구사항: ${totalNonFunctional}개`,
+        `• 위험 요소: ${totalRisks}개`,
+        `• 키워드: ${totalKeywords}개`,
+        ''
+      ].filter(Boolean)
 
       if (errors.length > 0) {
-        summaryMessage += `\n⚠️ 실패한 문서들은 개별적으로 다시 분석해주세요.`
+        summaryLines.push('⚠️ 실패 상세:')
+        errors.slice(0, 3).forEach((err, idx) => {
+          summaryLines.push(`${idx + 1}. ${err.error.substring(0, 50)}...`)
+        })
+        if (errors.length > 3) {
+          summaryLines.push(`... 외 ${errors.length - 3}개 문서`)
+        }
+        summaryLines.push('')
+        summaryLines.push('💡 실패한 문서는 개별 분석을 시도해보세요.')
       }
 
-      alert(summaryMessage)
+      summaryLines.push('🔄 페이지를 새로고침하여 결과를 확인하세요.')
+      
+      alert(summaryLines.join('\n'))
       
       // 문서 목록 새로고침
       await loadAvailableRfpDocs()
       
-    } catch (error) {
-      console.error('Batch RFP Analysis: 배치 분석 실패:', error)
+    } catch (error: any) {
+      console.error('❌ Batch Analysis failed:', {
+        error: error.message,
+        stack: error.stack?.substring(0, 300),
+        timestamp: new Date().toISOString()
+      })
+      
       const errorMessage = error instanceof Error ? error.message : '배치 AI 분석에 실패했습니다.'
-      setError(`❌ 배치 분석 실패: ${errorMessage}`)
+      setError(`❌ ${errorMessage}`)
+      
+      // 인증 관련 오류 처리
+      if (errorMessage.includes('로그인') || errorMessage.includes('인증')) {
+        setTimeout(() => {
+          if (confirm('인증 문제가 발생했습니다. 페이지를 새로고침하시겠습니까?')) {
+            window.location.reload()
+          }
+        }, 2000)
+      }
     } finally {
       setLoading(false)
     }
@@ -723,6 +864,73 @@ export default function RFPDocumentUpload({
           <p className="text-sm">로그인 상태: 정상 ✓</p>
         </div>
       )}
+      {/* AI 모델 선택기 - 상단에 항상 표시 */}
+      {authStatus === 'authenticated' && (
+        <Card className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-full">
+                <Settings className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h4 className="font-medium text-blue-900 dark:text-blue-100">AI 분석 설정</h4>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full font-medium">
+                🤖 배치 분석 지원
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                AI 모델 선택
+              </label>
+              <AIModelSelector 
+                onModelSelect={handleAIModelSelect}
+                className="w-full"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                분석 모드
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  variant={!isBatchMode ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setIsBatchMode(false)
+                    setSelectedMultipleRfpDocs([])
+                  }}
+                  className="text-xs px-3 py-1.5"
+                >
+                  개별 분석
+                </Button>
+                <Button
+                  variant={isBatchMode ? "primary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setIsBatchMode(true)
+                    setSelectedRfpDoc(null)
+                  }}
+                  className="text-xs px-3 py-1.5"
+                >
+                  🚀 배치 분석
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-3 p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              <strong>배치 분석:</strong> 여러 RFP 문서를 한 번에 분석하여 시간을 단축할 수 있습니다. 
+              아래 탭에서 &ldquo;기존 RFP 문서 연동&rdquo;을 선택하여 사용하세요.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* 모드 선택 */}
       <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700">
         <button
@@ -764,6 +972,11 @@ export default function RFPDocumentUpload({
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             기존 RFP 문서 연동
+            {isBatchMode && (
+              <span className="ml-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                배치
+              </span>
+            )}
           </div>
         </button>
       </div>
@@ -947,68 +1160,27 @@ export default function RFPDocumentUpload({
             </Button>
           </div>
 
-          {/* AI 모델 선택 및 분석 모드 설정 */}
-          <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Settings className="h-5 w-5 text-blue-600" />
-                <h4 className="font-medium text-blue-900 dark:text-blue-100">AI 분석 설정</h4>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* AI 모델 선택 */}
-                <div>
-                  <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-                    AI 모델 선택
-                  </label>
-                  <AIModelSelector 
-                    onModelSelect={handleAIModelSelect}
-                    className="w-full"
-                  />
+          {/* 배치 모드일 때 전체 선택 및 실행 버튼 */}
+          {isBatchMode && availableRfpDocs.length > 0 && (
+            <Card className="p-4 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-purple-100 dark:bg-purple-900 rounded-full">
+                    <Layers className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <span className="font-medium text-purple-900 dark:text-purple-100">
+                    배치 분석 모드
+                  </span>
                 </div>
                 
-                {/* 분석 모드 선택 */}
-                <div>
-                  <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-                    분석 모드
-                  </label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={!isBatchMode ? "primary" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setIsBatchMode(false)
-                        setSelectedMultipleRfpDocs([])
-                      }}
-                      className="flex-1"
-                    >
-                      개별 분석
-                    </Button>
-                    <Button
-                      variant={isBatchMode ? "primary" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setIsBatchMode(true)
-                        setSelectedRfpDoc(null)
-                      }}
-                      className="flex-1"
-                    >
-                      배치 분석
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 배치 모드일 때 전체 선택 버튼 */}
-              {isBatchMode && availableRfpDocs.length > 0 && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleSelectAllDocuments}
-                    className="text-xs"
+                    className="text-xs border-purple-300 text-purple-700 hover:bg-purple-100 dark:border-purple-700 dark:text-purple-300"
                   >
-                    <Layers className="h-4 w-4 mr-1" />
+                    <CheckSquare className="h-4 w-4 mr-1" />
                     {selectedMultipleRfpDocs.length === availableRfpDocs.length ? '전체 해제' : '전체 선택'}
                   </Button>
                   
@@ -1016,16 +1188,25 @@ export default function RFPDocumentUpload({
                     <Button
                       onClick={() => handleBatchAIAnalysis(selectedMultipleRfpDocs, selectedAIModel || undefined)}
                       disabled={loading || authStatus !== 'authenticated'}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                     >
                       <Play className="h-4 w-4 mr-1" />
                       {selectedMultipleRfpDocs.length}개 문서 배치 분석
                     </Button>
                   )}
                 </div>
+              </div>
+              
+              {selectedMultipleRfpDocs.length > 0 && (
+                <div className="mt-3 p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <p className="text-xs text-purple-700 dark:text-purple-300">
+                    💡 <strong>선택된 문서:</strong> {selectedMultipleRfpDocs.length}개 문서가 순차적으로 분석됩니다. 
+                    분석 시간은 약 {selectedMultipleRfpDocs.length * 30}초 예상됩니다.
+                  </p>
+                </div>
               )}
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {loading ? (
             <div className="text-center py-8">
