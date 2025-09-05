@@ -42,32 +42,56 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     try {
       console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
 
+      const requestBody = {
+        analysis_id: analysisId,
+        max_questions: 8,
+        categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
+      }
+      console.log('📤 [후속질문-AI] 요청 데이터:', requestBody)
+
       const response = await fetch('/api/rfp/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          max_questions: 8,
-          categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
-        })
+        body: JSON.stringify(requestBody)
       })
 
+      console.log('📡 [후속질문-AI] API 응답 상태:', response.status, response.statusText)
+
       if (response.ok) {
-        const { questions } = await response.json()
+        const responseData = await response.json()
+        console.log('📥 [후속질문-AI] 응답 데이터:', responseData)
+        
+        const questions = responseData.questions || []
         console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
         
-        setAnalysisData(prev => prev.map(data => 
-          data.analysis.id === analysisId 
-            ? { ...data, follow_up_questions: questions }
-            : data
-        ))
+        if (questions.length > 0) {
+          setAnalysisData(prev => prev.map(data => 
+            data.analysis.id === analysisId 
+              ? { ...data, follow_up_questions: questions }
+              : data
+          ))
+        } else {
+          console.warn('⚠️ [후속질문-AI] 생성된 질문이 없습니다.')
+        }
       } else {
-        console.error('❌ [후속질문-AI] 생성 실패:', response.status)
+        const errorData = await response.text()
+        console.error('❌ [후속질문-AI] 생성 실패:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        })
+        
+        // 오류 발생 시에도 사용자에게 피드백 제공
+        alert(`후속 질문 생성에 실패했습니다: ${response.status} - ${response.statusText}`)
       }
     } catch (error) {
-      console.error('💥 [후속질문-AI] 오류:', error)
+      console.error('💥 [후속질문-AI] 전체 오류:', {
+        error: error instanceof Error ? error.message : String(error),
+        analysisId
+      })
+      alert(`후속 질문 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`)
     }
   }, [setAnalysisData])
 
