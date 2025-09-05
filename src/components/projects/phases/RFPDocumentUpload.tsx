@@ -14,8 +14,14 @@ import {
   ExternalLink,
   Database,
   Trash2,
-  PlusCircle
+  PlusCircle,
+  Settings,
+  Play,
+  CheckSquare,
+  Layers
 } from 'lucide-react'
+import { AIModelSelector } from '@/components/ai/AIModelSelector'
+import type { AIModel } from '@/types/ai-models'
 
 interface RFPDocument {
   id: string
@@ -50,10 +56,13 @@ export default function RFPDocumentUpload({
   const [error, setError] = useState<string | null>(null)
   const [availableRfpDocs, setAvailableRfpDocs] = useState<RFPDocument[]>([])
   const [selectedRfpDoc, setSelectedRfpDoc] = useState<string | null>(null)
+  const [selectedMultipleRfpDocs, setSelectedMultipleRfpDocs] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [uploadedDocuments, setUploadedDocuments] = useState<RFPDocument[]>([])
   const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking')
   const [authError, setAuthError] = useState<string | null>(null)
+  const [selectedAIModel, setSelectedAIModel] = useState<string | null>(null)
+  const [isBatchMode, setIsBatchMode] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -223,8 +232,8 @@ export default function RFPDocumentUpload({
     }
   }
 
-  // AI 분석 기능 추가
-  const handleAIAnalysis = async (documentId: string) => {
+  // AI 분석 기능 개선 - 인증 헤더 및 AI 모델 지원
+  const handleAIAnalysis = async (documentId: string, selectedAIModelId?: string) => {
     if (!documentId) {
       setError('분석할 RFP 문서를 선택해주세요.')
       return
@@ -234,35 +243,240 @@ export default function RFPDocumentUpload({
       setLoading(true)
       setError(null)
       
-      // RFP 분석 API 호출
+      console.log('RFP Analysis: Starting analysis with params:', {
+        documentId,
+        projectId,
+        selectedAIModelId
+      })
+
+      // 인증 토큰 가져오기
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError)
+        throw new Error('인증 세션을 가져올 수 없습니다: ' + sessionError.message)
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('로그인이 필요합니다. 다시 로그인 후 시도해주세요.')
+      }
+
+      console.log('RFP Analysis: Using session token for authentication')
+      
+      // RFP 분석 API 호출 - 인증 헤더 포함
       const response = await fetch('/api/rfp/analyze', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           rfp_document_id: documentId,
-          project_id: projectId
+          project_id: projectId,
+          selected_model_id: selectedAIModelId || null,
+          analysis_options: {
+            include_questions: true,
+            detailed_analysis: true
+          }
         })
       })
 
+      console.log('RFP Analysis: API response status:', response.status)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'AI 분석 중 오류가 발생했습니다.')
+        const errorText = await response.text()
+        console.error('RFP Analysis: API error response:', errorText)
+        
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+          throw new Error(`AI 분석 중 서버 오류가 발생했습니다 (${response.status}): ${errorText}`)
+        }
+        
+        throw new Error(errorData.message || errorData.error || 'AI 분석 중 오류가 발생했습니다.')
       }
 
       const result = await response.json()
-      console.log('AI 분석 결과:', result)
+      console.log('RFP Analysis: 분석 결과 수신:', result)
       
-      // 분석 완료 후 성공 메시지
-      alert(`AI 분석이 완료되었습니다!\n\n요구사항: ${result.analysis?.requirements_count || 0}개\n기능적 요구사항: ${result.analysis?.functional_requirements?.length || 0}개\n비기능적 요구사항: ${result.analysis?.non_functional_requirements?.length || 0}개`)
+      // 분석 완료 후 상세 성공 메시지
+      const analysisInfo = result.analysis || {}
+      const successMessage = [
+        '🎉 AI 분석이 완료되었습니다!',
+        '',
+        '📊 분석 결과:',
+        `• 기능적 요구사항: ${analysisInfo.functional_requirements?.length || 0}개`,
+        `• 비기능적 요구사항: ${analysisInfo.non_functional_requirements?.length || 0}개`,
+        `• 위험 요소: ${analysisInfo.risk_factors?.length || 0}개`,
+        `• 키워드: ${analysisInfo.keywords?.length || 0}개`,
+        `• 확신도: ${Math.round((analysisInfo.confidence_score || 0) * 100)}%`,
+        '',
+        '🔄 페이지를 새로고침하여 결과를 확인하세요.'
+      ].join('\n')
+      
+      alert(successMessage)
+      
+      // 문서 목록 새로고침
+      await loadAvailableRfpDocs()
       
     } catch (error) {
-      console.error('AI 분석 실패:', error)
-      setError(error instanceof Error ? error.message : 'AI 분석에 실패했습니다.')
+      console.error('RFP Analysis: 분석 실패:', error)
+      console.error('RFP Analysis: Error details:', {
+        name: error?.constructor?.name,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
+      })
+      
+      const errorMessage = error instanceof Error ? error.message : 'AI 분석에 실패했습니다.'
+      setError(`❌ AI 분석 실패: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  // 여러 문서 동시 분석 기능 추가
+  const handleBatchAIAnalysis = async (documentIds: string[], selectedAIModelId?: string) => {
+    if (!documentIds || documentIds.length === 0) {
+      setError('분석할 RFP 문서를 선택해주세요.')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      console.log('Batch RFP Analysis: Starting batch analysis:', {
+        documentCount: documentIds.length,
+        documentIds,
+        selectedAIModelId
+      })
+
+      // 인증 토큰 가져오기
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('로그인이 필요합니다. 다시 로그인 후 시도해주세요.')
+      }
+
+      const results = []
+      const errors = []
+
+      // 각 문서를 순차적으로 분석 (너무 많은 동시 요청 방지)
+      for (let i = 0; i < documentIds.length; i++) {
+        const documentId = documentIds[i]
+        console.log(`Batch Analysis: Processing document ${i + 1}/${documentIds.length}: ${documentId}`)
+
+        try {
+          const response = await fetch('/api/rfp/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              rfp_document_id: documentId,
+              project_id: projectId,
+              selected_model_id: selectedAIModelId || null,
+              analysis_options: {
+                include_questions: true,
+                detailed_analysis: true
+              }
+            })
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            results.push({ documentId, result })
+            console.log(`Batch Analysis: Document ${documentId} analyzed successfully`)
+          } else {
+            const errorText = await response.text()
+            console.error(`Batch Analysis: Document ${documentId} failed:`, errorText)
+            errors.push({ documentId, error: errorText })
+          }
+
+          // 요청 사이에 잠시 대기 (Rate Limiting 방지)
+          if (i < documentIds.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+
+        } catch (error) {
+          console.error(`Batch Analysis: Document ${documentId} error:`, error)
+          errors.push({ documentId, error: error instanceof Error ? error.message : String(error) })
+        }
+      }
+
+      console.log('Batch Analysis: Completed:', {
+        successCount: results.length,
+        errorCount: errors.length
+      })
+
+      // 결과 요약 메시지
+      let summaryMessage = `🎉 배치 분석 완료!\n\n`
+      summaryMessage += `✅ 성공: ${results.length}개 문서\n`
+      if (errors.length > 0) {
+        summaryMessage += `❌ 실패: ${errors.length}개 문서\n`
+      }
+      summaryMessage += `\n📊 총 분석된 요구사항:\n`
+      
+      let totalFunctional = 0
+      let totalNonFunctional = 0
+      let totalKeywords = 0
+
+      results.forEach(({ result }) => {
+        const analysis = result.analysis || {}
+        totalFunctional += analysis.functional_requirements?.length || 0
+        totalNonFunctional += analysis.non_functional_requirements?.length || 0
+        totalKeywords += analysis.keywords?.length || 0
+      })
+
+      summaryMessage += `• 기능적 요구사항: ${totalFunctional}개\n`
+      summaryMessage += `• 비기능적 요구사항: ${totalNonFunctional}개\n`
+      summaryMessage += `• 키워드: ${totalKeywords}개\n`
+
+      if (errors.length > 0) {
+        summaryMessage += `\n⚠️ 실패한 문서들은 개별적으로 다시 분석해주세요.`
+      }
+
+      alert(summaryMessage)
+      
+      // 문서 목록 새로고침
+      await loadAvailableRfpDocs()
+      
+    } catch (error) {
+      console.error('Batch RFP Analysis: 배치 분석 실패:', error)
+      const errorMessage = error instanceof Error ? error.message : '배치 AI 분석에 실패했습니다.'
+      setError(`❌ 배치 분석 실패: ${errorMessage}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 여러 문서 선택 핸들러
+  const handleMultipleDocSelection = (documentId: string) => {
+    setSelectedMultipleRfpDocs(prev => {
+      if (prev.includes(documentId)) {
+        return prev.filter(id => id !== documentId)
+      } else {
+        return [...prev, documentId]
+      }
+    })
+  }
+
+  // 모든 문서 선택/해제
+  const handleSelectAllDocuments = () => {
+    if (selectedMultipleRfpDocs.length === availableRfpDocs.length) {
+      setSelectedMultipleRfpDocs([])
+    } else {
+      setSelectedMultipleRfpDocs(availableRfpDocs.map(doc => doc.id))
+    }
+  }
+
+  // AI 모델 선택 핸들러
+  const handleAIModelSelect = (model: AIModel | null) => {
+    setSelectedAIModel(model?.id || null)
+    console.log('Selected AI Model:', model)
   }
 
   // 개별 파일 제거 함수
@@ -733,10 +947,92 @@ export default function RFPDocumentUpload({
             </Button>
           </div>
 
+          {/* AI 모델 선택 및 분석 모드 설정 */}
+          <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-blue-600" />
+                <h4 className="font-medium text-blue-900 dark:text-blue-100">AI 분석 설정</h4>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* AI 모델 선택 */}
+                <div>
+                  <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    AI 모델 선택
+                  </label>
+                  <AIModelSelector 
+                    onModelSelect={handleAIModelSelect}
+                    className="w-full"
+                  />
+                </div>
+                
+                {/* 분석 모드 선택 */}
+                <div>
+                  <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    분석 모드
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={!isBatchMode ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setIsBatchMode(false)
+                        setSelectedMultipleRfpDocs([])
+                      }}
+                      className="flex-1"
+                    >
+                      개별 분석
+                    </Button>
+                    <Button
+                      variant={isBatchMode ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setIsBatchMode(true)
+                        setSelectedRfpDoc(null)
+                      }}
+                      className="flex-1"
+                    >
+                      배치 분석
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 배치 모드일 때 전체 선택 버튼 */}
+              {isBatchMode && availableRfpDocs.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAllDocuments}
+                    className="text-xs"
+                  >
+                    <Layers className="h-4 w-4 mr-1" />
+                    {selectedMultipleRfpDocs.length === availableRfpDocs.length ? '전체 해제' : '전체 선택'}
+                  </Button>
+                  
+                  {selectedMultipleRfpDocs.length > 0 && (
+                    <Button
+                      onClick={() => handleBatchAIAnalysis(selectedMultipleRfpDocs, selectedAIModel || undefined)}
+                      disabled={loading || authStatus !== 'authenticated'}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      {selectedMultipleRfpDocs.length}개 문서 배치 분석
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 mt-2">문서 목록을 불러오는 중...</p>
+              <p className="text-gray-500 mt-2">
+                {loading ? '문서를 분석하는 중...' : '문서 목록을 불러오는 중...'}
+              </p>
             </div>
           ) : availableRfpDocs.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -752,20 +1048,30 @@ export default function RFPDocumentUpload({
                 <Card 
                   key={doc.id} 
                   className={`p-4 cursor-pointer transition-all ${
-                    selectedRfpDoc === doc.id 
+                    (!isBatchMode && selectedRfpDoc === doc.id) || (isBatchMode && selectedMultipleRfpDocs.includes(doc.id))
                       ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                       : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
-                  onClick={() => setSelectedRfpDoc(doc.id)}
+                  onClick={() => {
+                    if (isBatchMode) {
+                      handleMultipleDocSelection(doc.id)
+                    } else {
+                      setSelectedRfpDoc(doc.id)
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`flex-shrink-0 w-4 h-4 rounded-full border-2 ${
-                      selectedRfpDoc === doc.id
+                    <div className={`flex-shrink-0 w-4 h-4 border-2 ${
+                      (!isBatchMode && selectedRfpDoc === doc.id) || (isBatchMode && selectedMultipleRfpDocs.includes(doc.id))
                         ? 'border-blue-500 bg-blue-500'
                         : 'border-gray-300'
-                    }`}>
-                      {selectedRfpDoc === doc.id && (
-                        <Check className="h-3 w-3 text-white" />
+                    } ${isBatchMode ? 'rounded' : 'rounded-full'}`}>
+                      {((!isBatchMode && selectedRfpDoc === doc.id) || (isBatchMode && selectedMultipleRfpDocs.includes(doc.id))) && (
+                        isBatchMode ? (
+                          <CheckSquare className="h-3 w-3 text-white" />
+                        ) : (
+                          <Check className="h-3 w-3 text-white" />
+                        )
                       )}
                     </div>
                     <FileText className="h-5 w-5 text-gray-400" />
@@ -797,24 +1103,26 @@ export default function RFPDocumentUpload({
                         )}
                       </div>
                     </div>
-                    {/* AI 분석 버튼 */}
-                    <div className="flex-shrink-0 ml-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation() // 카드 선택 이벤트 방지
-                          handleAIAnalysis(doc.id)
-                        }}
-                        disabled={loading || authStatus !== 'authenticated'}
-                        className="text-xs px-2 py-1 h-auto bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 hover:border-purple-300 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300"
-                      >
-                        <div className="flex items-center gap-1">
-                          <span className="text-lg">🤖</span>
-                          <span>AI 분석</span>
-                        </div>
-                      </Button>
-                    </div>
+                    {/* AI 분석 버튼 (개별 모드일 때만) */}
+                    {!isBatchMode && (
+                      <div className="flex-shrink-0 ml-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation() // 카드 선택 이벤트 방지
+                            handleAIAnalysis(doc.id, selectedAIModel || undefined)
+                          }}
+                          disabled={loading || authStatus !== 'authenticated'}
+                          className="text-xs px-2 py-1 h-auto bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 hover:border-purple-300 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300"
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="text-lg">🤖</span>
+                            <span>AI 분석</span>
+                          </div>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
