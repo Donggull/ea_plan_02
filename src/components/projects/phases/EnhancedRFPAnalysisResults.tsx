@@ -84,68 +84,77 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
   const loadFollowUpQuestions = async (analysisId: string) => {
     try {
-      // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('🔐 [후속질문] Client session check:', session ? 'session exists' : 'no session')
+      console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드:', analysisId)
+      
+      // RFP 분석 결과에서 follow_up_questions 필드를 직접 조회
+      const { data: analysis, error } = await supabase
+        .from('rfp_analyses')
+        .select('follow_up_questions')
+        .eq('id', analysisId)
+        .single()
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+      if (error) {
+        console.error('❌ [후속질문] DB 조회 실패:', error)
+        return
       }
 
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-        console.log('🔑 [후속질문] Added Authorization header')
-      } else {
-        console.warn('⚠️ [후속질문] No session token available')
-      }
-
-      const response = await fetch(`/api/rfp/${analysisId}/questions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          focus_categories: ['market_context', 'target_audience', 'competitor_focus'],
-          max_questions: 8
-        })
+      const followUpQuestions = analysis?.follow_up_questions || []
+      console.log('✅ [후속질문] 성공:', {
+        analysisId,
+        questionsCount: followUpQuestions.length,
+        questions: followUpQuestions
       })
 
-      console.log('📡 [후속질문] API 응답 상태:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url,
-        hasAuthHeader: !!headers['Authorization']
-      })
-
-      if (response.ok) {
-        const { questions } = await response.json()
-        console.log('✅ [후속질문] 성공:', {
-          analysisId,
-          questionsCount: questions?.length || 0
-        })
+      // 후속 질문이 있으면 상태 업데이트
+      if (followUpQuestions.length > 0) {
         setAnalysisData(prev => prev.map(data => 
           data.analysis.id === analysisId 
-            ? { ...data, follow_up_questions: questions }
+            ? { ...data, follow_up_questions: followUpQuestions }
             : data
         ))
       } else {
-        let errorData
-        try {
-          errorData = await response.json()
-        } catch {
-          errorData = { error: `HTTP ${response.status}: ${response.statusText}` }
-        }
-        console.error('❌ [후속질문] API 실패:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-          analysisId,
-          hasAuthHeader: !!headers['Authorization']
-        })
+        // 후속 질문이 없으면 AI가 자동으로 생성하도록 트리거
+        console.log('🤖 [후속질문] 후속 질문이 없어 AI 자동 생성 시작')
+        await generateAIFollowUpQuestions(analysisId)
       }
     } catch (error) {
       console.error('💥 [후속질문] 전체 오류:', {
         error: error instanceof Error ? error.message : String(error),
         analysisId
       })
+    }
+  }
+
+  const generateAIFollowUpQuestions = async (analysisId: string) => {
+    try {
+      console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
+
+      const response = await fetch('/api/rfp/generate-questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: analysisId,
+          max_questions: 8,
+          categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
+        })
+      })
+
+      if (response.ok) {
+        const { questions } = await response.json()
+        console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
+        
+        setAnalysisData(prev => prev.map(data => 
+          data.analysis.id === analysisId 
+            ? { ...data, follow_up_questions: questions }
+            : data
+        ))
+      } else {
+        console.error('❌ [후속질문-AI] 생성 실패:', response.status)
+      }
+    } catch (error) {
+      console.error('💥 [후속질문-AI] 오류:', error)
     }
   }
 
@@ -204,6 +213,232 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       detail: { nextStep, analysisData: selectedAnalysis }
     })
     window.dispatchEvent(event)
+  }
+
+  // 후속 질문 답변 저장 함수
+  const saveQuestionAnswers = async (analysisId: string, answers: {[key: string]: string}) => {
+    try {
+      console.log('💾 [질문답변] 질문 답변 저장 중...', { analysisId, answers })
+      
+      // 기존 follow_up_questions를 가져와서 답변 추가
+      const { data: analysis, error: fetchError } = await supabase
+        .from('rfp_analyses')
+        .select('follow_up_questions')
+        .eq('id', analysisId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      const questions = analysis?.follow_up_questions || []
+      const updatedQuestions = questions.map((question: any) => ({
+        ...question,
+        user_answer: answers[question.id] || '',
+        answered_at: new Date().toISOString()
+      }))
+
+      // DB에 답변 업데이트
+      const { error: updateError } = await supabase
+        .from('rfp_analyses')
+        .update({ 
+          follow_up_questions: updatedQuestions,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', analysisId)
+
+      if (updateError) throw updateError
+
+      console.log('✅ [질문답변] 저장 완료')
+      return updatedQuestions
+    } catch (error) {
+      console.error('❌ [질문답변] 저장 실패:', error)
+      throw error
+    }
+  }
+
+  // AI 자동 답변 함수
+  const generateAIAnswers = async (analysisId: string) => {
+    try {
+      console.log('🤖 [AI답변] AI 자동 답변 생성 시작...', analysisId)
+      
+      // 현재 분석의 후속 질문 가져오기
+      const currentAnalysis = analysisData.find(data => data.analysis.id === analysisId)
+      if (!currentAnalysis?.follow_up_questions.length) {
+        throw new Error('후속 질문이 없습니다.')
+      }
+
+      // 각 질문에 대해 suggested_answer를 사용하여 자동 답변 생성
+      const autoAnswers: {[key: string]: string} = {}
+      
+      currentAnalysis.follow_up_questions.forEach((question: any) => {
+        if (question.suggested_answer) {
+          autoAnswers[question.id] = question.suggested_answer
+        }
+      })
+
+      console.log('🤖 [AI답변] 자동 답변 생성:', Object.keys(autoAnswers).length, '개')
+      
+      // 답변 저장
+      const updatedQuestions = await saveQuestionAnswers(analysisId, autoAnswers)
+      
+      // 상태 업데이트
+      setAnalysisData(prev => prev.map(data => 
+        data.analysis.id === analysisId 
+          ? { 
+              ...data, 
+              follow_up_questions: updatedQuestions,
+              questionnaire_completed: true,
+              next_step_ready: true
+            }
+          : data
+      ))
+
+      console.log('✅ [AI답변] 완료 및 다음 단계 준비')
+      
+      // 2초 후 자동으로 시장 조사 단계로 진행
+      setTimeout(() => {
+        console.log('🔄 [자동진행] 시장 조사 단계로 자동 전환...')
+        handleNextStepTransition('market_research')
+      }, 2000)
+      
+      return updatedQuestions
+    } catch (error) {
+      console.error('❌ [AI답변] 실패:', error)
+      throw error
+    }
+  }
+
+  // 후속 질문 렌더링 함수
+  const renderFollowUpQuestions = (analysisData: AnalysisData) => {
+    const { analysis, follow_up_questions, questionnaire_completed, next_step_ready } = analysisData
+
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            AI 후속 질문
+          </h3>
+          {questionnaire_completed && (
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-sm font-medium">답변 완료</span>
+            </div>
+          )}
+        </div>
+
+        {follow_up_questions.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="flex items-center justify-center mb-4">
+              <Loader className="h-6 w-6 animate-spin text-blue-600" />
+            </div>
+            <p className="text-gray-600 dark:text-gray-400">
+              AI가 후속 질문을 생성 중입니다...
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* 질문 목록 */}
+            <div className="space-y-4">
+              {follow_up_questions.map((question: any, index: number) => (
+                <div key={question.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                        {question.question_text}
+                      </h4>
+                      
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded">
+                          {question.category}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          question.importance === 'high' ? 'bg-red-100 text-red-600' :
+                          question.importance === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {question.importance}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        {question.purpose}
+                      </p>
+
+                      {question.user_answer && (
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded p-3">
+                          <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
+                            답변:
+                          </p>
+                          <p className="text-sm text-green-700 dark:text-green-300">
+                            {question.user_answer}
+                          </p>
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                            답변 시간: {question.answered_at ? new Date(question.answered_at).toLocaleString('ko-KR') : ''}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 액션 버튼 */}
+            {!questionnaire_completed && (
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => generateAIAnswers(analysis.id)}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  AI 자동 답변 생성
+                </Button>
+                <Button
+                  onClick={() => setShowQuestionnaire(true)}
+                  variant="outline"
+                >
+                  직접 답변하기
+                </Button>
+              </div>
+            )}
+
+            {/* 다음 단계 진행 버튼 */}
+            {questionnaire_completed && next_step_ready && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600" />
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100">
+                    다음 단계 준비 완료
+                  </h4>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+                  RFP 분석과 후속 질문 답변이 완료되어 시장 조사 또는 페르소나 분석으로 진행할 수 있습니다.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleNextStepTransition('market_research')}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    시장 조사 시작
+                  </Button>
+                  <Button
+                    onClick={() => handleNextStepTransition('persona_analysis')}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    페르소나 분석 시작
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    )
   }
 
   const renderAnalysisOverview = (analysis: RFPAnalysis) => {
