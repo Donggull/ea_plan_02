@@ -200,7 +200,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         let errorData
         try {
           errorData = await response.json()
-        } catch (parseError) {
+        } catch (_parseError) {
           errorData = { 
             error: 'API 응답 파싱 실패', 
             details: `HTTP ${response.status}: ${response.statusText}`,
@@ -299,7 +299,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     })
 
     let successCount = 0
-    let errorDetails: string[] = []
+    const errorDetails: string[] = []
 
     try {
       for (let i = 0; i < documentsToAnalyze.length; i++) {
