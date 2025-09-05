@@ -18,14 +18,18 @@ import {
 interface RFPDocument {
   id: string
   title: string
-  description?: string
-  file_name?: string
-  file_size?: number
-  created_at: string
-  status?: string
-  project_id?: string
+  description?: string | null
+  file_name?: string | null
+  file_size?: number | null
+  created_at: string | null
+  status?: string | null
+  project_id?: string | null
   source_type?: 'proposal' | 'rfp_analysis'
-  source_label?: string
+  source_label?: string | null
+  content?: string | null
+  file_path?: string | null
+  uploaded_by?: string | null
+  analysis_data?: any
 }
 
 interface RFPDocumentUploadProps {
@@ -575,7 +579,7 @@ export default function RFPDocumentUpload({
                         </p>
                       )}
                       <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                        <span>{formatDate(doc.created_at)}</span>
+                        <span>{doc.created_at ? formatDate(doc.created_at) : '날짜 없음'}</span>
                         {doc.file_size && (
                           <span>{formatFileSize(doc.file_size)}</span>
                         )}
