@@ -864,7 +864,7 @@ export default function RFPDocumentUpload({
           <p className="text-sm">로그인 상태: 정상 ✓</p>
         </div>
       )}
-      {/* AI 모델 선택기 - 상단에 항상 표시 */}
+      {/* AI 모델 선택기 - 상단에 항상 표시 - v2.0 */}
       {authStatus === 'authenticated' && (
         <Card className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
           <div className="flex items-center justify-between mb-3">
