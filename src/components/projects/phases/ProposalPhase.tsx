@@ -138,7 +138,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       {/* 헤더 */}
       <div className="flex justify-between items-center">
         <div>

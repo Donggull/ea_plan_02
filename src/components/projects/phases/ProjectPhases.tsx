@@ -103,7 +103,7 @@ export default function ProjectPhases({ projectId }: ProjectPhasesProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       {/* 프로젝트 헤더 */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white mb-8">
         <div className="flex items-center justify-between">
