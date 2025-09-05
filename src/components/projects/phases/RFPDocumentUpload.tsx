@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Button from '@/basic/src/components/Button/Button'
@@ -50,9 +50,72 @@ export default function RFPDocumentUpload({
   const [selectedRfpDoc, setSelectedRfpDoc] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [uploadedDocuments, setUploadedDocuments] = useState<RFPDocument[]>([])
+  const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking')
+  const [authError, setAuthError] = useState<string | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClientComponentClient()
+
+  // 컴포넌트 로드 시 로그인 상태 확인
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        console.log('🔍 RFP Upload Component: Checking initial auth status...')
+        
+        // 현재 사용자 정보 확인
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        console.log('👤 Initial auth check:', {
+          hasUser: !!user,
+          userId: user?.id,
+          email: user?.email,
+          userError: userError?.message
+        })
+        
+        // 세션 정보 확인
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        console.log('📋 Initial session check:', {
+          hasSession: !!session,
+          hasAccessToken: !!session?.access_token,
+          expiresAt: session?.expires_at,
+          sessionError: sessionError?.message
+        })
+        
+        if (user && session?.access_token) {
+          setAuthStatus('authenticated')
+          setAuthError(null)
+          console.log('✅ Auth status: Authenticated')
+        } else {
+          setAuthStatus('unauthenticated')
+          const errorMsg = userError?.message || sessionError?.message || '로그인 정보를 찾을 수 없습니다'
+          setAuthError(errorMsg)
+          console.log('❌ Auth status: Not authenticated -', errorMsg)
+        }
+      } catch (error) {
+        console.error('🚨 Initial auth check failed:', error)
+        setAuthStatus('unauthenticated')
+        setAuthError(error instanceof Error ? error.message : '로그인 상태 확인 실패')
+      }
+    }
+
+    checkAuthStatus()
+
+    // 인증 상태 변경 리스너 설정
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth state changed:', event, !!session)
+      
+      if (event === 'SIGNED_IN' && session) {
+        setAuthStatus('authenticated')
+        setAuthError(null)
+      } else if (event === 'SIGNED_OUT' || !session) {
+        setAuthStatus('unauthenticated')
+        setAuthError('로그인이 필요합니다')
+      }
+    })
+
+    return () => {
+      subscription?.unsubscribe()
+    }
+  }, [])
 
   // 지원하는 파일 타입 정의
   const acceptedFileTypes = useMemo(() => ({
@@ -114,7 +177,7 @@ export default function RFPDocumentUpload({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: acceptedFileTypes,
-    disabled: uploading
+    disabled: uploading || authStatus !== 'authenticated'
   })
 
   // RFP 분석 자동화 문서 목록 로드
@@ -209,15 +272,89 @@ export default function RFPDocumentUpload({
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 25 }))
 
-        // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
-        const { data: { session } } = await supabase.auth.getSession()
-        console.log('RFP Upload: Client session check:', session ? 'session exists' : 'no session')
+        // 상세한 인증 상태 디버깅
+        console.log('🔍 RFP Upload: Starting detailed auth debugging...')
         
+        // 헤더 구성
         const headers: Record<string, string> = {}
         
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`
-          console.log('RFP Upload: Added Authorization header')
+        try {
+          // 현재 사용자 정보 확인
+          const { data: { user }, error: userError } = await supabase.auth.getUser()
+          console.log('📊 Current user:', {
+            hasUser: !!user,
+            userId: user?.id,
+            email: user?.email,
+            userError: userError?.message
+          })
+          
+          // 세션 정보 확인
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+          console.log('📊 Session info:', {
+            hasSession: !!session,
+            hasAccessToken: !!session?.access_token,
+            tokenLength: session?.access_token?.length,
+            expiresAt: session?.expires_at,
+            sessionError: sessionError?.message,
+            refreshToken: session?.refresh_token ? 'exists' : 'none'
+          })
+          
+          // 쿠키 확인
+          const allCookies = document.cookie
+          const supabaseCookies = allCookies.split(';').filter(cookie => 
+            cookie.trim().startsWith('sb-') || cookie.includes('supabase')
+          )
+          console.log('🍪 Cookie status:', {
+            totalCookies: allCookies.split(';').length,
+            supabaseCookies: supabaseCookies.length,
+            cookies: supabaseCookies
+          })
+          
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`
+            console.log('✅ RFP Upload: Authorization header added with token length:', session.access_token.length)
+          } else {
+            console.log('❌ RFP Upload: No access token available')
+            
+            // 세션이 없는 경우 더 상세한 오류 메시지
+            const errorDetails = []
+            if (!user) errorDetails.push('사용자 정보 없음')
+            if (!session) errorDetails.push('세션 없음')
+            if (userError) errorDetails.push(`사용자 오류: ${userError.message}`)
+            if (sessionError) errorDetails.push(`세션 오류: ${sessionError.message}`)
+            
+            // 로그인 페이지로 리다이렉트 확인 다이얼로그
+            const shouldRedirect = confirm(
+              `❌ 로그인이 필요합니다.\n\n` +
+              `오류 상세: ${errorDetails.join(', ')}\n\n` +
+              `로그인 페이지로 이동하시겠습니까?`
+            )
+            
+            if (shouldRedirect) {
+              // 현재 페이지 URL을 저장하여 로그인 후 돌아올 수 있도록 함
+              const currentUrl = window.location.pathname + window.location.search
+              window.location.href = `/auth/login?redirect=${encodeURIComponent(currentUrl)}`
+              return // 리다이렉트하므로 더 이상 진행하지 않음
+            }
+            
+            throw new Error(`인증 실패: ${errorDetails.join(', ')}. 로그인이 필요합니다.`)
+          }
+          
+        } catch (authError) {
+          console.error('🚨 RFP Upload: Auth debugging failed:', authError)
+          
+          // 인증 오류의 경우 사용자 친화적인 메시지로 변환
+          if (authError instanceof Error) {
+            if (authError.message.includes('인증 실패') || authError.message.includes('로그인')) {
+              // 이미 사용자 친화적인 메시지이므로 그대로 전달
+              throw authError
+            } else {
+              // 기술적인 오류를 사용자 친화적으로 변환
+              throw new Error(`로그인 확인 중 오류가 발생했습니다: ${authError.message}. 페이지를 새로고침하거나 다시 로그인해주세요.`)
+            }
+          }
+          
+          throw new Error('로그인 상태 확인 중 알 수 없는 오류가 발생했습니다. 다시 로그인해주세요.')
         }
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 50 }))
@@ -349,14 +486,68 @@ export default function RFPDocumentUpload({
 
   return (
     <div className="space-y-6">
+      {/* 인증 상태 알림 */}
+      {authStatus === 'checking' && (
+        <div className="flex items-center gap-2 p-3 text-blue-800 bg-blue-100 border border-blue-300 rounded-lg">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+          <p className="text-sm">로그인 상태를 확인하는 중...</p>
+        </div>
+      )}
+      
+      {authStatus === 'unauthenticated' && (
+        <div className="p-4 text-red-800 bg-red-100 border border-red-300 rounded-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <h4 className="font-medium">로그인이 필요합니다</h4>
+          </div>
+          <p className="text-sm mb-3">
+            RFP 문서를 업로드하려면 먼저 로그인해야 합니다.
+          </p>
+          {authError && (
+            <p className="text-xs text-red-600 mb-3 font-mono bg-red-50 p-2 rounded">
+              오류 상세: {authError}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                const currentUrl = window.location.pathname + window.location.search
+                window.location.href = `/auth/login?redirect=${encodeURIComponent(currentUrl)}`
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm"
+            >
+              로그인 하기
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className="text-sm"
+            >
+              새로고침
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {authStatus === 'authenticated' && (
+        <div className="flex items-center gap-2 p-3 text-green-800 bg-green-100 border border-green-300 rounded-lg">
+          <Check className="h-4 w-4 text-green-600" />
+          <p className="text-sm">로그인 상태: 정상 ✓</p>
+        </div>
+      )}
       {/* 모드 선택 */}
       <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700">
         <button
           onClick={() => setMode('upload')}
-          className={`pb-3 px-2 border-b-2 font-medium text-sm ${
+          disabled={authStatus !== 'authenticated'}
+          className={`pb-3 px-2 border-b-2 font-medium text-sm transition-colors ${
             mode === 'upload'
               ? 'border-blue-500 text-blue-600 dark:text-blue-400'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          } ${
+            authStatus !== 'authenticated' 
+              ? 'opacity-50 cursor-not-allowed' 
+              : 'cursor-pointer'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -366,13 +557,20 @@ export default function RFPDocumentUpload({
         </button>
         <button
           onClick={() => {
-            setMode('select')
-            loadAvailableRfpDocs()
+            if (authStatus === 'authenticated') {
+              setMode('select')
+              loadAvailableRfpDocs()
+            }
           }}
-          className={`pb-3 px-2 border-b-2 font-medium text-sm ${
+          disabled={authStatus !== 'authenticated'}
+          className={`pb-3 px-2 border-b-2 font-medium text-sm transition-colors ${
             mode === 'select'
               ? 'border-blue-500 text-blue-600 dark:text-blue-400'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          } ${
+            authStatus !== 'authenticated' 
+              ? 'opacity-50 cursor-not-allowed' 
+              : 'cursor-pointer'
           }`}
         >
           <div className="flex items-center gap-2">
@@ -394,7 +592,8 @@ export default function RFPDocumentUpload({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="RFP 문서 제목을 입력하세요"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              disabled={authStatus !== 'authenticated'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -407,7 +606,8 @@ export default function RFPDocumentUpload({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="RFP 문서에 대한 설명을 입력하세요"
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              disabled={authStatus !== 'authenticated'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -421,7 +621,11 @@ export default function RFPDocumentUpload({
                 isDragActive 
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-              } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${
+                (uploading || authStatus !== 'authenticated') 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'cursor-pointer'
+              }`}
             >
               <input {...getInputProps()} ref={fileInputRef} />
               <div className="space-y-1 text-center">
