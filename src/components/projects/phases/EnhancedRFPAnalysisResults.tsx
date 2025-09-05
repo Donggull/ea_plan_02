@@ -98,7 +98,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   // 후속 질문 로드 함수 (두 번째 - generateAIFollowUpQuestions에 의존)
   const loadFollowUpQuestions = useCallback(async (analysisId: string) => {
     try {
-      console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드:', analysisId)
+      console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드 시작:', analysisId)
+      console.log('📋 [후속질문] 현재 analysisData 상태:', analysisData.length, '개')
       
       // RFP 분석 결과에서 follow_up_questions 필드를 직접 조회
       const { data: analysis, error } = await supabase
@@ -106,6 +107,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         .select('follow_up_questions')
         .eq('id', analysisId)
         .single()
+
+      console.log('📋 [후속질문] Supabase 응답:', { analysis, error })
 
       if (error) {
         console.error('❌ [후속질문] DB 조회 실패:', error)
@@ -121,11 +124,22 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       // 후속 질문이 있으면 상태 업데이트
       if (followUpQuestions.length > 0) {
-        setAnalysisData(prev => prev.map(data => 
-          data.analysis.id === analysisId 
-            ? { ...data, follow_up_questions: followUpQuestions }
-            : data
-        ))
+        console.log('🔄 [후속질문] 상태 업데이트 시작 - 현재 분석 데이터:', analysisData.length, '개')
+        
+        setAnalysisData(prev => {
+          console.log('🔄 [후속질문] 상태 업데이트 내부 - 이전 상태:', prev.length, '개')
+          const updated = prev.map(data => {
+            if (data.analysis.id === analysisId) {
+              console.log('🎯 [후속질문] 매칭된 분석 발견, 질문 업데이트:', data.analysis.id)
+              return { ...data, follow_up_questions: followUpQuestions }
+            }
+            return data
+          })
+          console.log('🔄 [후속질문] 상태 업데이트 완료 - 새 상태:', updated.length, '개')
+          return updated
+        })
+        
+        console.log('✅ [후속질문] 상태 업데이트 트리거 완료')
       } else {
         // 후속 질문이 없으면 AI가 자동으로 생성하도록 트리거
         console.log('🤖 [후속질문] 후속 질문이 없어 AI 자동 생성 시작')
