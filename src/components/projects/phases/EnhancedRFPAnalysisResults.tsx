@@ -82,7 +82,40 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }, [projectId, loadFollowUpQuestions])
 
-  const loadFollowUpQuestions = async (analysisId: string) => {
+  const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
+    try {
+      console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
+
+      const response = await fetch('/api/rfp/generate-questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: analysisId,
+          max_questions: 8,
+          categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
+        })
+      })
+
+      if (response.ok) {
+        const { questions } = await response.json()
+        console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
+        
+        setAnalysisData(prev => prev.map(data => 
+          data.analysis.id === analysisId 
+            ? { ...data, follow_up_questions: questions }
+            : data
+        ))
+      } else {
+        console.error('❌ [후속질문-AI] 생성 실패:', response.status)
+      }
+    } catch (error) {
+      console.error('💥 [후속질문-AI] 오류:', error)
+    }
+  }, [setAnalysisData])
+
+  const loadFollowUpQuestions = useCallback(async (analysisId: string) => {
     try {
       console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드:', analysisId)
       
@@ -123,40 +156,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         analysisId
       })
     }
-  }
-
-  const generateAIFollowUpQuestions = async (analysisId: string) => {
-    try {
-      console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
-
-      const response = await fetch('/api/rfp/generate-questions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          max_questions: 8,
-          categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
-        })
-      })
-
-      if (response.ok) {
-        const { questions } = await response.json()
-        console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
-        
-        setAnalysisData(prev => prev.map(data => 
-          data.analysis.id === analysisId 
-            ? { ...data, follow_up_questions: questions }
-            : data
-        ))
-      } else {
-        console.error('❌ [후속질문-AI] 생성 실패:', response.status)
-      }
-    } catch (error) {
-      console.error('💥 [후속질문-AI] 오류:', error)
-    }
-  }
+  }, [generateAIFollowUpQuestions])  // generateAIFollowUpQuestions 의존성 추가
 
   useEffect(() => {
     fetchAnalysisResults()

@@ -54,6 +54,52 @@ export default function PersonaAnalysisDashboard({
   const [aiAnalysisInProgress, setAiAnalysisInProgress] = useState(false);
   const [aiPersonaData, setAiPersonaData] = useState<any>(null);
 
+  // 기존 페르소나 로드 함수 (먼저 선언)
+  const loadExistingPersonas = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      if (!marketResearch) {
+        // 시장조사 없이 프로젝트 기반으로 페르소나 조회
+        const { data, error } = await (supabase as any)
+          .from('personas')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setPersonas(data);
+          setCurrentStep('persona_list');
+        } else {
+          setCurrentStep('questionnaire');
+        }
+      } else {
+        // 시장조사 연동 모드
+        const { data, error } = await (supabase as any)
+          .from('personas')
+          .select('*')
+          .eq('market_research_id', marketResearch.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setPersonas(data);
+          setCurrentStep('persona_list');
+        } else {
+          setCurrentStep('questionnaire');
+        }
+      }
+    } catch (error) {
+      console.error('페르소나 로드 오류:', error);
+      setCurrentStep('questionnaire');
+    } finally {
+      setLoading(false);
+    }
+  }, [marketResearch, projectId]);
+
   // AI 기반 페르소나 분석 자동 트리거
   const triggerAIPersonaAnalysis = useCallback(async () => {
     if (!marketResearch) return;
@@ -100,51 +146,6 @@ export default function PersonaAnalysisDashboard({
       setAiAnalysisInProgress(false);
     }
   }, [marketResearch, projectId, loadExistingPersonas]);
-
-  const loadExistingPersonas = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      if (!marketResearch) {
-        // 시장조사 없이 프로젝트 기반으로 페르소나 조회
-        const { data, error } = await (supabase as any)
-          .from('personas')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          setPersonas(data);
-          setCurrentStep('persona_list');
-        } else {
-          setCurrentStep('questionnaire');
-        }
-      } else {
-        // 시장조사 연동 모드
-        const { data, error } = await (supabase as any)
-          .from('personas')
-          .select('*')
-          .eq('market_research_id', marketResearch.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          setPersonas(data);
-          setCurrentStep('persona_list');
-        } else {
-          setCurrentStep('questionnaire');
-        }
-      }
-    } catch (error) {
-      console.error('페르소나 로드 오류:', error);
-      setCurrentStep('questionnaire');
-    } finally {
-      setLoading(false);
-    }
-  }, [marketResearch, projectId]);
 
   useEffect(() => {
     if (marketResearch && !aiPersonaData && !aiAnalysisInProgress) {
