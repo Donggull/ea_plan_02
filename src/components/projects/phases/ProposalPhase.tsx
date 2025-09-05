@@ -169,11 +169,28 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     setIsAnalyzing(documentId)
     
     try {
-      console.log('🚀 RFP 분석 시작:', {
+      console.log('🚀 [제안진행] RFP 분석 시작:', {
         documentId,
         projectId,
         selectedModelId: selectedAIModel.id,
-        modelDisplayName: selectedAIModel.display_name
+        modelDisplayName: selectedAIModel.display_name,
+        timestamp: new Date().toISOString()
+      })
+      
+      // 요청 전 유효성 검사 강화
+      if (!documentId || !projectId) {
+        throw new Error(`필수 정보가 누락되었습니다. 문서 ID: ${documentId}, 프로젝트 ID: ${projectId}`)
+      }
+      
+      console.log('📝 [제안진행] API 요청 준비:', {
+        url: '/api/rfp/analyze',
+        method: 'POST',
+        payload: {
+          rfp_document_id: documentId,
+          project_id: projectId,
+          selected_model_id: selectedAIModel.id,
+          analysis_options: { include_questions: true, depth_level: 'comprehensive' }
+        }
       })
       
       // RFP 분석 자동화의 API를 활용하여 분석 수행
@@ -194,36 +211,62 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         })
       })
 
-      console.log('📡 API 응답 상태:', response.status, response.statusText)
+      console.log('📡 [제안진행] API 응답 상태:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        url: response.url
+      })
 
       if (!response.ok) {
+        console.error('❌ [제안진행] RFP 분석 API 실패 - 응답 상태:', response.status)
+        
         let errorData
         try {
-          errorData = await response.json()
-        } catch (_parseError) {
+          const responseText = await response.text()
+          console.log('📄 [제안진행] 원본 오류 응답:', responseText)
+          
+          try {
+            errorData = JSON.parse(responseText)
+          } catch (jsonError) {
+            errorData = { 
+              error: 'API 응답 파싱 실패', 
+              details: `HTTP ${response.status}: ${response.statusText}`,
+              raw_response: responseText,
+              json_parse_error: jsonError instanceof Error ? jsonError.message : String(jsonError)
+            }
+          }
+        } catch (textError) {
+          console.error('❌ [제안진행] 응답 텍스트 읽기 실패:', textError)
           errorData = { 
-            error: 'API 응답 파싱 실패', 
+            error: '응답 읽기 실패', 
             details: `HTTP ${response.status}: ${response.statusText}`,
-            raw_error: await response.text()
+            text_error: textError instanceof Error ? textError.message : String(textError)
           }
         }
         
-        console.error('❌ RFP 분석 API 실패:', errorData)
+        console.error('❌ [제안진행] 상세 오류 데이터:', errorData)
         
         // 상세한 오류 메시지 구성
         let userErrorMessage = `RFP 분석이 실패했습니다.\n\n`
         
         if (response.status === 401) {
-          userErrorMessage += '인증 오류: 로그인이 필요하거나 세션이 만료되었습니다.\n다시 로그인해주세요.'
+          userErrorMessage += '🔐 인증 오류: 로그인이 필요하거나 세션이 만료되었습니다.\n\n해결 방법:\n1. 페이지를 새로고침하고 다시 로그인해주세요.\n2. 브라우저 쿠키/세션을 확인해주세요.'
         } else if (response.status === 404) {
-          userErrorMessage += `문서를 찾을 수 없습니다.\n문서 ID: ${documentId}`
+          userErrorMessage += `🔍 문서를 찾을 수 없습니다.\n\n문서 ID: ${documentId}\n\n해결 방법:\n1. 문서가 올바르게 업로드되었는지 확인해주세요.\n2. 페이지를 새로고침하고 다시 시도해주세요.`
         } else if (response.status === 500) {
-          userErrorMessage += `서버 오류가 발생했습니다.\n${errorData.error || errorData.message || '알 수 없는 오류'}`
-          if (errorData.details) {
-            userErrorMessage += `\n\n상세 정보: ${errorData.details}`
+          userErrorMessage += `🚨 서버 내부 오류가 발생했습니다.\n\n`
+          
+          if (errorData.error?.includes('API')) {
+            userErrorMessage += '⚡ AI API 연동 문제로 보입니다.\n\n해결 방법:\n1. 잠시 후 다시 시도해주세요.\n2. 계속 문제가 발생하면 관리자에게 문의해주세요.'
+          } else {
+            userErrorMessage += `상세 오류: ${errorData.error || errorData.message || '알 수 없는 오류'}`
+            if (errorData.details) {
+              userErrorMessage += `\n\n추가 정보: ${errorData.details}`
+            }
           }
         } else {
-          userErrorMessage += `HTTP ${response.status} 오류: ${errorData.error || errorData.message || response.statusText}`
+          userErrorMessage += `🔧 HTTP ${response.status} 오류: ${errorData.error || errorData.message || response.statusText}\n\n해결 방법:\n1. 네트워크 연결을 확인해주세요.\n2. 페이지를 새로고침하고 다시 시도해주세요.\n3. 문제가 지속되면 관리자에게 문의해주세요.`
         }
         
         throw new Error(userErrorMessage)
@@ -231,22 +274,37 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
 
       const result = await response.json()
       
-      console.log('✅ RFP 분석 성공:', {
+      console.log('✅ [제안진행] RFP 분석 성공:', {
         analysisId: result.analysis?.id,
         hasQuestions: !!result.questions,
-        estimatedDuration: result.estimated_duration
+        questionsCount: result.questions?.length || 0,
+        estimatedDuration: result.estimated_duration,
+        responseSize: JSON.stringify(result).length
       })
       
       // 성공 메시지 표시
-      alert('RFP 분석이 성공적으로 완료되었습니다!')
+      alert('🎉 RFP 분석이 성공적으로 완료되었습니다!\n\n분석 결과 탭으로 이동합니다.')
       
       // RFP 분석 결과 탭으로 자동 이동
       setActiveTab('rfp_analysis')
       
     } catch (error) {
-      console.error('💥 RFP 분석 전체 오류:', error)
+      console.error('💥 [제안진행] RFP 분석 전체 오류:', error)
       
-      let userErrorMessage = 'RFP 분석 중 오류가 발생했습니다.'
+      // 오류 상세 로깅
+      console.error('🔍 [제안진행] 오류 상세 정보:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        documentId,
+        projectId,
+        selectedModelId: selectedAIModel?.id,
+        modelDisplayName: selectedAIModel?.display_name,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        currentUrl: window.location.href
+      })
+      
+      let userErrorMessage = '❌ RFP 분석 중 오류가 발생했습니다.'
       
       if (error instanceof Error) {
         userErrorMessage = error.message
@@ -254,17 +312,13 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         userErrorMessage = error
       }
       
+      // 디버깅 정보 추가
+      if (process.env.NODE_ENV === 'development') {
+        userErrorMessage += `\n\n🔧 개발자 정보:\n- 문서 ID: ${documentId}\n- AI 모델: ${selectedAIModel?.display_name || 'None'}\n- 시간: ${new Date().toLocaleString()}`
+      }
+      
       // 사용자에게 상세한 오류 정보 제공
       alert(userErrorMessage)
-      
-      // 콘솔에 추가 디버깅 정보 출력
-      console.error('오류 상세 정보:', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        documentId,
-        projectId,
-        selectedModelId: selectedAIModel.id
-      })
       
     } finally {
       setIsAnalyzing(null)
@@ -291,11 +345,13 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       isRunning: true
     })
 
-    console.log('🚀 일괄 RFP 분석 시작:', {
+    console.log('🚀 [제안진행-일괄] 일괄 RFP 분석 시작:', {
       documentsCount: documentsToAnalyze.length,
+      documentIds: documentsToAnalyze,
       projectId,
       selectedModelId: selectedAIModel.id,
-      modelDisplayName: selectedAIModel.display_name
+      modelDisplayName: selectedAIModel.display_name,
+      timestamp: new Date().toISOString()
     })
 
     let successCount = 0
@@ -306,7 +362,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         const documentId = documentsToAnalyze[i]
         setBatchAnalysisProgress(prev => ({ ...prev, current: i + 1 }))
 
-        console.log(`📄 문서 ${i + 1}/${documentsToAnalyze.length} 분석 중... (ID: ${documentId})`)
+        console.log(`📄 [제안진행-일괄] 문서 ${i + 1}/${documentsToAnalyze.length} 분석 중... (ID: ${documentId})`)
 
         try {
           const response = await fetch('/api/rfp/analyze', {
@@ -335,17 +391,17 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
             }
             
             const errorMsg = `문서 ${i + 1} 분석 실패: ${errorData.error || errorData.message || response.statusText}`
-            console.error(`❌ ${errorMsg}`)
+            console.error(`❌ [제안진행-일괄] ${errorMsg}`)
             errorDetails.push(errorMsg)
           } else {
             const result = await response.json()
-            console.log(`✅ 문서 ${i + 1} 분석 성공 (ID: ${result.analysis?.id})`)
+            console.log(`✅ [제안진행-일괄] 문서 ${i + 1} 분석 성공 (ID: ${result.analysis?.id})`)
             setBatchAnalysisProgress(prev => ({ ...prev, completed: prev.completed + 1 }))
             successCount++
           }
         } catch (error) {
           const errorMsg = `문서 ${i + 1} 분석 오류: ${error instanceof Error ? error.message : String(error)}`
-          console.error(`💥 ${errorMsg}`)
+          console.error(`💥 [제안진행-일괄] ${errorMsg}`)
           errorDetails.push(errorMsg)
         }
 
