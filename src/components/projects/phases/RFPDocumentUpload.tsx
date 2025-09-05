@@ -26,6 +26,8 @@ interface RFPDocument {
   created_at: string
   status?: string
   project_id?: string
+  source_type?: 'proposal' | 'rfp_analysis'
+  source_label?: string
 }
 
 interface RFPDocumentUploadProps {
@@ -161,20 +163,29 @@ export default function RFPDocumentUpload({
     setError(null)
     
     try {
-      // RFP 분석 자동화에서 업로드된 문서 조회
-      const { data: rfpAnalyses, error } = await supabase
+      // 1. 현재 프로젝트의 모든 RFP 문서 조회 (project_id 기반)
+      const { data: projectDocuments, error: projectError } = await supabase
+        .from('rfp_documents')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+
+      if (projectError) throw projectError
+
+      // 2. RFP 분석 자동화에서 업로드된 문서 조회 (기존 로직 유지)
+      const { data: rfpAnalyses, error: analysesError } = await supabase
         .from('rfp_analyses')
         .select('id, rfp_document_id, project_id, created_at')
         .neq('rfp_document_id', null)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (analysesError) throw analysesError
 
+      let analysisDocuments: RFPDocument[] = []
       if (rfpAnalyses && rfpAnalyses.length > 0) {
-        // rfp_documents 테이블에서 실제 문서 정보 조회
         const documentIds = rfpAnalyses
           .map(analysis => analysis.rfp_document_id)
-          .filter(Boolean) as string[] // null 값 제거 후 string[] 타입으로 캐스팅
+          .filter(Boolean) as string[]
 
         const { data: documents, error: docError } = await supabase
           .from('rfp_documents')
@@ -182,14 +193,73 @@ export default function RFPDocumentUpload({
           .in('id', documentIds)
 
         if (docError) throw docError
-
-        setAvailableRfpDocs((documents || []) as RFPDocument[])
-      } else {
-        setAvailableRfpDocs([])
+        analysisDocuments = (documents || []) as RFPDocument[]
       }
+
+      // 3. 문서 유형 구분을 위한 메타데이터 추가
+      const allDocuments = [
+        // 현재 프로젝트 문서 (제안 진행에서 업로드)
+        ...(projectDocuments || []).map(doc => ({
+          ...doc,
+          source_type: 'proposal',
+          source_label: '제안 진행'
+        })),
+        // RFP 분석 자동화 문서 (중복 제거)
+        ...analysisDocuments
+          .filter(doc => !projectDocuments?.some(pDoc => pDoc.id === doc.id))
+          .map(doc => ({
+            ...doc,
+            source_type: 'rfp_analysis',
+            source_label: 'RFP 분석 자동화'
+          }))
+      ]
+
+      setAvailableRfpDocs(allDocuments as RFPDocument[])
     } catch (err) {
       console.error('RFP 문서 목록 로드 실패:', err)
       setError('RFP 문서 목록을 불러올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // AI 분석 기능 추가
+  const handleAIAnalysis = async (documentId: string) => {
+    if (!documentId) {
+      setError('분석할 RFP 문서를 선택해주세요.')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // RFP 분석 API 호출
+      const response = await fetch('/api/rfp/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          rfp_document_id: documentId,
+          project_id: projectId
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'AI 분석 중 오류가 발생했습니다.')
+      }
+
+      const result = await response.json()
+      console.log('AI 분석 결과:', result)
+      
+      // 분석 완료 후 성공 메시지
+      alert(`AI 분석이 완료되었습니다!\n\n요구사항: ${result.analysis?.requirements_count || 0}개\n기능적 요구사항: ${result.analysis?.functional_requirements?.length || 0}개\n비기능적 요구사항: ${result.analysis?.non_functional_requirements?.length || 0}개`)
+      
+    } catch (error) {
+      console.error('AI 분석 실패:', error)
+      setError(error instanceof Error ? error.message : 'AI 분석에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -700,9 +770,21 @@ export default function RFPDocumentUpload({
                     </div>
                     <FileText className="h-5 w-5 text-gray-400" />
                     <div className="flex-1">
-                      <h5 className="font-medium text-gray-900 dark:text-white">
-                        {doc.title}
-                      </h5>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          {doc.title}
+                        </h5>
+                        {/* 출처 구분 표시 */}
+                        {doc.source_label && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            doc.source_type === 'proposal'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                              : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          }`}>
+                            {doc.source_label}
+                          </span>
+                        )}
+                      </div>
                       {doc.description && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {doc.description}
@@ -714,6 +796,24 @@ export default function RFPDocumentUpload({
                           <span>{formatFileSize(doc.file_size)}</span>
                         )}
                       </div>
+                    </div>
+                    {/* AI 분석 버튼 */}
+                    <div className="flex-shrink-0 ml-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation() // 카드 선택 이벤트 방지
+                          handleAIAnalysis(doc.id)
+                        }}
+                        disabled={loading || authStatus !== 'authenticated'}
+                        className="text-xs px-2 py-1 h-auto bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 hover:border-purple-300 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-lg">🤖</span>
+                          <span>AI 분석</span>
+                        </div>
+                      </Button>
                     </div>
                   </div>
                 </Card>
