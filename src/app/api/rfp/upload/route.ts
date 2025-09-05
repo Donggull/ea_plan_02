@@ -30,56 +30,57 @@ export async function POST(request: NextRequest) {
     
     let user: any = null
     
-    // Authorization 헤더에서 토큰 확인 (동일한 방식 사용)
-    const authorization = request.headers.get('authorization')
-    if (authorization) {
-      console.log('RFP Upload: Using token-based authentication')
-      const token = authorization.replace('Bearer ', '')
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+    // 쿠키 기반 세션 확인을 우선적으로 사용
+    console.log('RFP Upload: Using cookie-based authentication')
+    
+    try {
+      const supabase = createRouteHandlerClient({ cookies })
       
-      if (tokenError || !tokenUser) {
-        console.error('RFP Upload: Token validation failed:', tokenError)
+      // Get the current user from the session
+      console.log('RFP Upload: Getting user from session...')
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('RFP Upload: Session error:', sessionError)
         return NextResponse.json(
-          { message: '유효하지 않은 토큰입니다: ' + (tokenError?.message || 'Unknown error') },
+          { message: '세션 오류가 발생했습니다: ' + sessionError.message },
           { status: 401 }
         )
       }
       
-      user = tokenUser
-      console.log('RFP Upload: User authenticated via token:', user.email)
-    } else {
-      // 쿠키 기반 세션 확인 (동일한 방식 사용)
-      console.log('RFP Upload: Using cookie-based authentication')
-      
-      try {
-        const supabase = createRouteHandlerClient({ cookies })
-        
-        // Get the current user from the session
-        console.log('RFP Upload: Getting user from session...')
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError) {
-          console.error('RFP Upload: Session error:', sessionError)
-          return NextResponse.json(
-            { message: '세션 오류가 발생했습니다: ' + sessionError.message },
-            { status: 401 }
-          )
-        }
-        
-        if (!session?.user) {
-          console.log('RFP Upload: No session user found')
-          return NextResponse.json(
-            { message: '인증된 세션을 찾을 수 없습니다. 다시 로그인해주세요.' },
-            { status: 401 }
-          )
-        }
-        
-        user = session.user
-        console.log('RFP Upload: User authenticated via session:', user.email)
-      } catch (cookieError) {
-        console.error('RFP Upload: Cookie access failed:', cookieError)
+      if (!session?.user) {
+        console.log('RFP Upload: No session user found')
         return NextResponse.json(
-          { message: '쿠키 인증 오류가 발생했습니다.' },
+          { message: '인증된 세션을 찾을 수 없습니다. 다시 로그인해주세요.' },
+          { status: 401 }
+        )
+      }
+      
+      user = session.user
+      console.log('RFP Upload: User authenticated via session:', user.email)
+    } catch (cookieError) {
+      console.error('RFP Upload: Cookie access failed:', cookieError)
+      
+      // 쿠키 기반 인증 실패 시 토큰 기반 인증 시도
+      const authorization = request.headers.get('authorization')
+      if (authorization) {
+        console.log('RFP Upload: Fallback to token-based authentication')
+        const token = authorization.replace('Bearer ', '')
+        const { data: { user: tokenUser }, error: tokenError } = await supabaseAdmin.auth.getUser(token)
+        
+        if (tokenError || !tokenUser) {
+          console.error('RFP Upload: Token validation failed:', tokenError)
+          return NextResponse.json(
+            { message: '인증 실패: ' + (tokenError?.message || cookieError.message || 'Unknown error') },
+            { status: 401 }
+          )
+        }
+        
+        user = tokenUser
+        console.log('RFP Upload: User authenticated via token (fallback):', user.email)
+      } else {
+        return NextResponse.json(
+          { message: '쿠키 인증 오류가 발생했습니다: ' + cookieError.message },
           { status: 401 }
         )
       }

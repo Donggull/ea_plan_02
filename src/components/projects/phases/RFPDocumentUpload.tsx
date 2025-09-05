@@ -210,15 +210,20 @@ export default function RFPDocumentUpload({
         setUploadProgress(prev => ({ ...prev, [fileKey]: 25 }))
 
         // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가 (RFP 분석 자동화와 동일)
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         console.log('RFP Upload: Client session check:', session ? 'session exists' : 'no session')
+        console.log('RFP Upload: Session error:', sessionError)
+        
+        // 세션이 없거나 만료된 경우 먼저 사용자에게 알림
+        if (!session || sessionError) {
+          throw new Error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+        }
         
         const headers: Record<string, string> = {}
         
-        if (session?.access_token) {
-          headers['Authorization'] = `Bearer ${session.access_token}`
-          console.log('RFP Upload: Added Authorization header')
-        }
+        // 토큰 기반 인증을 사용하지 않고 쿠키 기반 인증만 사용
+        // Authorization 헤더 제거하여 API에서 쿠키 기반 인증을 사용하도록 함
+        console.log('RFP Upload: Using cookie-based authentication only')
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 50 }))
         
