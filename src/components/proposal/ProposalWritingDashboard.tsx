@@ -46,6 +46,48 @@ export default function ProposalWritingDashboard({
   const [showContentGenerator, setShowContentGenerator] = useState(false)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [aiGenerationInProgress, setAiGenerationInProgress] = useState(false)
+  const [aiProposalData, setAiProposalData] = useState<any>(null)
+  const [proposalType, setProposalType] = useState<'technical' | 'business' | 'hybrid'>('hybrid')
+
+  // AI 제안서 자동 생성 함수
+  const triggerAIProposalGeneration = useCallback(async () => {
+    try {
+      setAiGenerationInProgress(true)
+      console.log('📝 [제안서] AI 제안서 생성 시작')
+
+      const response = await fetch('/api/proposal/ai-generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          project_id: projectId,
+          rfp_analysis_id: rfpAnalysis?.id,
+          market_research_id: marketResearch?.id,
+          persona_analysis_id: personas?.[0]?.id, // 첫 번째 페르소나 사용
+          proposal_type: proposalType,
+          selected_model_id: 'claude-3-5-sonnet-20241022'
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`AI 제안서 생성 실패: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('✅ [제안서] AI 생성 완료:', result)
+
+      setAiProposalData(result.proposal_data)
+      setCurrentStep('writing')
+      
+    } catch (error) {
+      console.error('❌ [제안서] AI 생성 오류:', error)
+    } finally {
+      setAiGenerationInProgress(false)
+    }
+  }, [projectId, rfpAnalysis, marketResearch, personas, proposalType])
 
   // 더미 템플릿 데이터 (실제로는 Supabase에서 가져올 것)
   const templates: ProposalTemplateType[] = [
@@ -288,10 +330,112 @@ export default function ProposalWritingDashboard({
           </p>
         </div>
 
-        <ProposalTemplate
-          templates={templates}
-          onSelectTemplate={handleTemplateSelect}
-        />
+        {/* AI 자동 생성 옵션 */}
+        {(rfpAnalysis || marketResearch || personas) && (
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  🤖 AI 자동 제안서 생성
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  분석된 데이터를 활용하여 AI가 자동으로 제안서를 생성합니다
+                </p>
+                
+                {/* 제안서 타입 선택 */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    제안서 타입
+                  </label>
+                  <select
+                    value={proposalType}
+                    onChange={(e) => setProposalType(e.target.value as any)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="hybrid">통합형 (기술+비즈니스)</option>
+                    <option value="technical">기술 중심</option>
+                    <option value="business">비즈니스 중심</option>
+                  </select>
+                </div>
+
+                {/* 사용 가능한 분석 데이터 표시 */}
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">사용 가능한 분석 데이터:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {rfpAnalysis && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        RFP 분석
+                      </span>
+                    )}
+                    {marketResearch && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        시장조사
+                      </span>
+                    )}
+                    {personas && personas.length > 0 && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        페르소나 ({personas.length}개)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={triggerAIProposalGeneration}
+                  disabled={aiGenerationInProgress}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {aiGenerationInProgress ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      AI 생성 중...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 mr-2" />
+                      AI 제안서 자동 생성
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* AI 생성 진행 중일 때 */}
+        {aiGenerationInProgress && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI 제안서 생성 중</h3>
+              <p className="text-gray-600 mb-4">
+                종합 분석 데이터를 바탕으로 맞춤형 제안서를 생성하고 있습니다
+              </p>
+              <div className="text-sm text-blue-600">
+                약 1-2분 정도 소요됩니다...
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 기존 템플릿 선택 */}
+        {!aiGenerationInProgress && (
+          <>
+            <div className="text-center">
+              <p className="text-gray-500 text-sm mb-4">또는</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">템플릿에서 시작하기</h3>
+            </div>
+            <ProposalTemplate
+              templates={templates}
+              onSelectTemplate={handleTemplateSelect}
+            />
+          </>
+        )}
       </div>
     )
   }

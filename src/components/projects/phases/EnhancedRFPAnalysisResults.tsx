@@ -28,6 +28,7 @@ interface AnalysisData {
   follow_up_questions: AnalysisQuestion[]
   questionnaire_completed: boolean
   next_step_ready: boolean
+  market_research_ready?: boolean
 }
 
 export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAnalysisResultsProps) {
@@ -164,6 +165,36 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           : data
       ))
       setShowQuestionnaire(false)
+    }
+  }
+
+  const handleMarketResearchGenerated = (marketResearch: any) => {
+    console.log('🎯 [RFP결과] 시장 조사 AI 분석 완료:', marketResearch)
+    
+    // 시장 조사 완료 상태 업데이트
+    if (selectedAnalysis) {
+      setAnalysisData(prev => prev.map(data => 
+        data.analysis.id === selectedAnalysis.analysis.id 
+          ? { 
+              ...data, 
+              questionnaire_completed: true, 
+              next_step_ready: true,
+              market_research_ready: true
+            }
+          : data
+      ))
+      
+      // 성공 후 시장 조사 탭으로 자동 전환 이벤트 발생
+      setTimeout(() => {
+        const event = new CustomEvent('rfp-analysis-next-step', {
+          detail: { 
+            nextStep: 'market_research', 
+            analysisData: selectedAnalysis,
+            marketResearch: marketResearch
+          }
+        })
+        window.dispatchEvent(event)
+      }, 2000) // 2초 후 자동 전환
     }
   }
 
@@ -515,7 +546,9 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
               </div>
               <AnalysisQuestionnaire
                 analysisId={selectedAnalysis.analysis.id}
+                projectId={projectId}
                 onResponsesSubmitted={handleQuestionnaireComplete}
+                onMarketResearchGenerated={handleMarketResearchGenerated}
                 onError={(error) => console.error('Questionnaire error:', error)}
               />
             </div>

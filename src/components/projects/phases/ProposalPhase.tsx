@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Input from '@/basic/src/components/Input/Input'
 import MarketResearchDashboard from '@/components/market-research/MarketResearchDashboard'
+import AIMarketAnalysisDashboard from '@/components/market-research/AIMarketAnalysisDashboard'
 import PersonaAnalysisDashboard from '@/components/persona/PersonaAnalysisDashboard'
 import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashboard'
 import EnhancedRFPAnalysisResults from './EnhancedRFPAnalysisResults'
@@ -1090,10 +1091,15 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       {/* 시장 조사 탭 */}
       {activeTab === 'market_research' && (
         <div className="space-y-6">
-          <MarketResearchDashboard
+          <AIMarketAnalysisDashboard
             projectId={projectId}
             rfpAnalysisId={rfpDocs.find(doc => doc.status === 'completed')?.id}
-            onResearchComplete={handleMarketResearchComplete}
+            onAnalysisComplete={(analysis: any) => {
+              // AI 분석 완료 시 처리
+              console.log('시장조사 AI 분석 완료:', analysis);
+              // 필요한 경우 기존 handleMarketResearchComplete 함수 호출
+              // handleMarketResearchComplete(analysis);
+            }}
           />
         </div>
       )}

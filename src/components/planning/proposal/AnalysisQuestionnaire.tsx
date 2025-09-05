@@ -16,8 +16,10 @@ import {
 
 interface AnalysisQuestionnaireProps {
   analysisId: string
+  projectId?: string
   onQuestionsGenerated?: (questions: AnalysisQuestion[]) => void
   onResponsesSubmitted?: (responses: QuestionResponse[], guidance?: NextStepGuidanceResponse) => void
+  onMarketResearchGenerated?: (marketResearch: any) => void
   onError?: (error: string) => void
   className?: string
   autoGenerate?: boolean
@@ -25,8 +27,10 @@ interface AnalysisQuestionnaireProps {
 
 export function AnalysisQuestionnaire({
   analysisId,
+  projectId,
   onQuestionsGenerated,
   onResponsesSubmitted,
+  onMarketResearchGenerated,
   onError,
   className,
   autoGenerate = false
@@ -40,6 +44,7 @@ export function AnalysisQuestionnaire({
   const [selectedCategories, setSelectedCategories] = useState<QuestionCategory[]>([])
   const [maxQuestions, setMaxQuestions] = useState(10)
   const [guidance, setGuidance] = useState<NextStepGuidanceResponse | null>(null)
+  const [isGeneratingMarketResearch, setIsGeneratingMarketResearch] = useState(false)
 
   const categoryOptions: { key: QuestionCategory; label: string; description: string }[] = [
     { key: 'market_context', label: '시장 상황', description: '시장 환경 및 경쟁 상황' },
@@ -88,6 +93,83 @@ export function AnalysisQuestionnaire({
       setIsGenerating(false)
     }
   }, [analysisId, selectedCategories, maxQuestions, onQuestionsGenerated, onError])
+
+  const triggerMarketResearchAnalysis = async (submittedResponses: any[]) => {
+    if (!projectId || !analysisId) {
+      console.warn('⚠️ [시장조사-AI] projectId 또는 analysisId가 없어서 시장 조사 분석을 건너뜁니다.')
+      return
+    }
+
+    setIsGeneratingMarketResearch(true)
+
+    try {
+      console.log('🚀 [시장조사-AI] AI 기반 시장 조사 분석 시작')
+
+      // 질문과 답변을 매핑
+      const questionResponses = questions.map(question => {
+        const response = responses[question.id] || ''
+        return {
+          question_id: question.id,
+          question_text: question.question_text,
+          response: typeof response === 'string' ? response : JSON.stringify(response),
+          category: question.category
+        }
+      }).filter(qr => qr.response.trim() !== '')
+
+      const requestBody = {
+        project_id: projectId,
+        rfp_analysis_id: analysisId,
+        question_responses: questionResponses,
+        selected_model_id: 'claude-3-5-sonnet-20241022'
+      }
+
+      console.log('📤 [시장조사-AI] API 요청:', {
+        project_id: projectId,
+        rfp_analysis_id: analysisId,
+        responses_count: questionResponses.length
+      })
+
+      const response = await fetch('/api/market-research/ai-analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `API 오류 (${response.status})`)
+      }
+
+      const result = await response.json()
+      console.log('✅ [시장조사-AI] 분석 완료:', {
+        research_id: result.market_research?.id,
+        insights_count: result.ai_insights?.total_insights || 0
+      })
+
+      // 상위 컴포넌트에 시장 조사 결과 전달
+      if (onMarketResearchGenerated && result.market_research) {
+        onMarketResearchGenerated(result.market_research)
+      }
+
+      // 성공 알림
+      alert(`🎉 시장 조사 분석이 완료되었습니다!\n\n- 총 ${result.ai_insights?.total_insights || 0}개의 인사이트 생성\n- 다음 단계: 페르소나 분석 준비`)
+
+    } catch (error) {
+      console.error('❌ [시장조사-AI] 분석 실패:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      
+      // 오류 알림
+      alert(`❌ 시장 조사 분석 중 오류가 발생했습니다:\n\n${errorMessage}\n\n수동으로 시장 조사 탭에서 다시 시도해주세요.`)
+      
+      if (onError) {
+        onError(`시장 조사 AI 분석 실패: ${errorMessage}`)
+      }
+    } finally {
+      setIsGeneratingMarketResearch(false)
+    }
+  }
 
   useEffect(() => {
     if (autoGenerate && analysisId && questions.length === 0) {
@@ -156,6 +238,12 @@ export function AnalysisQuestionnaire({
 
       onResponsesSubmitted?.(savedResponses.responses, guidanceData)
       setViewMode('review')
+
+      // 🚀 자동으로 시장 조사 AI 분석 트리거
+      if (projectId && onMarketResearchGenerated) {
+        console.log('🤖 [질문응답완료] 시장 조사 AI 분석 자동 시작...')
+        await triggerMarketResearchAnalysis(savedResponses.responses)
+      }
       
     } catch (error) {
       console.error('Response submission error:', error)

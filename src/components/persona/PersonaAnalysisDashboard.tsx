@@ -51,7 +51,55 @@ export default function PersonaAnalysisDashboard({
   const [guidance, setGuidance] = useState<any | null>(null);
   const [strategies, setStrategies] = useState<ProposalStrategy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiAnalysisInProgress, setAiAnalysisInProgress] = useState(false);
+  const [aiPersonaData, setAiPersonaData] = useState<any>(null);
 
+  // AI 기반 페르소나 분석 자동 트리거
+  const triggerAIPersonaAnalysis = useCallback(async () => {
+    if (!marketResearch) return;
+
+    try {
+      setAiAnalysisInProgress(true);
+      console.log('🎭 [페르소나] AI 페르소나 분석 시작:', marketResearch.id);
+
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
+      const response = await fetch('/api/persona/ai-analyze', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          project_id: projectId,
+          market_research_id: marketResearch.id,
+          rfp_analysis_id: marketResearch.rfp_analysis_id,
+          selected_model_id: 'claude-3-5-sonnet-20241022'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI 페르소나 분석 실패: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [페르소나] AI 분석 완료:', result);
+
+      setAiPersonaData(result.analysis);
+      
+      // 분석 완료 후 페르소나 목록으로 이동
+      await loadExistingPersonas();
+      
+    } catch (error) {
+      console.error('❌ [페르소나] AI 분석 오류:', error);
+    } finally {
+      setAiAnalysisInProgress(false);
+    }
+  }, [marketResearch, projectId]);
 
   const loadExistingPersonas = useCallback(async () => {
     try {
@@ -99,8 +147,13 @@ export default function PersonaAnalysisDashboard({
   }, [marketResearch, projectId]);
 
   useEffect(() => {
-    loadExistingPersonas();
-  }, [loadExistingPersonas]);
+    if (marketResearch && !aiPersonaData && !aiAnalysisInProgress) {
+      // 시장조사 데이터가 있고 아직 AI 분석을 하지 않았으면 자동 실행
+      triggerAIPersonaAnalysis();
+    } else {
+      loadExistingPersonas();
+    }
+  }, [loadExistingPersonas, triggerAIPersonaAnalysis, marketResearch, aiPersonaData, aiAnalysisInProgress]);
 
   const handleQuestionnaireComplete = (newGuidance: any) => {
     setGuidance(newGuidance);
@@ -451,6 +504,28 @@ export default function PersonaAnalysisDashboard({
             <div className="text-center">
               <Clock className="w-8 h-8 text-blue-500 animate-pulse mx-auto mb-4" />
               <p className="text-gray-600">페르소나 분석 데이터를 불러오는 중...</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (aiAnalysisInProgress) {
+    return (
+      <div className="space-y-6">
+        <Card className="bg-white border border-gray-200">
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI 페르소나 분석 진행 중</h3>
+              <p className="text-gray-600 mb-4">
+                시장조사 데이터를 기반으로 AI가 페르소나를 분석하고 있습니다
+              </p>
+              <div className="flex items-center justify-center gap-2 text-sm text-blue-600">
+                <Lightbulb className="w-4 h-4" />
+                <span>잠시만 기다려주세요... (약 30-60초 소요)</span>
+              </div>
             </div>
           </div>
         </Card>
