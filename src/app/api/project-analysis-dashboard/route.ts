@@ -5,8 +5,7 @@ import {
   type ProjectAnalysisDashboardResponse,
   type AnalysisDataSummary,
   type ProjectAnalysisData,
-  type SelectedAnalysisData,
-  ANALYSIS_TYPES
+  type SelectedAnalysisData
 } from '@/types/project-analysis'
 
 export async function GET(request: NextRequest) {
@@ -23,8 +22,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 1. 프로젝트 분석 데이터 조회
-    const { data: analysisData, error: analysisError } = await supabase
+    // 1. 프로젝트 분석 데이터 조회 (타입 캐스팅)
+    const { data: analysisData, error: analysisError } = await (supabase as any)
       .from('project_analysis_data')
       .select('*')
       .eq('project_id', projectId)
@@ -38,8 +37,8 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // 2. 현재 선택된 분석 데이터 조회
-    const { data: selectionData, error: selectionError } = await supabase
+    // 2. 현재 선택된 분석 데이터 조회 (타입 캐스팅)
+    const { data: selectionData, error: selectionError } = await (supabase as any)
       .from('selected_analysis_data')
       .select('*')
       .eq('project_id', projectId)
@@ -83,9 +82,9 @@ export async function GET(request: NextRequest) {
                 title: '제안 진행 분석',
                 description: 'RFP 분석 및 제안 관련 데이터',
                 key_points: [
-                  `기능 요구사항: ${proposalData.functional_requirements?.length || 0}개`,
-                  `비기능 요구사항: ${proposalData.non_functional_requirements?.length || 0}개`,
-                  `위험 요소: ${proposalData.risk_factors?.length || 0}개`
+                  `기능 요구사항: ${Array.isArray(proposalData.functional_requirements) ? proposalData.functional_requirements.length : 0}개`,
+                  `비기능 요구사항: ${Array.isArray(proposalData.non_functional_requirements) ? proposalData.non_functional_requirements.length : 0}개`,
+                  `위험 요소: ${Array.isArray(proposalData.risk_factors) ? proposalData.risk_factors.length : 0}개`
                 ],
                 completeness: analysis.completeness_score,
                 last_updated: analysis.updated_at
@@ -155,9 +154,9 @@ export async function GET(request: NextRequest) {
                 title: 'RFP 분석 자동화',
                 description: '자동화된 RFP 분석 결과',
                 key_points: [
-                  `기능 요구사항: ${rfpAutoData.functional_requirements?.length || 0}개`,
-                  `기술 사양: ${rfpAutoData.technical_specifications?.length || 0}개`,
-                  `신뢰도 점수: ${rfpAutoData.confidence_score || 0}%`
+                  `기능 요구사항: ${Array.isArray(rfpAutoData.functional_requirements) ? rfpAutoData.functional_requirements.length : 0}개`,
+                  `기술 사양: ${Array.isArray(rfpAutoData.technical_specifications) ? rfpAutoData.technical_specifications.length : 0}개`,
+                  `신뢰도 점수: ${typeof rfpAutoData.confidence_score === 'number' ? rfpAutoData.confidence_score : 0}%`
                 ],
                 completeness: analysis.completeness_score,
                 last_updated: analysis.updated_at

@@ -102,9 +102,9 @@ export function RFPAnalyzer({
     } else {
       return handleStandardAnalysis()
     }
-  }, [rfpDocumentId, useStreamingMode])
+  }, [rfpDocumentId, useStreamingMode, onAnalysisError])
 
-  const handleStreamingAnalysis = async () => {
+  const handleStreamingAnalysis = useCallback(async () => {
     try {
       console.log('RFP Streaming Analysis: Starting with fetch...')
       
@@ -262,9 +262,9 @@ export function RFPAnalyzer({
       setIsAnalyzing(false)
       onAnalysisError?.(errorMessage)
     }
-  }
+  }, [rfpDocumentId, onAnalysisError, onAnalysisComplete, selectedModel?.id])
 
-  const handleStandardAnalysis = async () => {
+  const handleStandardAnalysis = useCallback(async () => {
     // 기존 표준 분석 로직 (폴백용)
     try {
       const request: RFPAnalysisRequest = {
@@ -308,7 +308,7 @@ export function RFPAnalyzer({
     } finally {
       setIsAnalyzing(false)
     }
-  }
+  }, [rfpDocumentId, onAnalysisError, onAnalysisComplete, selectedModel?.id])
 
   useEffect(() => {
     if (autoStart && rfpDocumentId) {

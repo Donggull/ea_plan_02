@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 기본 쿼리 구성
-    let query = supabase
+    // 기본 쿼리 구성 (타입 캐스팅)
+    let query = (supabase as any)
       .from('selected_analysis_data')
       .select('*')
       .eq('project_id', projectId)
@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
-    // 트랜잭션 시작: 기존 활성 선택 비활성화 후 새로 생성
-    const { error: deactivateError } = await supabase
+    // 트랜잭션 시작: 기존 활성 선택 비활성화 후 새로 생성 (타입 캐스팅)
+    const { error: deactivateError } = await (supabase as any)
       .from('selected_analysis_data')
       .update({ is_active: false })
       .eq('project_id', project_id)
@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // 새로운 선택 생성
-    const { data, error } = await supabase
+    // 새로운 선택 생성 (타입 캐스팅)
+    const { data, error } = await (supabase as any)
       .from('selected_analysis_data')
       .insert({
         project_id,
@@ -184,7 +184,7 @@ export async function PUT(request: NextRequest) {
 
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('selected_analysis_data')
       .update({
         selected_analyses,
@@ -232,8 +232,8 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 실제로는 삭제하지 않고 비활성화
-    const { error } = await supabase
+    // 실제로는 삭제하지 않고 비활성화 (타입 캐스팅)
+    const { error } = await (supabase as any)
       .from('selected_analysis_data')
       .update({ is_active: false })
       .eq('id', id)

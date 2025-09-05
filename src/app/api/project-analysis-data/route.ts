@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { 
   type ProjectAnalysisData, 
-  type AnalysisDataFilter, 
-  type AnalysisDataSort,
   type ProjectAnalysisDataResponse,
   ANALYSIS_TYPES
 } from '@/types/project-analysis'
@@ -26,8 +24,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 기본 쿼리 구성
-    let query = supabase
+    // 기본 쿼리 구성 (타입 캐스팅)
+    let query = (supabase as any)
       .from('project_analysis_data')
       .select('*', { count: 'exact' })
       .eq('project_id', projectId)
@@ -100,8 +98,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 중복 체크 및 upsert
-    const { data: existingData } = await supabase
+    // 중복 체크 및 upsert (타입 캐스팅)
+    const { data: existingData } = await (supabase as any)
       .from('project_analysis_data')
       .select('id')
       .eq('project_id', project_id)
@@ -111,8 +109,8 @@ export async function POST(request: NextRequest) {
 
     let result
     if (existingData) {
-      // 업데이트
-      result = await supabase
+      // 업데이트 (타입 캐스팅)
+      result = await (supabase as any)
         .from('project_analysis_data')
         .update({
           status: status || 'in_progress',
@@ -124,8 +122,8 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
     } else {
-      // 새로 생성
-      result = await supabase
+      // 새로 생성 (타입 캐스팅)
+      result = await (supabase as any)
         .from('project_analysis_data')
         .insert({
           project_id,
@@ -175,7 +173,7 @@ export async function PUT(request: NextRequest) {
 
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('project_analysis_data')
       .update({
         status,
@@ -223,7 +221,7 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = await createClient()
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('project_analysis_data')
       .delete()
       .eq('id', id)

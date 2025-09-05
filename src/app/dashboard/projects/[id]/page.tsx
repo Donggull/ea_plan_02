@@ -8,6 +8,15 @@ import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { MemberManagement } from '@/components/projects/MemberManagement'
 import ProjectPhases from '@/components/projects/phases/ProjectPhases'
 import RFPAnalysisViewer from '@/components/projects/phases/RFPAnalysisViewer'
+import dynamic from 'next/dynamic'
+
+// 분석 데이터 페이지를 동적 로딩
+const ProjectAnalysisDataPage = dynamic(
+  () => import('./analysis-data/page'),
+  { 
+    loading: () => <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>
+  }
+)
 import { useAuthStore } from '@/stores/auth-store'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
@@ -23,7 +32,8 @@ import {
   FileText,
   Target,
   Layers,
-  Eye
+  Eye,
+  Database
 } from 'lucide-react'
 
 export default function ProjectDetailPage() {
@@ -32,7 +42,7 @@ export default function ProjectDetailPage() {
   const { user } = useAuthStore()
   const projectId = params.id as string
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'rfp_analysis' | 'settings' | 'members'>('phases')
+  const [activeTab, setActiveTab] = useState<'overview' | 'phases' | 'rfp_analysis' | 'analysis_data' | 'settings' | 'members'>('phases')
 
   // 프로젝트 데이터 로드
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId)
@@ -209,6 +219,17 @@ export default function ProjectDetailPage() {
             <Eye className="w-4 h-4 mr-1" />
             RFP 분석
           </button>
+          <button
+            onClick={() => setActiveTab('analysis_data')}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'analysis_data'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <Database className="w-4 h-4 mr-1" />
+            분석 데이터
+          </button>
           {canManageProject && (
             <>
               <button
@@ -247,6 +268,10 @@ export default function ProjectDetailPage() {
         <div className="space-y-6">
           <RFPAnalysisViewer projectId={projectId} />
         </div>
+      )}
+
+      {activeTab === 'analysis_data' && (
+        <ProjectAnalysisDataPage />
       )}
 
       {activeTab === 'overview' && (

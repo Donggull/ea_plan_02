@@ -71,7 +71,7 @@ export function UserTierManager() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [supabase])
 
   // 등급 변경
   const changeTier = async () => {
