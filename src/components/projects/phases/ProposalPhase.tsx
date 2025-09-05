@@ -15,6 +15,7 @@ import ProposalWritingDashboard from '@/components/proposal/ProposalWritingDashb
 import ProposalRFPAnalysisResults from './ProposalRFPAnalysisResults'
 import RFPDocumentUpload from './RFPDocumentUpload'
 import { AnalysisIntegrationDashboard } from '@/components/analysis-integration/AnalysisIntegrationDashboard'
+import { AIModelSelector } from '@/components/ai/AIModelSelector'
 import { 
   FileText, 
   Plus, 
@@ -35,6 +36,7 @@ import {
 } from 'lucide-react'
 import type { MarketResearch, PersonaGenerationGuidance } from '@/types/market-research'
 import type { DevelopmentPlanningGuidance } from '@/types/proposal'
+import type { AIModel } from '@/types/ai-models'
 
 interface ProposalPhaseProps {
   projectId: string
@@ -47,6 +49,8 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
   const [developmentGuidance, setDevelopmentGuidance] = useState<DevelopmentPlanningGuidance | null>(null)
+  const [selectedAIModel, setSelectedAIModel] = useState<AIModel | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null)
   
   const { data: rfpDocs = [], isLoading: rfpLoading } = useRfpDocuments(projectId, 'proposal')
   const { data: tasks = [], isLoading: tasksLoading } = useProposalTasks(projectId)
@@ -128,6 +132,54 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
     // 여기서 구축 관리 단계로 전환 로직 추가
   }
 
+  const handleStartRFPAnalysis = async (documentId: string) => {
+    if (!selectedAIModel) {
+      alert('AI 모델을 먼저 선택해주세요.')
+      return
+    }
+
+    setIsAnalyzing(documentId)
+    
+    try {
+      // RFP 분석 자동화의 API를 활용하여 분석 수행
+      const response = await fetch('/api/rfp/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          rfp_document_id: documentId,
+          project_id: projectId,
+          analysis_options: {
+            include_questions: true,
+            depth_level: 'comprehensive'
+          },
+          selected_model_id: selectedAIModel.id
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(`분석 실패: ${errorData.error || response.statusText}`)
+      }
+
+      const result = await response.json()
+      
+      // RFP 분석 결과 탭으로 자동 이동
+      setActiveTab('rfp_analysis')
+      
+      console.log('RFP 분석 완료:', result.analysis)
+      
+    } catch (error) {
+      console.error('RFP 분석 오류:', error)
+      const errorMessage = error instanceof Error ? error.message : 'RFP 분석 중 오류가 발생했습니다.'
+      alert(errorMessage)
+    } finally {
+      setIsAnalyzing(null)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-100'
@@ -140,7 +192,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
   return (
     <div className="space-y-6 pb-16">
       {/* 헤더 */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             제안 진행 단계
@@ -148,6 +200,23 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             RFP 분석부터 제안서 작성까지 전체 제안 프로세스를 관리하세요
           </p>
+        </div>
+        
+        {/* AI 모델 선택 */}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <span>AI 모델:</span>
+            <AIModelSelector 
+              onModelSelect={(model) => setSelectedAIModel(model)}
+              showSettings={false}
+              className="min-w-[200px]"
+            />
+          </div>
+          {selectedAIModel && (
+            <div className="text-xs text-gray-500">
+              선택됨: {selectedAIModel.display_name}
+            </div>
+          )}
         </div>
       </div>
 
@@ -463,7 +532,7 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
             ) : (
               rfpDocs.map((doc) => (
                 <div key={doc.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">{doc.title}</h4>
                       {doc.description && (
@@ -486,6 +555,27 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
                         </span>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* AI 분석 버튼 */}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleStartRFPAnalysis(doc.id)}
+                      disabled={doc.status === 'analyzing'}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+                    >
+                      {doc.status === 'analyzing' ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                          분석 중...
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3 mr-2" />
+                          AI 분석
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               ))

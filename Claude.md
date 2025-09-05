@@ -28,6 +28,7 @@ TRD 문서 참조 : [자세히 보기](./TRD_part1.md)
 TRD 문서 참조 : [자세히 보기](./TRD_part2.md)
 작업 진행을 위한 프롬프트 문서 참조 : [자세히 보기](./claude-code-prompts.md)
 작업 진행을 위한 프롬프트 문서 참조 : [자세히 보기](./claude-code-step-by-step.md)
+프로젝트 상세페이지 내 제안을 위한 프롬프트 문서 참조 : [자세히 보기](./enhanced-analysis-prompts.md)
 
 ## 3단계 프로젝트 워크플로우 시스템 구현 완료 (2025-08-30)
 
