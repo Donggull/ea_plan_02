@@ -151,119 +151,287 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
         </div>
       </div>
 
-      {/* 탭 네비게이션 */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('rfp')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
+      {/* 단계별 카드 네비게이션 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <div
+          onClick={() => setActiveTab('rfp')}
+          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'rfp'
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-blue-100 dark:shadow-blue-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-600'
+          }`}
+        >
+          {activeTab === 'rfp' && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-3 w-3 text-white" />
+            </div>
+          )}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
               activeTab === 'rfp'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              RFP 문서 관리
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}>
+              <FileText className="h-5 w-5" />
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('tasks')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
-              activeTab === 'tasks'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              제안 작업 관리
+            <div>
+              <h3 className={`font-semibold text-sm ${
+                activeTab === 'rfp'
+                  ? 'text-blue-700 dark:text-blue-300'
+                  : 'text-gray-900 dark:text-white'
+              }`}>
+                RFP 문서 관리
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                RFP 업로드 및 관리
+              </p>
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('rfp_analysis')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('rfp_analysis')}
+          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'rfp_analysis'
+              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 shadow-emerald-100 dark:shadow-emerald-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-emerald-300 dark:hover:border-emerald-600'
+          }`}
+        >
+          {activeTab === 'rfp_analysis' && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-3 w-3 text-white" />
+            </div>
+          )}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
               activeTab === 'rfp_analysis'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              RFP 분석 결과
+                ? 'bg-emerald-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}>
+              <Eye className="h-5 w-5" />
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('market_research')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
+            <div>
+              <h3 className={`font-semibold text-sm ${
+                activeTab === 'rfp_analysis'
+                  ? 'text-emerald-700 dark:text-emerald-300'
+                  : 'text-gray-900 dark:text-white'
+              }`}>
+                RFP 분석 결과
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                AI 기반 요구사항 추출
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('market_research')}
+          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'market_research'
+              ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 shadow-purple-100 dark:shadow-purple-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-purple-300 dark:hover:border-purple-600'
+          }`}
+        >
+          {activeTab === 'market_research' && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-3 w-3 text-white" />
+            </div>
+          )}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
               activeTab === 'market_research'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              시장 조사
+                ? 'bg-purple-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}>
+              <BarChart3 className="h-5 w-5" />
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('persona')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
+            <div>
+              <h3 className={`font-semibold text-sm ${
+                activeTab === 'market_research'
+                  ? 'text-purple-700 dark:text-purple-300'
+                  : 'text-gray-900 dark:text-white'
+              }`}>
+                시장 조사
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                시장 동향 및 경쟁사 분석
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('persona')}
+          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'persona'
+              ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30 shadow-orange-100 dark:shadow-orange-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-orange-300 dark:hover:border-orange-600'
+          }`}
+        >
+          {activeTab === 'persona' && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-3 w-3 text-white" />
+            </div>
+          )}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
               activeTab === 'persona'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            disabled={false}
-          >
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              페르소나 분석
-              {currentResearch ? (
-                <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">
-                  시장조사 연동
-                </span>
-              ) : (
-                <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
-                  독립실행
-                </span>
-              )}
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}>
+              <Target className="h-5 w-5" />
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('proposal_writing')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
+            <div>
+              <h3 className={`font-semibold text-sm ${
+                activeTab === 'persona'
+                  ? 'text-orange-700 dark:text-orange-300'
+                  : 'text-gray-900 dark:text-white'
+              }`}>
+                페르소나 분석
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                타겟 사용자 정의
+              </p>
+              <div className="mt-2">
+                {currentResearch ? (
+                  <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
+                    시장조사 연동
+                  </span>
+                ) : (
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                    독립실행
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('proposal_writing')}
+          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'proposal_writing'
+              ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30 shadow-rose-100 dark:shadow-rose-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-rose-300 dark:hover:border-rose-600'
+          }`}
+        >
+          {activeTab === 'proposal_writing' && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-3 w-3 text-white" />
+            </div>
+          )}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
               activeTab === 'proposal_writing'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <PenTool className="h-4 w-4" />
-              제안서 작성
+                ? 'bg-rose-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}>
+              <PenTool className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className={`font-semibold text-sm ${
+                activeTab === 'proposal_writing'
+                  ? 'text-rose-700 dark:text-rose-300'
+                  : 'text-gray-900 dark:text-white'
+              }`}>
+                제안서 작성
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                제안서 문서 생성
+              </p>
               {developmentGuidance && (
-                <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">
-                  구축준비
-                </span>
+                <div className="mt-2">
+                  <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
+                    구축준비
+                  </span>
+                </div>
               )}
             </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('integration')}
-            className={`py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap min-w-fit ${
-              activeTab === 'integration'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <GitBranch className="h-4 w-4" />
-              데이터 통합
-              <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">
-                New
-              </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('tasks')}
+          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'tasks'
+              ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-950/30 shadow-cyan-100 dark:shadow-cyan-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-cyan-300 dark:hover:border-cyan-600'
+          }`}
+        >
+          {activeTab === 'tasks' && (
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-3 w-3 text-white" />
             </div>
-          </button>
-        </nav>
+          )}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+              activeTab === 'tasks'
+                ? 'bg-cyan-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            }`}>
+              <CheckCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className={`font-semibold text-sm ${
+                activeTab === 'tasks'
+                  ? 'text-cyan-700 dark:text-cyan-300'
+                  : 'text-gray-900 dark:text-white'
+              }`}>
+                제안 작업 관리
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                작업 진행 상황 추적
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 통합 탭 - 하단에 별도 카드로 표시 */}
+      <div className="mb-8">
+        <div
+          onClick={() => setActiveTab('integration')}
+          className={`cursor-pointer rounded-xl border-2 p-6 transition-all duration-200 hover:shadow-lg ${
+            activeTab === 'integration'
+              ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30 shadow-violet-100 dark:shadow-violet-900/20 shadow-lg'
+              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-300 dark:hover:border-violet-600'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                activeTab === 'integration'
+                  ? 'bg-violet-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+              }`}>
+                <GitBranch className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className={`font-semibold text-lg ${
+                    activeTab === 'integration'
+                      ? 'text-violet-700 dark:text-violet-300'
+                      : 'text-gray-900 dark:text-white'
+                  }`}>
+                    데이터 통합 관리
+                  </h3>
+                  <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full font-medium">
+                    New
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  모든 분석 데이터를 통합하여 관리하고 디자인/퍼블리싱/개발 단계로 연계
+                </p>
+              </div>
+            </div>
+            {activeTab === 'integration' && (
+              <div className="w-8 h-8 bg-violet-500 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* RFP 문서 관리 탭 */}
