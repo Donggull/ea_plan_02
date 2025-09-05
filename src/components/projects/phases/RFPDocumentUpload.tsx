@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import { 
@@ -54,46 +54,23 @@ export default function RFPDocumentUpload({
   const [authError, setAuthError] = useState<string | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClientComponentClient()
 
-  // 컴포넌트 로드 시 로그인 상태 확인
+  // RFP 분석 자동화와 동일한 간단한 인증 상태 확인
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        console.log('🔍 RFP Upload Component: Checking initial auth status...')
+        const { data: { session } } = await supabase.auth.getSession()
         
-        // 현재 사용자 정보 확인
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        console.log('👤 Initial auth check:', {
-          hasUser: !!user,
-          userId: user?.id,
-          email: user?.email,
-          userError: userError?.message
-        })
-        
-        // 세션 정보 확인
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        console.log('📋 Initial session check:', {
-          hasSession: !!session,
-          hasAccessToken: !!session?.access_token,
-          expiresAt: session?.expires_at,
-          sessionError: sessionError?.message
-        })
-        
-        if (user && session?.access_token) {
+        if (session?.access_token) {
           setAuthStatus('authenticated')
           setAuthError(null)
-          console.log('✅ Auth status: Authenticated')
         } else {
           setAuthStatus('unauthenticated')
-          const errorMsg = userError?.message || sessionError?.message || '로그인 정보를 찾을 수 없습니다'
-          setAuthError(errorMsg)
-          console.log('❌ Auth status: Not authenticated -', errorMsg)
+          setAuthError('로그인이 필요합니다')
         }
-      } catch (error) {
-        console.error('🚨 Initial auth check failed:', error)
+      } catch (_error) {
         setAuthStatus('unauthenticated')
-        setAuthError(error instanceof Error ? error.message : '로그인 상태 확인 실패')
+        setAuthError('로그인 상태 확인 실패')
       }
     }
 
@@ -101,8 +78,6 @@ export default function RFPDocumentUpload({
 
     // 인증 상태 변경 리스너 설정
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 Auth state changed:', event, !!session)
-      
       if (event === 'SIGNED_IN' && session) {
         setAuthStatus('authenticated')
         setAuthError(null)
@@ -199,7 +174,7 @@ export default function RFPDocumentUpload({
         // rfp_documents 테이블에서 실제 문서 정보 조회
         const documentIds = rfpAnalyses
           .map(analysis => analysis.rfp_document_id)
-          .filter(Boolean)
+          .filter(Boolean) as string[] // null 값 제거 후 string[] 타입으로 캐스팅
 
         const { data: documents, error: docError } = await supabase
           .from('rfp_documents')
@@ -208,7 +183,7 @@ export default function RFPDocumentUpload({
 
         if (docError) throw docError
 
-        setAvailableRfpDocs(documents || [])
+        setAvailableRfpDocs((documents || []) as RFPDocument[])
       } else {
         setAvailableRfpDocs([])
       }
@@ -272,89 +247,18 @@ export default function RFPDocumentUpload({
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 25 }))
 
-        // 상세한 인증 상태 디버깅
-        console.log('🔍 RFP Upload: Starting detailed auth debugging...')
+        // RFP 분석 자동화와 동일한 간단한 세션 가져오기 방식
+        console.log('RFP Upload: Starting file upload...')
         
-        // 헤더 구성
+        // Supabase 세션 토큰을 가져와서 Authorization 헤더에 추가
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('RFP Upload: Client session check:', session ? 'session exists' : 'no session')
+        
         const headers: Record<string, string> = {}
         
-        try {
-          // 현재 사용자 정보 확인
-          const { data: { user }, error: userError } = await supabase.auth.getUser()
-          console.log('📊 Current user:', {
-            hasUser: !!user,
-            userId: user?.id,
-            email: user?.email,
-            userError: userError?.message
-          })
-          
-          // 세션 정보 확인
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-          console.log('📊 Session info:', {
-            hasSession: !!session,
-            hasAccessToken: !!session?.access_token,
-            tokenLength: session?.access_token?.length,
-            expiresAt: session?.expires_at,
-            sessionError: sessionError?.message,
-            refreshToken: session?.refresh_token ? 'exists' : 'none'
-          })
-          
-          // 쿠키 확인
-          const allCookies = document.cookie
-          const supabaseCookies = allCookies.split(';').filter(cookie => 
-            cookie.trim().startsWith('sb-') || cookie.includes('supabase')
-          )
-          console.log('🍪 Cookie status:', {
-            totalCookies: allCookies.split(';').length,
-            supabaseCookies: supabaseCookies.length,
-            cookies: supabaseCookies
-          })
-          
-          if (session?.access_token) {
-            headers['Authorization'] = `Bearer ${session.access_token}`
-            console.log('✅ RFP Upload: Authorization header added with token length:', session.access_token.length)
-          } else {
-            console.log('❌ RFP Upload: No access token available')
-            
-            // 세션이 없는 경우 더 상세한 오류 메시지
-            const errorDetails = []
-            if (!user) errorDetails.push('사용자 정보 없음')
-            if (!session) errorDetails.push('세션 없음')
-            if (userError) errorDetails.push(`사용자 오류: ${userError.message}`)
-            if (sessionError) errorDetails.push(`세션 오류: ${sessionError.message}`)
-            
-            // 로그인 페이지로 리다이렉트 확인 다이얼로그
-            const shouldRedirect = confirm(
-              `❌ 로그인이 필요합니다.\n\n` +
-              `오류 상세: ${errorDetails.join(', ')}\n\n` +
-              `로그인 페이지로 이동하시겠습니까?`
-            )
-            
-            if (shouldRedirect) {
-              // 현재 페이지 URL을 저장하여 로그인 후 돌아올 수 있도록 함
-              const currentUrl = window.location.pathname + window.location.search
-              window.location.href = `/auth/login?redirect=${encodeURIComponent(currentUrl)}`
-              return // 리다이렉트하므로 더 이상 진행하지 않음
-            }
-            
-            throw new Error(`인증 실패: ${errorDetails.join(', ')}. 로그인이 필요합니다.`)
-          }
-          
-        } catch (authError) {
-          console.error('🚨 RFP Upload: Auth debugging failed:', authError)
-          
-          // 인증 오류의 경우 사용자 친화적인 메시지로 변환
-          if (authError instanceof Error) {
-            if (authError.message.includes('인증 실패') || authError.message.includes('로그인')) {
-              // 이미 사용자 친화적인 메시지이므로 그대로 전달
-              throw authError
-            } else {
-              // 기술적인 오류를 사용자 친화적으로 변환
-              throw new Error(`로그인 확인 중 오류가 발생했습니다: ${authError.message}. 페이지를 새로고침하거나 다시 로그인해주세요.`)
-            }
-          }
-          
-          throw new Error('로그인 상태 확인 중 알 수 없는 오류가 발생했습니다. 다시 로그인해주세요.')
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`
+          console.log('RFP Upload: Added Authorization header')
         }
 
         setUploadProgress(prev => ({ ...prev, [fileKey]: 50 }))
