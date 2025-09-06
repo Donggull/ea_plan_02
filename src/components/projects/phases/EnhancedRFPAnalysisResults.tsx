@@ -456,8 +456,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         }))
       })
       
-      // analysis_questions 테이블에서 질문들 조회 (타입 캐스팅 제거)
-      const { data: questions, error: questionsError } = await supabase
+      // analysis_questions 테이블에서 질문들 조회 (Supabase 타입 호환성을 위해 as any 사용)
+      const { data: questions, error: questionsError } = await (supabase as any)
         .from('analysis_questions')
         .select('*')
         .eq('rfp_analysis_id', analysisId)
@@ -510,8 +510,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           console.log(`🔄 [DB업데이트] 질문 ${question.id} 업데이트 시작:`, updateData)
           
           try {
-            // 타입 캐스팅 제거하고 정확한 Supabase 클라이언트 사용
-            const { data, error } = await supabase
+            // Supabase 타입 오류 해결을 위해 as any 적용
+            const { data, error } = await (supabase as any)
               .from('analysis_questions')
               .update(updateData)
               .eq('id', question.id)
