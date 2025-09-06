@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
-import { AnalysisQuestionnaire } from '@/components/planning/proposal/AnalysisQuestionnaire'
+import { RFPFollowUpQuestionAnswer } from './RFPFollowUpQuestionAnswer'
 import { 
   FileText, 
   AlertTriangle,
@@ -254,50 +254,6 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     fetchAnalysisResults()
   }, [fetchAnalysisResults])
 
-  const handleQuestionnaireComplete = (_responses: any[], _guidance?: any) => {
-    if (selectedAnalysis) {
-      setAnalysisData(prev => prev.map(data => 
-        data.analysis.id === selectedAnalysis.analysis.id 
-          ? { 
-              ...data, 
-              questionnaire_completed: true, 
-              next_step_ready: true 
-            }
-          : data
-      ))
-      setShowQuestionnaire(false)
-    }
-  }
-
-  const handleMarketResearchGenerated = (marketResearch: any) => {
-    console.log('🎯 [RFP결과] 시장 조사 AI 분석 완료:', marketResearch)
-    
-    // 시장 조사 완료 상태 업데이트
-    if (selectedAnalysis) {
-      setAnalysisData(prev => prev.map(data => 
-        data.analysis.id === selectedAnalysis.analysis.id 
-          ? { 
-              ...data, 
-              questionnaire_completed: true, 
-              next_step_ready: true,
-              market_research_ready: true
-            }
-          : data
-      ))
-      
-      // 성공 후 시장 조사 탭으로 자동 전환 이벤트 발생
-      setTimeout(() => {
-        const event = new CustomEvent('rfp-analysis-next-step', {
-          detail: { 
-            nextStep: 'market_research', 
-            analysisData: selectedAnalysis,
-            marketResearch: marketResearch
-          }
-        })
-        window.dispatchEvent(event)
-      }, 2000) // 2초 후 자동 전환
-    }
-  }
 
   const handleNextStepTransition = (nextStep: 'market_research' | 'persona_analysis') => {
     // 상위 컴포넌트로 단계 전환 신호 전달
@@ -900,6 +856,157 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           </Card>
         )}
 
+        {/* 4가지 관점 심층 분석 결과 */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* 기획 관점 분석 */}
+          {analysis.planning_analysis && Object.keys(analysis.planning_analysis).length > 0 && (
+            <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-blue-600" />
+                기획 관점 분석
+              </h3>
+              <div className="space-y-4">
+                {analysis.planning_analysis.overview && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">종합 분석</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.planning_analysis.overview}</p>
+                  </div>
+                )}
+                {analysis.planning_analysis.user_research_needs && Array.isArray(analysis.planning_analysis.user_research_needs) && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">사용자 리서치 필요사항</h4>
+                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      {analysis.planning_analysis.user_research_needs.map((need, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-blue-600 mt-1">•</span>
+                          {need}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.planning_analysis.project_methodology && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">추천 방법론</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.planning_analysis.project_methodology}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* 디자인 관점 분석 */}
+          {analysis.design_analysis && Object.keys(analysis.design_analysis).length > 0 && (
+            <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <UserSearch className="h-5 w-5 text-purple-600" />
+                디자인 관점 분석
+              </h3>
+              <div className="space-y-4">
+                {analysis.design_analysis.overview && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">종합 분석</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.design_analysis.overview}</p>
+                  </div>
+                )}
+                {analysis.design_analysis.ui_ux_requirements && Array.isArray(analysis.design_analysis.ui_ux_requirements) && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">UI/UX 요구사항</h4>
+                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      {analysis.design_analysis.ui_ux_requirements.map((req, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-purple-600 mt-1">•</span>
+                          {req}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.design_analysis.design_system_needs && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">디자인 시스템 필요성</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.design_analysis.design_system_needs}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* 퍼블리싱 관점 분석 */}
+          {analysis.publishing_analysis && Object.keys(analysis.publishing_analysis).length > 0 && (
+            <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-green-600" />
+                퍼블리싱 관점 분석
+              </h3>
+              <div className="space-y-4">
+                {analysis.publishing_analysis.overview && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">종합 분석</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.publishing_analysis.overview}</p>
+                  </div>
+                )}
+                {analysis.publishing_analysis.framework_recommendations && Array.isArray(analysis.publishing_analysis.framework_recommendations) && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">추천 프레임워크</h4>
+                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      {analysis.publishing_analysis.framework_recommendations.map((framework, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-green-600 mt-1">•</span>
+                          {framework}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.publishing_analysis.component_architecture && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">컴포넌트 아키텍처</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.publishing_analysis.component_architecture}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* 개발 관점 분석 */}
+          {analysis.development_analysis && Object.keys(analysis.development_analysis).length > 0 && (
+            <Card className="p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-orange-600" />
+                개발 관점 분석
+              </h3>
+              <div className="space-y-4">
+                {analysis.development_analysis.overview && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">종합 분석</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.development_analysis.overview}</p>
+                  </div>
+                )}
+                {analysis.development_analysis.architecture_pattern && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">추천 아키텍처 패턴</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{analysis.development_analysis.architecture_pattern}</p>
+                  </div>
+                )}
+                {analysis.development_analysis.database_requirements && Array.isArray(analysis.development_analysis.database_requirements) && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">데이터베이스 요구사항</h4>
+                    <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      {analysis.development_analysis.database_requirements.map((req, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-orange-600 mt-1">•</span>
+                          {req}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+
         {/* 신뢰도 점수 */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -1041,13 +1148,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         </>
       )}
 
-      {/* 질문지 모달 */}
+      {/* RFP 후속 질문 답변 모달 */}
       {showQuestionnaire && selectedAnalysis && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">시장 조사 질문지</h3>
+                <h3 className="text-lg font-semibold">RFP 후속 질문 답변</h3>
                 <Button
                   variant="ghost"
                   onClick={() => setShowQuestionnaire(false)}
@@ -1055,12 +1162,37 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   ✕
                 </Button>
               </div>
-              <AnalysisQuestionnaire
+              <RFPFollowUpQuestionAnswer
+                questions={selectedAnalysis.follow_up_questions}
                 analysisId={selectedAnalysis.analysis.id}
                 projectId={projectId}
-                onResponsesSubmitted={handleQuestionnaireComplete}
-                onMarketResearchGenerated={handleMarketResearchGenerated}
-                onError={(error) => console.error('Questionnaire error:', error)}
+                onAnswersSubmitted={(answers) => {
+                  console.log('RFP 후속 질문 답변 완료:', answers)
+                  // 답변 완료 후 처리 로직
+                  setShowQuestionnaire(false)
+                  fetchAnalysisResults() // 데이터 새로고침
+                }}
+                onSecondaryAnalysisGenerated={(secondaryAnalysis) => {
+                  console.log('2차 분석 결과 생성:', secondaryAnalysis)
+                  // 2차 분석 결과를 현재 선택된 분석에 추가
+                  if (selectedAnalysis) {
+                    const updatedAnalysis = {
+                      ...selectedAnalysis,
+                      secondary_analysis: secondaryAnalysis,
+                      next_step_ready: true
+                    }
+                    setSelectedAnalysis(updatedAnalysis)
+                    
+                    // analysisData 배열도 업데이트
+                    setAnalysisData(prev => 
+                      prev.map(data => 
+                        data.analysis.id === selectedAnalysis.analysis.id 
+                          ? updatedAnalysis 
+                          : data
+                      )
+                    )
+                  }
+                }}
               />
             </div>
           </div>

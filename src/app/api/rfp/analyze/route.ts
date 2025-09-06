@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
         risk_factors: analysisResult.risk_factors,
         questions_for_client: analysisResult.questions_for_client,
         confidence_score: analysisResult.confidence_score,
-        // 4가지 관점 심층 분석 결과 저장
+        // 4가지 관점 심층 분석 결과 저장 (프롬프트 응답 구조와 일치)
         planning_analysis: analysisResult.planning_insights || {},
         design_analysis: analysisResult.design_insights || {},
         publishing_analysis: analysisResult.frontend_insights || {},
@@ -423,7 +423,7 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       estimatedTokens: Math.ceil(processedText.length / 4)
     })
 
-    // RFP 분석을 위한 프롬프트 생성 - 기획/디자인/퍼블리싱/개발 관점 강화
+    // RFP 분석을 위한 프롬프트 생성 - 기획/디자인/퍼블리싱/개발 관점 강화 (DB 필드와 일치하도록 수정)
     const analysisPrompt = `
 다음 RFP(제안요청서) 문서를 기획, 디자인, 퍼블리싱, 개발 관점에서 종합적으로 분석하고, JSON 형식으로 결과를 제공해주세요.
 
@@ -492,40 +492,50 @@ ${processedText}
     "roi_expectations": "ROI 기대치 및 비즈니스 가치",
     "market_positioning": "시장에서의 포지셔닝"
   },
-  "development_perspectives": {
-    "planning_insights": {
-      "user_research_needs": ["사용자 리서치 필요사항"],
-      "feature_prioritization": "기능 우선순위 방법론",
-      "stakeholder_management": "이해관계자 관리 방안",
-      "project_methodology": "추천 프로젝트 방법론 (agile|waterfall|hybrid)",
-      "timeline_considerations": ["일정 고려사항"]
-    },
-    "design_insights": {
-      "ui_ux_requirements": ["UI/UX 요구사항"],
-      "design_system_needs": "디자인 시스템 필요성 및 범위",
-      "accessibility_requirements": ["접근성 요구사항"],
-      "responsive_design": "반응형 디자인 필요성",
-      "branding_guidelines": "브랜딩 가이드라인 필요사항",
-      "user_journey_complexity": "사용자 여정 복잡도 (1-5)"
-    },
-    "frontend_insights": {
-      "framework_recommendations": ["추천 프론트엔드 프레임워크"],
-      "component_architecture": "컴포넌트 아키텍처 요구사항",
-      "state_management_needs": "상태관리 필요성",
-      "performance_optimization": ["성능 최적화 요구사항"],
-      "browser_support": ["지원 브라우저"],
-      "responsive_breakpoints": ["반응형 브레이크포인트"],
-      "animation_requirements": ["애니메이션 요구사항"]
-    },
-    "backend_insights": {
-      "architecture_pattern": "추천 아키텍처 패턴",
-      "database_requirements": ["데이터베이스 요구사항"],
-      "api_design_needs": ["API 설계 요구사항"],
-      "scalability_considerations": ["확장성 고려사항"],
-      "infrastructure_needs": ["인프라 요구사항"],
-      "third_party_integrations": ["3rd party 연동 요구사항"],
-      "data_processing_needs": ["데이터 처리 요구사항"]
-    }
+  "planning_insights": {
+    "overview": "기획 관점 종합 분석",
+    "user_research_needs": ["사용자 리서치 필요사항"],
+    "feature_prioritization": "기능 우선순위 방법론",
+    "stakeholder_management": "이해관계자 관리 방안",
+    "project_methodology": "추천 프로젝트 방법론 (agile|waterfall|hybrid)",
+    "timeline_considerations": ["일정 고려사항"],
+    "risk_assessment": "기획 단계 리스크 평가",
+    "success_factors": ["성공 요소들"]
+  },
+  "design_insights": {
+    "overview": "디자인 관점 종합 분석", 
+    "ui_ux_requirements": ["UI/UX 요구사항"],
+    "design_system_needs": "디자인 시스템 필요성 및 범위",
+    "accessibility_requirements": ["접근성 요구사항"],
+    "responsive_design": "반응형 디자인 필요성",
+    "branding_guidelines": "브랜딩 가이드라인 필요사항",
+    "user_journey_complexity": "사용자 여정 복잡도 (1-5)",
+    "visual_requirements": ["시각적 요구사항"],
+    "interaction_patterns": ["상호작용 패턴"]
+  },
+  "frontend_insights": {
+    "overview": "퍼블리싱/프론트엔드 관점 종합 분석",
+    "framework_recommendations": ["추천 프론트엔드 프레임워크"],
+    "component_architecture": "컴포넌트 아키텍처 요구사항",
+    "state_management_needs": "상태관리 필요성",
+    "performance_optimization": ["성능 최적화 요구사항"],
+    "browser_support": ["지원 브라우저"],
+    "responsive_breakpoints": ["반응형 브레이크포인트"],
+    "animation_requirements": ["애니메이션 요구사항"],
+    "build_system_needs": "빌드 시스템 요구사항",
+    "testing_strategy": "프론트엔드 테스팅 전략"
+  },
+  "backend_insights": {
+    "overview": "백엔드/개발 관점 종합 분석",
+    "architecture_pattern": "추천 아키텍처 패턴",
+    "database_requirements": ["데이터베이스 요구사항"],
+    "api_design_needs": ["API 설계 요구사항"],
+    "scalability_considerations": ["확장성 고려사항"],
+    "infrastructure_needs": ["인프라 요구사항"],
+    "third_party_integrations": ["3rd party 연동 요구사항"],
+    "data_processing_needs": ["데이터 처리 요구사항"],
+    "security_implementation": "보안 구현 방안",
+    "deployment_strategy": "배포 전략"
   },
   "keywords": [
     {"term": "키워드", "importance": 0.95, "category": "business|technical|functional|design"}

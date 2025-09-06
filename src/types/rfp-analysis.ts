@@ -59,6 +59,12 @@ export interface RFPAnalysis {
   // AI 생성 후속 질문 (시장 조사를 위한)
   follow_up_questions: AnalysisQuestion[];
   
+  // 4가지 관점 심층 분석 결과
+  planning_analysis?: Record<string, any>;
+  design_analysis?: Record<string, any>;
+  publishing_analysis?: Record<string, any>;
+  development_analysis?: Record<string, any>;
+  
   confidence_score: number; // 0-1
   
   created_at: string;
