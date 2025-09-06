@@ -509,10 +509,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             // AI 답변은 기존 값 유지 (덮어쓰지 않음)
           }
           
+          console.log(`🔄 [DB업데이트] 질문 ${question.id} 업데이트:`, updateData)
+          
+          // 실제 DB 업데이트 실행 (.select()를 추가하여 쿼리 실행)
           return (supabase as any)
             .from('analysis_questions')
             .update(updateData)
             .eq('id', question.id)
+            .select()
         }
         return Promise.resolve({ data: null, error: null })
       })
