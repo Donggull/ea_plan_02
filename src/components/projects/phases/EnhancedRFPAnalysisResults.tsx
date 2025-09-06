@@ -500,7 +500,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         .eq('rfp_analysis_id', analysisId)
       
       const existingQuestionIds = existingQuestions?.map((q: any) => q.id) || []
-      const missingQuestions = updatedQuestions.filter(q => !existingQuestionIds.includes(q.id))
+      const missingQuestions = updatedQuestions.filter((q: any) => !existingQuestionIds.includes(q.id))
       
       console.log(`📋 [질문상태] 기존 질문: ${existingQuestionIds.length}개, 누락된 질문: ${missingQuestions.length}개`)
       
