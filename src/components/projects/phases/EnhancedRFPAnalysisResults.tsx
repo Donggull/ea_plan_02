@@ -79,11 +79,39 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     try {
       console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
 
+      // 프로젝트 복잡성에 따라 질문 수 동적 결정
+      const currentAnalysis = analysisData.find(data => data.analysis.id === analysisId)
+      const complexity = (currentAnalysis?.analysis as any)?.analysis_data || {}
+      
+      // 복잡성 점수 계산 (간단한 휴리스틱)
+      const functionalReqs = complexity.functional_requirements?.length || 0
+      const technicalReqs = complexity.technical_requirements?.length || 0
+      const keywords = complexity.keywords?.length || 0
+      const complexityScore = functionalReqs + technicalReqs + Math.floor(keywords / 3)
+      
+      // 복잡성에 따른 질문 수 결정
+      let maxQuestions = 8 // 기본값
+      if (complexityScore <= 5) {
+        maxQuestions = 6 // 단순한 프로젝트: 5-6개
+      } else if (complexityScore <= 15) {
+        maxQuestions = 10 // 중간 복잡도: 8-10개
+      } else {
+        maxQuestions = 15 // 복잡한 프로젝트: 12-15개
+      }
+
       const requestBody = {
         analysis_id: analysisId,
-        max_questions: 8,
+        max_questions: maxQuestions,
         categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
       }
+      
+      console.log('📊 [후속질문-AI] 복잡성 분석:', {
+        functionalReqs,
+        technicalReqs, 
+        keywords,
+        complexityScore,
+        maxQuestions
+      })
       console.log('📤 [후속질문-AI] 요청 데이터:', requestBody)
 
       const response = await fetch('/api/rfp/generate-questions', {
@@ -130,7 +158,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       })
       alert(`후속 질문 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }, [setAnalysisData])
+  }, [setAnalysisData, analysisData])
 
   // 후속 질문 로드 함수 (두 번째 - generateAIFollowUpQuestions에 의존)
   const _loadFollowUpQuestions = useCallback(async (analysisId: string) => {
@@ -138,36 +166,57 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드 시작:', analysisId)
       console.log('📋 [후속질문] 현재 분석 ID:', analysisId)
       
-      // RFP 분석 결과에서 follow_up_questions 필드를 직접 조회
-      const { data: analysis, error } = await supabase
-        .from('rfp_analyses')
-        .select('follow_up_questions')
-        .eq('id', analysisId)
-        .single()
+      // analysis_questions 테이블에서 실제 답변 데이터와 함께 질문 조회
+      const { data: detailedQuestions, error: questionsError } = await (supabase as any)
+        .from('analysis_questions')
+        .select('*')
+        .eq('rfp_analysis_id', analysisId)
+        .order('created_at', { ascending: true });
 
-      console.log('📋 [후속질문] Supabase 응답:', { analysis, error })
-
-      if (error) {
-        console.error('❌ [후속질문] DB 조회 실패:', error)
-        return
+      if (questionsError) {
+        console.error('❌ [후속질문] analysis_questions 조회 실패:', questionsError)
       }
 
-      const followUpQuestions = (analysis as any)?.follow_up_questions || []
-      console.log('✅ [후속질문] 성공:', {
-        analysisId,
-        questionsCount: followUpQuestions.length,
-        questions: followUpQuestions
-      })
+      console.log('📋 [후속질문] analysis_questions 조회 결과:', detailedQuestions?.length, '개')
+
+      // analysis_questions에서 답변이 있는 질문들을 가져왔다면 사용, 없으면 기본 질문 사용
+      let followUpQuestions = []
+
+      if (detailedQuestions && detailedQuestions.length > 0) {
+        // analysis_questions에서 로드한 상세 답변 포함 질문들
+        followUpQuestions = detailedQuestions
+        console.log('✅ [후속질문] analysis_questions에서 상세 답변 포함 질문 로드:', followUpQuestions.length, '개')
+      } else {
+        // 기본 질문만 rfp_analyses에서 로드
+        const { data: analysis, error } = await supabase
+          .from('rfp_analyses')
+          .select('follow_up_questions')
+          .eq('id', analysisId)
+          .single()
+
+        console.log('📋 [후속질문] Supabase 기본 응답:', { analysis, error })
+
+        if (error) {
+          console.error('❌ [후속질문] DB 조회 실패:', error)
+          return
+        }
+
+        followUpQuestions = (analysis as any)?.follow_up_questions || []
+        console.log('✅ [후속질문] 기본 질문 로드 성공:', followUpQuestions.length, '개')
+      }
 
       // 후속 질문이 있으면 상태 업데이트
       if (followUpQuestions.length > 0) {
         console.log('🔄 [후속질문] 상태 업데이트 시작 - 분석 ID:', analysisId)
+        console.log('🔄 [후속질문] 업데이트할 질문 데이터 샘플:', followUpQuestions.slice(0, 2))
         
         setAnalysisData(prev => {
           console.log('🔄 [후속질문] 상태 업데이트 내부 - 이전 상태:', prev.length, '개')
           const updated = prev.map(data => {
             if (data.analysis.id === analysisId) {
               console.log('🎯 [후속질문] 매칭된 분석 발견, 질문 업데이트:', data.analysis.id)
+              console.log('🎯 [후속질문] 업데이트 전 질문 수:', data.follow_up_questions?.length || 0)
+              console.log('🎯 [후속질문] 업데이트 후 질문 수:', followUpQuestions.length)
               return { ...data, follow_up_questions: followUpQuestions }
             }
             return data

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     console.log('🤖 [후속질문-생성] AI 기반 후속 질문 생성 시작')
     
     const body: QuestionGenerationRequest = await request.json()
-    const { analysis_id, max_questions = 15, categories = ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements'] } = body
+    const { analysis_id, max_questions = 8, categories = ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements'] } = body
 
     // 입력 검증
     if (!analysis_id) {
@@ -53,9 +53,15 @@ export async function POST(request: NextRequest) {
 **비기능 요구사항:** ${JSON.stringify(rfpAnalysis.non_functional_requirements || [])}
 
 ## 요구사항:
-위의 RFP 분석 결과를 바탕으로 프로젝트의 복잡성과 범위에 따라 5개에서 20개 사이의 후속 질문을 생성해주세요.
-단순한 프로젝트는 5-10개, 중간 복잡도는 10-15개, 복잡한 프로젝트는 15-20개 정도가 적절합니다.
-최대 ${max_questions}개를 초과하지 않도록 하되, 프로젝트에 필요한 만큼 생성해주세요.
+위의 RFP 분석 결과를 바탕으로 프로젝트의 복잡성과 범위에 따라 적절한 수의 후속 질문을 생성해주세요.
+**중요: 반드시 최대 ${max_questions}개를 초과하지 않도록 해주세요.**
+
+질문 수 가이드라인:
+- 단순한 프로젝트: 5-8개
+- 중간 복잡도 프로젝트: 8-12개  
+- 복잡한 프로젝트: 12-${max_questions}개
+
+프로젝트 복잡성을 판단하여 필요한 만큼만 생성하되, 절대 ${max_questions}개를 초과하지 마세요.
 질문은 다음 카테고리들을 균형있게 포함해야 합니다: ${categories.join(', ')}
 
 질문들은 다음 JSON 형식으로 제공해주세요:
@@ -75,11 +81,14 @@ export async function POST(request: NextRequest) {
 }
 
 생성 원칙:
-1. RFP 내용과 직접적으로 관련된 질문
-2. 시장조사에 필요한 핵심 정보를 수집할 수 있는 질문
-3. 구체적이고 답변 가능한 형태의 질문
-4. 각 카테고리별로 균형있게 분배
-5. suggested_answer는 RFP 분석 내용을 바탕으로 합리적인 추정치 제공
+1. **질문 수 제한**: 절대로 ${max_questions}개를 초과하지 않습니다
+2. RFP 내용과 직접적으로 관련된 질문
+3. 시장조사에 필요한 핵심 정보를 수집할 수 있는 질문
+4. 구체적이고 답변 가능한 형태의 질문
+5. 각 카테고리별로 균형있게 분배
+6. suggested_answer는 RFP 분석 내용을 바탕으로 합리적인 추정치 제공
+
+**⚠️ 매우 중요: 생성할 질문은 최대 ${max_questions}개까지만 허용됩니다. 이를 초과하면 안 됩니다.**
 
 질문 예시:
 - 시장 맥락: "이 프로젝트가 타겟하는 주요 시장의 규모는 어느 정도입니까?"
