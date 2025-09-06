@@ -11,8 +11,9 @@ import {
   Loader,
   AlertCircle,
   Edit2,
-  Save,
-  X
+  X,
+  Bot,
+  User
 } from 'lucide-react'
 import type { AnalysisQuestion } from '@/types/rfp-analysis'
 
@@ -39,6 +40,10 @@ export function RFPFollowUpQuestionAnswer({
   const [submissionComplete, setSubmissionComplete] = useState(false)
   const [editMode, setEditMode] = useState<{[key: string]: boolean}>({})
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const [showAnswerModal, setShowAnswerModal] = useState(false)
+  const [currentQuestion, setCurrentQuestion] = useState<AnalysisQuestion | null>(null)
+  const [modalAnswer, setModalAnswer] = useState('')
+  const [isGeneratingAIAnswer, setIsGeneratingAIAnswer] = useState(false)
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({
@@ -55,6 +60,114 @@ export function RFPFollowUpQuestionAnswer({
       })
     }
   }
+
+  const openAnswerModal = (question: AnalysisQuestion) => {
+    setCurrentQuestion(question)
+    setModalAnswer(answers[question.id] || '')
+    setShowAnswerModal(true)
+  }
+
+  const closeAnswerModal = () => {
+    setShowAnswerModal(false)
+    setCurrentQuestion(null)
+    setModalAnswer('')
+    setIsGeneratingAIAnswer(false)
+  }
+
+  const saveModalAnswer = () => {
+    if (currentQuestion) {
+      handleAnswerChange(currentQuestion.id, modalAnswer)
+      closeAnswerModal()
+    }
+  }
+
+  const generateAIAnswer = useCallback(async () => {
+    if (!currentQuestion) return
+
+    setIsGeneratingAIAnswer(true)
+    try {
+      console.log('🤖 [AI답변] 자동 답변 생성 시작:', currentQuestion.question_text)
+
+      // RFP 분석 결과 조회
+      const { data: rfpAnalysis, error: rfpError } = await supabase
+        .from('rfp_analyses')
+        .select('*')
+        .eq('id', analysisId)
+        .single()
+
+      if (rfpError || !rfpAnalysis) {
+        throw new Error('RFP 분석 결과를 찾을 수 없습니다.')
+      }
+
+      const analysisContext = {
+        project_overview: rfpAnalysis.project_overview,
+        functional_requirements: rfpAnalysis.functional_requirements,
+        business_requirements: rfpAnalysis.business_requirements,
+        technical_specifications: rfpAnalysis.technical_specifications
+      }
+
+      const aiPrompt = `
+다음 RFP 분석 결과를 바탕으로 질문에 대한 구체적이고 실용적인 답변을 생성해주세요.
+
+## RFP 분석 컨텍스트:
+${JSON.stringify(analysisContext, null, 2)}
+
+## 질문 정보:
+- 질문: ${currentQuestion.question_text}
+- 카테고리: ${currentQuestion.category}
+- 중요도: ${currentQuestion.priority}
+- 맥락: ${currentQuestion.context}
+
+이 질문에 대해 RFP 분석 결과를 활용하여 구체적이고 실무적인 답변을 작성해주세요. 답변은 다음 단계에 직접 활용할 수 있도록 상세하게 작성해주세요.
+`
+
+      // 프로젝트 AI 모델 정보 조회
+      let selectedModel = 'claude-3-5-sonnet-20241022' // 기본값
+      
+      try {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('settings')
+          .eq('id', projectId)
+          .single()
+        
+        const settings = project?.settings as any
+        if (settings?.preferred_ai_model?.model_id) {
+          selectedModel = settings.preferred_ai_model.model_id
+          console.log('🤖 [AI답변] 프로젝트 선택 모델 사용:', selectedModel)
+        }
+      } catch (_error) {
+        console.log('⚠️ [AI답변] 프로젝트 모델 조회 실패, 기본 모델 사용:', selectedModel)
+      }
+
+      const response = await fetch('/api/ai/generate-answer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          model: selectedModel
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`AI 답변 생성 실패: ${response.status}`)
+      }
+
+      const result = await response.json()
+      const aiAnswer = result.answer || result.content || '답변을 생성할 수 없습니다.'
+      
+      setModalAnswer(aiAnswer)
+      console.log('✅ [AI답변] 자동 답변 생성 완료')
+
+    } catch (error) {
+      console.error('❌ [AI답변] 생성 실패:', error)
+      alert('AI 답변 생성 중 오류가 발생했습니다. 직접 답변을 작성해주세요.')
+    } finally {
+      setIsGeneratingAIAnswer(false)
+    }
+  }, [currentQuestion, analysisId, projectId])
 
   const validateAnswers = () => {
     const newErrors: {[key: string]: string} = {}
@@ -365,63 +478,56 @@ export function RFPFollowUpQuestionAnswer({
                 )}
               </div>
 
-              {/* 답변 입력 영역 */}
-              {(!submissionComplete || editMode[question.id]) ? (
-                <div className="space-y-3">
-                  <textarea
-                    className="w-full h-24 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                    placeholder="구체적이고 상세한 답변을 작성해주세요..."
-                    value={answers[question.id] || ''}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    disabled={isSubmitting || isGeneratingSecondaryAnalysis}
-                  />
-                  
-                  {errors[question.id] && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="h-4 w-4" />
-                      {errors[question.id]}
-                    </p>
-                  )}
-                  
-                  {editMode[question.id] && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          toggleEditMode(question.id)
-                          // 수정된 답변을 다시 저장
-                          if (answers[question.id]) {
-                            saveAnswersToDatabase(answers)
-                          }
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Save className="h-4 w-4 mr-1" />
-                        저장
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleEditMode(question.id)}
-                      >
-                        취소
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // 제출 완료된 답변 표시
-                answers[question.id] && (
+              {/* 답변 표시 및 작성 버튼 영역 */}
+              <div className="space-y-3">
+                {answers[question.id] ? (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
                     <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
-                      답변:
+                      작성된 답변:
                     </p>
                     <p className="text-sm text-green-700 dark:text-green-300 whitespace-pre-wrap">
                       {answers[question.id]}
                     </p>
                   </div>
-                )
-              )}
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                      아직 답변이 작성되지 않았습니다.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => openAnswerModal(question)}
+                    disabled={isSubmitting || isGeneratingSecondaryAnalysis}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    답변 작성하기
+                  </Button>
+                  
+                  {answers[question.id] && !submissionComplete && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAnswerChange(question.id, '')}
+                      disabled={isSubmitting || isGeneratingSecondaryAnalysis}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      답변 삭제
+                    </Button>
+                  )}
+                </div>
+                
+                {errors[question.id] && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors[question.id]}
+                  </p>
+                )}
+              </div>
 
               {/* 다음 단계에 미치는 영향 (있는 경우) */}
               {question.next_step_impact && !answers[question.id] && (
@@ -505,6 +611,101 @@ export function RFPFollowUpQuestionAnswer({
         )}
 
       </Card>
+
+      {/* 답변 작성 모달 */}
+      {showAnswerModal && currentQuestion && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">답변 작성</h3>
+              <button
+                onClick={closeAnswerModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-[60vh] overflow-y-auto">
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded">
+                    {getCategoryLabel(currentQuestion.category)}
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded ${getImportanceColor(currentQuestion.priority || 'medium')}`}>
+                    {currentQuestion.priority === 'high' ? '높음' :
+                     currentQuestion.priority === 'medium' ? '보통' : '낮음'}
+                  </span>
+                </div>
+                
+                <p className="text-gray-800 dark:text-gray-200 font-medium mb-2">
+                  {currentQuestion.question_text}
+                </p>
+                
+                {currentQuestion.context && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
+                    💡 {currentQuestion.context}
+                  </p>
+                )}
+              </div>
+              
+              <div className="mb-6">
+                <label htmlFor="modal-answer" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  답변 내용
+                </label>
+                <textarea
+                  id="modal-answer"
+                  value={modalAnswer}
+                  onChange={(e) => setModalAnswer(e.target.value)}
+                  placeholder="구체적이고 상세한 답변을 작성해주세요..."
+                  className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={8}
+                />
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={generateAIAnswer}
+                  disabled={isGeneratingAIAnswer}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {isGeneratingAIAnswer ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      AI가 답변을 생성하고 있습니다...
+                    </>
+                  ) : (
+                    <>
+                      <Bot className="w-4 h-4 mr-2" />
+                      AI 자동 답변 생성
+                    </>
+                  )}
+                </Button>
+                
+                <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  AI 답변은 RFP 분석 내용을 기반으로 생성됩니다. 생성 후 수정 가능합니다.
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
+              <Button
+                variant="outline"
+                onClick={closeAnswerModal}
+              >
+                취소
+              </Button>
+              <Button
+                onClick={saveModalAnswer}
+                disabled={!modalAnswer.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                답변 저장
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

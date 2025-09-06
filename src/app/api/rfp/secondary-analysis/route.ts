@@ -57,16 +57,34 @@ export async function POST(request: NextRequest) {
       throw new Error('Anthropic API 키가 설정되지 않았습니다.')
     }
 
+    // 4. 프로젝트의 선택된 AI 모델 확인 (settings에서 조회)
+    let selectedModel = 'claude-3-5-sonnet-20241022' // 기본값
+    try {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('settings')
+        .eq('id', project_id)
+        .single()
+      
+      const settings = project?.settings as any
+      if (settings?.preferred_ai_model?.model_id) {
+        selectedModel = settings.preferred_ai_model.model_id
+        console.log('🤖 [2차분석] 프로젝트 선택 모델 사용:', selectedModel)
+      }
+    } catch (_error) {
+      console.log('⚠️ [2차분석] 프로젝트 모델 조회 실패, 기본 모델 사용:', selectedModel)
+    }
+
     // 4. 분석 타입별 AI 프롬프트 생성 및 처리
     let analysisResult: any = {}
 
     if (analysis_type === 'market_research') {
       const analysisPrompt = createMarketResearchPrompt(rfpAnalysis, responsesText)
-      analysisResult = await performAIAnalysis(analysisPrompt, apiKey)
+      analysisResult = await performAIAnalysis(analysisPrompt, apiKey, selectedModel)
       
-      // 시장 조사 결과 저장
+      // 시장 조사 결과 저장 (정확한 테이블명 사용)
       const { data: marketResearch, error: marketError } = await supabase
-        .from('market_researches')
+        .from('market_research')
         .insert({
           project_id: project_id,
           rfp_analysis_id: rfp_analysis_id,
@@ -102,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     } else if (analysis_type === 'persona_analysis') {
       const analysisPrompt = createPersonaAnalysisPrompt(rfpAnalysis, responsesText)
-      analysisResult = await performAIAnalysis(analysisPrompt, apiKey)
+      analysisResult = await performAIAnalysis(analysisPrompt, apiKey, selectedModel)
       
       // 페르소나 분석 결과 저장
       const personas = analysisResult.personas || []
@@ -153,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     } else if (analysis_type === 'proposal_generation') {
       const analysisPrompt = createProposalGenerationPrompt(rfpAnalysis, responsesText)
-      analysisResult = await performAIAnalysis(analysisPrompt, apiKey)
+      analysisResult = await performAIAnalysis(analysisPrompt, apiKey, selectedModel)
       
       // 제안서 문서 저장
       const { data: proposalDoc, error: proposalError } = await supabase
@@ -210,7 +228,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function performAIAnalysis(prompt: string, apiKey: string) {
+async function performAIAnalysis(prompt: string, apiKey: string, model: string = 'claude-3-5-sonnet-20241022') {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -219,7 +237,7 @@ async function performAIAnalysis(prompt: string, apiKey: string) {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
+      model,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 8000,
       temperature: 0.3

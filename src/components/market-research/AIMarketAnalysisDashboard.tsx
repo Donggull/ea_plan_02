@@ -109,9 +109,9 @@ export default function AIMarketAnalysisDashboard({
     try {
       console.log('🔍 [시장조사] 데이터 로딩 시작:', { projectId });
       
-      // 2차 AI 분석에서 생성된 시장 조사 데이터 조회
+      // 2차 AI 분석에서 생성된 시장 조사 데이터 조회 (정확한 테이블명 사용)
       const { data, error } = await (supabase as any)
-        .from('market_researches')
+        .from('market_research')
         .select('*')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
@@ -124,58 +124,74 @@ export default function AIMarketAnalysisDashboard({
 
       console.log('📊 [시장조사] 조회된 데이터:', data?.length, '건');
       
-      // 2차 AI 분석 데이터를 기존 형식으로 변환
-      const formattedData = data?.map((item: any) => ({
-        id: item.id,
-        project_id: item.project_id,
-        rfp_analysis_id: item.rfp_analysis_id,
-        analysis_data: {
-          market_overview: {
-            market_size: item.market_overview?.market_size || '분석 중',
-            growth_rate: item.market_overview?.growth_rate || '분석 중',
-            key_drivers: item.market_overview?.market_drivers || [],
-            market_maturity: item.market_overview?.market_maturity || '분석 중'
-          },
-          target_market: {
-            primary_segment: item.target_market?.primary_segments?.[0] || '분석 중',
-            secondary_segments: item.target_market?.secondary_segments || [],
-            market_needs: item.target_market?.market_needs || [],
-            pain_points: item.target_market?.pain_points || []
-          },
-          competitive_landscape: {
-            direct_competitors: item.competitor_analysis?.direct_competitors || [],
-            indirect_competitors: item.competitor_analysis?.indirect_competitors || [],
-            competitive_advantages: []
-          },
-          market_trends: {
-            current_trends: item.market_trends?.map((t: any) => t.trend) || [],
-            emerging_trends: [],
-            technology_trends: [],
-            regulatory_trends: []
-          },
-          opportunities_threats: {
-            opportunities: item.opportunities || [],
-            threats: item.threats || []
-          },
-          recommendations: {
-            market_entry_strategy: item.recommendations?.[0]?.recommendation || '',
-            positioning_strategy: '',
-            pricing_strategy: '',
-            marketing_channels: [],
-            success_metrics: []
-          },
-          next_steps: {
-            immediate_actions: [],
-            research_priorities: [],
-            persona_analysis_focus: []
-          }
-        },
-        question_responses: [],
-        ai_model_used: 'Claude 3.5 Sonnet',
-        confidence_score: item.confidence_score || 0.8,
-        status: item.status || 'completed',
-        created_at: item.created_at
-      })) || [];
+      // 2차 AI 분석 데이터를 기존 형식으로 변환 (안전한 데이터 처리)
+      const formattedData = data?.map((item: any) => {
+        try {
+          // 기본값으로 빈 객체 설정하여 null/undefined 오류 방지
+          const marketOverview = item.market_overview || {};
+          const targetMarket = item.target_market || {};
+          const competitorAnalysis = item.competitor_analysis || {};
+          const marketTrends = item.market_trends || [];
+          const opportunities = item.opportunities || [];
+          const threats = item.threats || [];
+          const recommendations = item.recommendations || [];
+
+          return {
+            id: item.id || '',
+            project_id: item.project_id || projectId,
+            rfp_analysis_id: item.rfp_analysis_id || '',
+            analysis_data: {
+              market_overview: {
+                market_size: marketOverview.market_size || '분석 중',
+                growth_rate: marketOverview.growth_rate || '분석 중', 
+                key_drivers: Array.isArray(marketOverview.market_drivers) ? marketOverview.market_drivers : [],
+                market_maturity: marketOverview.market_maturity || '분석 중'
+              },
+              target_market: {
+                primary_segment: targetMarket.primary_segments?.[0] || targetMarket.primary_segment || '분석 중',
+                secondary_segments: Array.isArray(targetMarket.secondary_segments) ? targetMarket.secondary_segments : [],
+                market_needs: Array.isArray(targetMarket.market_needs) ? targetMarket.market_needs : [],
+                pain_points: Array.isArray(targetMarket.pain_points) ? targetMarket.pain_points : []
+              },
+              competitive_landscape: {
+                direct_competitors: Array.isArray(competitorAnalysis.direct_competitors) ? competitorAnalysis.direct_competitors : [],
+                indirect_competitors: Array.isArray(competitorAnalysis.indirect_competitors) ? competitorAnalysis.indirect_competitors : [],
+                competitive_advantages: Array.isArray(competitorAnalysis.competitive_advantages) ? competitorAnalysis.competitive_advantages : []
+              },
+              market_trends: {
+                current_trends: Array.isArray(marketTrends) ? marketTrends.map((t: any) => (typeof t === 'object' && t.trend) ? t.trend : String(t)) : [],
+                emerging_trends: [],
+                technology_trends: [],
+                regulatory_trends: []
+              },
+              opportunities_threats: {
+                opportunities: Array.isArray(opportunities) ? opportunities : [],
+                threats: Array.isArray(threats) ? threats : []
+              },
+              recommendations: {
+                market_entry_strategy: (Array.isArray(recommendations) && recommendations.length > 0) ? (recommendations[0]?.recommendation || String(recommendations[0]) || '') : '',
+                positioning_strategy: '',
+                pricing_strategy: '',
+                marketing_channels: [],
+                success_metrics: []
+              },
+              next_steps: {
+                immediate_actions: [],
+                research_priorities: [],
+                persona_analysis_focus: []
+              }
+            },
+            question_responses: [],
+            ai_model_used: 'Claude 3.5 Sonnet',
+            confidence_score: typeof item.confidence_score === 'number' ? item.confidence_score : 0.8,
+            status: item.status || 'completed',
+            created_at: item.created_at || new Date().toISOString()
+          };
+        } catch (itemError) {
+          console.error('❌ [시장조사] 개별 데이터 변환 오류:', itemError, item);
+          return null;
+        }
+      }).filter(Boolean) || []; // null 항목 제거
 
       setAnalysisHistory(formattedData);
       if (formattedData.length > 0) {
@@ -270,12 +286,16 @@ export default function AIMarketAnalysisDashboard({
             <div>
               <p className="text-sm text-gray-600 mb-2">주요 성장 동력</p>
               <ul className="space-y-1">
-                {analysis.market_overview?.key_drivers?.map((driver, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    <ChevronRight className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-                    <span>{driver}</span>
-                  </li>
-                ))}
+                {Array.isArray(analysis.market_overview?.key_drivers) && analysis.market_overview.key_drivers.length > 0 ? (
+                  analysis.market_overview.key_drivers.map((driver, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <ChevronRight className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
+                      <span>{String(driver)}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-gray-500">성장 동력 분석 중...</li>
+                )}
               </ul>
             </div>
           </div>
@@ -388,7 +408,8 @@ export default function AIMarketAnalysisDashboard({
         {/* 직접 경쟁사 */}
         <div className="space-y-4">
           <h4 className="text-lg font-semibold">직접 경쟁사</h4>
-          {competitors.direct_competitors?.map((competitor, index) => (
+          {Array.isArray(competitors.direct_competitors) && competitors.direct_competitors.length > 0 ? (
+            competitors.direct_competitors.map((competitor, index) => (
             <Card key={index} className="bg-white border border-gray-200">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -399,29 +420,40 @@ export default function AIMarketAnalysisDashboard({
                   <div>
                     <p className="text-sm text-gray-600 mb-2 font-medium">강점</p>
                     <ul className="space-y-1">
-                      {competitor.strengths?.map((strength, idx) => (
-                        <li key={idx} className="text-sm flex items-start gap-2">
-                          <ChevronRight className="w-3 h-3 mt-1 text-green-500" />
-                          {strength}
-                        </li>
-                      ))}
+                      {Array.isArray(competitor.strengths) && competitor.strengths.length > 0 ? (
+                        competitor.strengths.map((strength, idx) => (
+                          <li key={idx} className="text-sm flex items-start gap-2">
+                            <ChevronRight className="w-3 h-3 mt-1 text-green-500" />
+                            {String(strength)}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-sm text-gray-500">강점 분석 중...</li>
+                      )}
                     </ul>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-2 font-medium">약점</p>
                     <ul className="space-y-1">
-                      {competitor.weaknesses?.map((weakness, idx) => (
-                        <li key={idx} className="text-sm flex items-start gap-2">
-                          <ChevronRight className="w-3 h-3 mt-1 text-red-500" />
-                          {weakness}
-                        </li>
-                      ))}
+                      {Array.isArray(competitor.weaknesses) && competitor.weaknesses.length > 0 ? (
+                        competitor.weaknesses.map((weakness, idx) => (
+                          <li key={idx} className="text-sm flex items-start gap-2">
+                            <ChevronRight className="w-3 h-3 mt-1 text-red-500" />
+                            {String(weakness)}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-sm text-gray-500">약점 분석 중...</li>
+                      )}
                     </ul>
                   </div>
                 </div>
               </div>
             </Card>
-          ))}
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">직접 경쟁사 분석 데이터가 없습니다</div>
+          )}
         </div>
 
         {/* 경쟁 우위 */}
