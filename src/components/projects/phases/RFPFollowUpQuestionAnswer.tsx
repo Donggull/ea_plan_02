@@ -119,27 +119,33 @@ export function RFPFollowUpQuestionAnswer({
     }
   }, [analysisId])
 
-  const generateSecondaryAnalysis = useCallback(async (answersData: {[key: string]: string}) => {
+  const generateSecondaryAnalysis = useCallback(async (answersData: {[key: string]: string}, analysisType: 'market_research' | 'persona_analysis' | 'proposal_generation' = 'market_research') => {
     setIsGeneratingSecondaryAnalysis(true)
     
     try {
-      console.log('🤖 [2차분석] AI 2차 분석 시작...', { analysisId, projectId })
+      console.log(`🤖 [2차분석] AI 2차 분석 시작 (${analysisType})...`, { analysisId, projectId })
 
       // 질문과 답변을 매핑
       const questionAnswerPairs = questions.map(question => ({
-        id: question.id,
         question: question.question_text,
         answer: answersData[question.id] || '',
         category: question.category,
         importance: question.priority || 'medium'
       })).filter(pair => pair.answer.trim() !== '')
 
+      // 사용자 정보 가져오기
+      const { data: { user } } = await supabase.auth.getUser()
+      
       const requestBody = {
-        rfpAnalysisId: analysisId,
-        answers: questionAnswerPairs
+        rfp_analysis_id: analysisId,
+        question_responses: questionAnswerPairs,
+        analysis_type: analysisType,
+        user_id: user?.id,
+        project_id: projectId
       }
 
       console.log('📤 [2차분석] API 요청:', {
+        analysis_type: analysisType,
         analysis_id: analysisId,
         project_id: projectId,
         answers_count: questionAnswerPairs.length
@@ -159,20 +165,23 @@ export function RFPFollowUpQuestionAnswer({
       }
 
       const result = await response.json()
-      console.log('✅ [2차분석] 분석 완료:', result.secondary_analysis ? '성공' : '실패')
+      console.log(`✅ [2차분석] ${analysisType} 분석 완료:`, result.success ? '성공' : '실패')
 
-      if (result.secondary_analysis) {
+      if (result.success) {
         // 2차 분석 결과를 상위 컴포넌트에 전달
-        onSecondaryAnalysisGenerated?.(result.secondary_analysis)
+        onSecondaryAnalysisGenerated?.({
+          type: analysisType,
+          data: result.data
+        })
         
-        return result.secondary_analysis
+        return result.data
       } else {
         throw new Error('2차 분석 결과가 생성되지 않았습니다.')
       }
     } catch (error) {
-      console.error('❌ [2차분석] 실패:', error)
+      console.error(`❌ [2차분석] ${analysisType} 실패:`, error)
       const errorMessage = error instanceof Error ? error.message : String(error)
-      alert(`2차 AI 분석 중 오류가 발생했습니다:\n\n${errorMessage}`)
+      alert(`2차 AI 분석 중 오류가 발생했습니다 (${analysisType}):\n\n${errorMessage}`)
       throw error
     } finally {
       setIsGeneratingSecondaryAnalysis(false)
@@ -196,15 +205,11 @@ export function RFPFollowUpQuestionAnswer({
       // 2. 상위 컴포넌트에 답변 전달
       onAnswersSubmitted?.(answers)
       
-      // 3. 2차 AI 분석 자동 실행
-      console.log('🚀 [후속질문답변] 2차 AI 분석 자동 시작...')
-      await generateSecondaryAnalysis(answers)
-      
-      // 4. 완료 상태 설정
+      // 3. 완료 상태 설정
       setSubmissionComplete(true)
       
-      console.log('🎉 [후속질문답변] 전체 프로세스 완료')
-      alert('답변이 성공적으로 제출되고 2차 AI 분석이 완료되었습니다!')
+      console.log('✅ [후속질문답변] 답변 제출 완료')
+      alert('답변이 성공적으로 제출되었습니다!\n\n이제 "AI 2차 분석 시작" 버튼을 클릭하여 시장 조사, 페르소나 분석, 제안서 작성을 진행하세요.')
       
     } catch (error) {
       console.error('❌ [후속질문답변] 제출 실패:', error)
@@ -212,6 +217,39 @@ export function RFPFollowUpQuestionAnswer({
       alert(`답변 제출 중 오류가 발생했습니다:\n\n${errorMessage}`)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleGenerateAllAnalyses = async () => {
+    if (!submissionComplete) {
+      alert('먼저 답변을 제출해주세요.')
+      return
+    }
+
+    setIsGeneratingSecondaryAnalysis(true)
+
+    try {
+      console.log('🚀 [2차분석] 3개 영역 AI 분석 시작...')
+      
+      // 순차적으로 3개 분석 실행
+      console.log('🏪 [2차분석] 1/3 시장 조사 분석 시작...')
+      await generateSecondaryAnalysis(answers, 'market_research')
+      
+      console.log('👤 [2차분석] 2/3 페르소나 분석 시작...')
+      await generateSecondaryAnalysis(answers, 'persona_analysis')
+      
+      console.log('📄 [2차분석] 3/3 제안서 작성 분석 시작...')
+      await generateSecondaryAnalysis(answers, 'proposal_generation')
+      
+      console.log('🎉 [2차분석] 모든 AI 분석 완료!')
+      alert('모든 AI 2차 분석이 완료되었습니다!\n\n✅ 시장 조사\n✅ 페르소나 분석\n✅ 제안서 작성\n\n각 페이지에서 결과를 확인하실 수 있습니다.')
+      
+    } catch (error) {
+      console.error('❌ [2차분석] 전체 프로세스 실패:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      alert(`AI 2차 분석 중 오류가 발생했습니다:\n\n${errorMessage}`)
+    } finally {
+      setIsGeneratingSecondaryAnalysis(false)
     }
   }
 
@@ -415,15 +453,10 @@ export function RFPFollowUpQuestionAnswer({
                     <Loader className="h-4 w-4 mr-2 animate-spin" />
                     답변 저장 중...
                   </>
-                ) : isGeneratingSecondaryAnalysis ? (
-                  <>
-                    <Loader className="h-4 w-4 mr-2 animate-spin" />
-                    AI 2차 분석 중...
-                  </>
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    답변 제출 및 AI 분석 시작
+                    답변 제출하기
                   </>
                 )}
               </Button>
@@ -431,22 +464,46 @@ export function RFPFollowUpQuestionAnswer({
           </div>
         )}
 
-        {/* 완료 상태 메시지 */}
+        {/* AI 2차 분석 버튼 */}
         {submissionComplete && (
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <h4 className="font-medium text-green-800 dark:text-green-200">
-                  답변 제출 및 2차 분석 완료
-                </h4>
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                답변 제출 완료 - 이제 AI 2차 분석을 시작할 수 있습니다
               </div>
-              <p className="text-sm text-green-700 dark:text-green-300">
-                모든 답변이 성공적으로 저장되고 AI 2차 분석이 완료되었습니다. 이제 시장 조사나 페르소나 분석 단계로 진행할 수 있습니다.
-              </p>
+              
+              <Button
+                onClick={handleGenerateAllAnalyses}
+                disabled={isGeneratingSecondaryAnalysis}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isGeneratingSecondaryAnalysis ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-2 animate-spin" />
+                    AI 2차 분석 진행 중...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    AI 2차 분석 시작
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                AI 2차 분석으로 생성되는 결과:
+              </h4>
+              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>• 시장 조사: 시장 규모, 경쟁사 분석, 트렌드 등</li>
+                <li>• 페르소나 분석: 타겟 사용자 프로필 및 행동 패턴</li>
+                <li>• 제안서 작성: 기술 솔루션, 일정, 예산 등</li>
+              </ul>
             </div>
           </div>
         )}
+
       </Card>
     </div>
   )

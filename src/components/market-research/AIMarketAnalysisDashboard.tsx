@@ -107,20 +107,85 @@ export default function AIMarketAnalysisDashboard({
 
   const loadAnalysisHistory = React.useCallback(async () => {
     try {
+      console.log('🔍 [시장조사] 데이터 로딩 시작:', { projectId });
+      
+      // 2차 AI 분석에서 생성된 시장 조사 데이터 조회
       const { data, error } = await (supabase as any)
-        .from('market_research')
+        .from('market_researches')
         .select('*')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
-      setAnalysisHistory(data || []);
-      if (data && data.length > 0) {
-        setMarketResearch(data[0] as MarketResearchRecord);
+      if (error) {
+        console.error('시장 조사 데이터 로딩 오류:', error);
+        throw error;
+      }
+
+      console.log('📊 [시장조사] 조회된 데이터:', data?.length, '건');
+      
+      // 2차 AI 분석 데이터를 기존 형식으로 변환
+      const formattedData = data?.map((item: any) => ({
+        id: item.id,
+        project_id: item.project_id,
+        rfp_analysis_id: item.rfp_analysis_id,
+        analysis_data: {
+          market_overview: {
+            market_size: item.market_overview?.market_size || '분석 중',
+            growth_rate: item.market_overview?.growth_rate || '분석 중',
+            key_drivers: item.market_overview?.market_drivers || [],
+            market_maturity: item.market_overview?.market_maturity || '분석 중'
+          },
+          target_market: {
+            primary_segment: item.target_market?.primary_segments?.[0] || '분석 중',
+            secondary_segments: item.target_market?.secondary_segments || [],
+            market_needs: item.target_market?.market_needs || [],
+            pain_points: item.target_market?.pain_points || []
+          },
+          competitive_landscape: {
+            direct_competitors: item.competitor_analysis?.direct_competitors || [],
+            indirect_competitors: item.competitor_analysis?.indirect_competitors || [],
+            competitive_advantages: []
+          },
+          market_trends: {
+            current_trends: item.market_trends?.map((t: any) => t.trend) || [],
+            emerging_trends: [],
+            technology_trends: [],
+            regulatory_trends: []
+          },
+          opportunities_threats: {
+            opportunities: item.opportunities || [],
+            threats: item.threats || []
+          },
+          recommendations: {
+            market_entry_strategy: item.recommendations?.[0]?.recommendation || '',
+            positioning_strategy: '',
+            pricing_strategy: '',
+            marketing_channels: [],
+            success_metrics: []
+          },
+          next_steps: {
+            immediate_actions: [],
+            research_priorities: [],
+            persona_analysis_focus: []
+          }
+        },
+        question_responses: [],
+        ai_model_used: 'Claude 3.5 Sonnet',
+        confidence_score: item.confidence_score || 0.8,
+        status: item.status || 'completed',
+        created_at: item.created_at
+      })) || [];
+
+      setAnalysisHistory(formattedData);
+      if (formattedData.length > 0) {
+        setMarketResearch(formattedData[0]);
+        console.log('✅ [시장조사] 최신 데이터 설정 완료');
+      } else {
+        console.log('📝 [시장조사] 분석 결과 없음');
       }
     } catch (error) {
-      console.error('시장 조사 이력 로딩 오류:', error);
+      console.error('❌ [시장조사] 이력 로딩 오류:', error);
     }
   }, [projectId]);
 

@@ -49,6 +49,42 @@ export default function ProposalWritingDashboard({
   const [aiGenerationInProgress, setAiGenerationInProgress] = useState(false)
   const [_aiProposalData, _setAiProposalData] = useState<any>(null)
   const [proposalType, setProposalType] = useState<'technical' | 'business' | 'hybrid'>('hybrid')
+  const [_existingProposals, setExistingProposals] = useState<any[]>([])
+
+  // 2차 AI 분석에서 생성된 제안서 로드
+  const loadExistingProposals = useCallback(async () => {
+    try {
+      console.log('🔍 [제안서] 기존 제안서 데이터 조회 시작:', { projectId })
+      
+      const { data, error } = await (await import('@/lib/supabase/client')).supabase
+        .from('proposal_documents' as any)
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('제안서 데이터 조회 오류:', error)
+        throw error
+      }
+
+      console.log('📄 [제안서] 조회된 제안서:', data?.length, '건')
+      setExistingProposals(data || [])
+      
+      // 가장 최근 제안서가 있으면 기본 표시
+      if (data && data.length > 0) {
+        const _latestProposal = data[0]
+        console.log('✅ [제안서] 최신 제안서 로드 완료')
+        setCurrentStep('writing')
+      }
+      
+    } catch (error) {
+      console.error('❌ [제안서] 데이터 로드 오류:', error)
+    }
+  }, [projectId])
+
+  useEffect(() => {
+    loadExistingProposals()
+  }, [loadExistingProposals])
 
   // AI 제안서 자동 생성 함수
   const triggerAIProposalGeneration = useCallback(async () => {
