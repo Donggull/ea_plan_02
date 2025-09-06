@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams as _useParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { 
   useRfpDocuments, 
   useProposalTasks,
@@ -44,6 +45,7 @@ interface ProposalPhaseProps {
 }
 
 export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'rfp' | 'tasks' | 'rfp_analysis' | 'market_research' | 'persona' | 'proposal_writing' | 'integration'>('rfp')
 
   // RFP 분석 결과에서 다음 단계로 전환하는 이벤트 리스너
@@ -1215,7 +1217,25 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
                 onUploadSuccess={(document) => {
                   console.log('RFP 문서 업로드 성공:', document)
                   setIsCreateRfpOpen(false)
-                  // RFP 문서 목록 새로고침은 자동으로 처리됨 (React Query)
+                  
+                  // 방법 1: 쿼리 무효화로 자동 새로고침
+                  queryClient.invalidateQueries({ 
+                    queryKey: ['rfp-documents', projectId, 'proposal'] 
+                  })
+                  
+                  // 방법 2: 쿼리 데이터 직접 업데이트 (더 빠른 반영)
+                  const queryKey = ['rfp-documents', projectId, 'proposal']
+                  const previousData = queryClient.getQueryData(queryKey) as any[]
+                  
+                  if (previousData && Array.isArray(previousData)) {
+                    const newDocuments = Array.isArray(document) ? document : [document]
+                    const updatedData = [...newDocuments, ...previousData]
+                    
+                    queryClient.setQueryData(queryKey, updatedData)
+                    console.log('✅ RFP 문서 목록에 새 문서 즉시 추가 완료:', newDocuments.length, '개')
+                  }
+                  
+                  console.log('✅ RFP 문서 목록 쿼리 무효화 완료 - 자동 새로고침됩니다')
                 }}
                 onClose={() => setIsCreateRfpOpen(false)}
               />

@@ -387,7 +387,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       
       // 질문-답변 쌍 생성 (answer_type에 따라 적절한 답변 선택)
       const questionResponses = latestQuestions
-        .filter(q => {
+        .filter((q: any) => {
           // answer_type에 따라 적절한 답변이 있는지 확인
           const userAnswer = q.user_answer
           const aiAnswer = q.ai_generated_answer
@@ -402,7 +402,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           // fallback
           return (userAnswer && userAnswer.trim()) || (aiAnswer && aiAnswer.trim())
         })
-        .map(q => {
+        .map((q: any) => {
           // answer_type에 따라 적절한 답변 선택
           const userAnswer = q.user_answer || ''
           const aiAnswer = q.ai_generated_answer || ''
