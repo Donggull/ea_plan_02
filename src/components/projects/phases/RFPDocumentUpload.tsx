@@ -5,8 +5,6 @@ import { useDropzone } from 'react-dropzone'
 import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
-import { AIModelSelector } from '@/components/ai/AIModelSelector'
-import { AIModel } from '@/types/ai-models'
 import { 
   Upload, 
   FileText, 
@@ -36,7 +34,7 @@ interface RFPDocument {
 
 interface RFPDocumentUploadProps {
   projectId: string
-  onUploadSuccess?: (document: any, selectedModel?: AIModel) => void
+  onUploadSuccess?: (document: any) => void
   onClose?: () => void
 }
 
@@ -55,7 +53,6 @@ export default function RFPDocumentUpload({
   const [availableRfpDocs, setAvailableRfpDocs] = useState<RFPDocument[]>([])
   const [selectedRfpDoc, setSelectedRfpDoc] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [selectedAIModel, setSelectedAIModel] = useState<AIModel | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -260,10 +257,9 @@ export default function RFPDocumentUpload({
         uploadedDocs.push(rfpDocument)
       }
       
-      // 성공 콜백 실행 (선택된 AI 모델 정보도 함께 전달)
+      // 성공 콜백 실행
       onUploadSuccess?.(
-        uploadedDocs.length === 1 ? uploadedDocs[0] : uploadedDocs,
-        selectedAIModel || undefined
+        uploadedDocs.length === 1 ? uploadedDocs[0] : uploadedDocs
       )
       
       // 폼 초기화
@@ -320,8 +316,8 @@ export default function RFPDocumentUpload({
 
       if (copyError) throw copyError
 
-      // 성공 콜백 실행 (선택된 AI 모델 정보도 함께 전달)
-      onUploadSuccess?.(copiedDoc, selectedAIModel || undefined)
+      // 성공 콜백 실행
+      onUploadSuccess?.(copiedDoc)
 
       // 폼 초기화
       setSelectedRfpDoc(null)
@@ -411,25 +407,6 @@ export default function RFPDocumentUpload({
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              AI 모델 선택 *
-            </label>
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <AIModelSelector 
-                onModelSelect={setSelectedAIModel}
-                className="w-full"
-                showSettings={false}
-              />
-              {selectedAIModel && (
-                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  선택된 모델: <span className="font-medium">{selectedAIModel.display_name}</span>
-                  <br />
-                  이 모델이 제안 진행의 모든 AI 분석에 사용됩니다.
-                </div>
-              )}
-            </div>
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -555,25 +532,6 @@ export default function RFPDocumentUpload({
       {/* 기존 문서 선택 */}
       {mode === 'select' && (
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              AI 모델 선택 *
-            </label>
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <AIModelSelector 
-                onModelSelect={setSelectedAIModel}
-                className="w-full"
-                showSettings={false}
-              />
-              {selectedAIModel && (
-                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  선택된 모델: <span className="font-medium">{selectedAIModel.display_name}</span>
-                  <br />
-                  이 모델이 제안 진행의 모든 AI 분석에 사용됩니다.
-                </div>
-              )}
-            </div>
-          </div>
           
           <h4 className="font-medium text-gray-900 dark:text-white">
             RFP 분석 자동화에서 업로드된 문서
@@ -652,7 +610,7 @@ export default function RFPDocumentUpload({
         {mode === 'upload' ? (
           <Button
             onClick={handleUpload}
-            disabled={uploading || selectedFiles.length === 0 || !title.trim() || !selectedAIModel}
+            disabled={uploading || selectedFiles.length === 0 || !title.trim()}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             {uploading ? (
@@ -670,7 +628,7 @@ export default function RFPDocumentUpload({
         ) : (
           <Button
             onClick={handleSelectExisting}
-            disabled={uploading || !selectedRfpDoc || !selectedAIModel}
+            disabled={uploading || !selectedRfpDoc}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             {uploading ? (

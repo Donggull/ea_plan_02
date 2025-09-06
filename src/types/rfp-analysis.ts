@@ -101,6 +101,7 @@ export interface AnalysisQuestion {
   id: string;
   rfp_analysis_id: string;
   question_text: string;
+  question?: string; // 호환성을 위한 별칭
   question_type: QuestionType;
   category: QuestionCategory;
   priority: 'high' | 'medium' | 'low';
@@ -110,6 +111,8 @@ export interface AnalysisQuestion {
   depends_on?: string[]; // 다른 질문의 답변에 따라 표시
   next_step_impact: string; // 다음 단계에 미치는 영향
   order_index: number;
+  answer?: string; // 사용자 답변
+  suggested_answer?: string; // AI가 제안하는 답변
   created_at: string;
 }
 

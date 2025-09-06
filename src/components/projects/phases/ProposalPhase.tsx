@@ -1195,40 +1195,9 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
               </div>
               <RFPDocumentUpload
                 projectId={projectId}
-                onUploadSuccess={async (document, selectedModel) => {
-                  console.log('RFP 문서 업로드 성공:', document, '선택된 AI 모델:', selectedModel)
+                onUploadSuccess={(document) => {
+                  console.log('RFP 문서 업로드 성공:', document)
                   setIsCreateRfpOpen(false)
-                  
-                  // 선택된 AI 모델을 프로젝트에 저장
-                  if (selectedModel) {
-                    try {
-                      const { error: updateError } = await supabase
-                        .from('projects')
-                        .update({ 
-                          preferred_ai_model_id: selectedModel.id,
-                          preferred_ai_model_data: {
-                            model_id: selectedModel.model_id,
-                            display_name: selectedModel.display_name,
-                            provider: selectedModel.provider,
-                            settings: {
-                              temperature: 0.3,
-                              max_tokens: 8000
-                            }
-                          },
-                          updated_at: new Date().toISOString()
-                        })
-                        .eq('id', projectId)
-                      
-                      if (updateError) {
-                        console.error('프로젝트 AI 모델 저장 실패:', updateError)
-                      } else {
-                        console.log('✅ 프로젝트에 AI 모델 저장 완료:', selectedModel.display_name)
-                        setSelectedAIModel(selectedModel) // 로컬 상태 업데이트
-                      }
-                    } catch (error) {
-                      console.error('프로젝트 AI 모델 저장 중 오류:', error)
-                    }
-                  }
                   // RFP 문서 목록 새로고침은 자동으로 처리됨 (React Query)
                 }}
                 onClose={() => setIsCreateRfpOpen(false)}

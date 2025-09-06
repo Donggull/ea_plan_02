@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
-import { RFPFollowUpQuestionAnswer } from './RFPFollowUpQuestionAnswer'
+import { IntegratedAnswerModal } from './IntegratedAnswerModal'
 import { 
   FileText, 
   AlertTriangle,
@@ -263,6 +263,134 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     window.dispatchEvent(event)
   }
 
+  // 통합 모달에서 사용할 답변 저장 함수
+  const handleAnswerSave = async (answers: {[key: string]: string}) => {
+    if (!selectedAnalysis) return
+
+    try {
+      console.log('💾 [답변저장] 시작:', selectedAnalysis.analysis.id, answers)
+      
+      // 답변 저장
+      const updatedQuestions = await saveQuestionAnswers(selectedAnalysis.analysis.id, answers)
+      
+      // 상태 업데이트 - 답변 완료 표시
+      const updatedAnalysisData = {
+        ...selectedAnalysis,
+        follow_up_questions: updatedQuestions,
+        questionnaire_completed: true,
+        next_step_ready: true
+      }
+      
+      setSelectedAnalysis(updatedAnalysisData)
+      setAnalysisData(prev => 
+        prev.map(data => 
+          data.analysis.id === selectedAnalysis.analysis.id 
+            ? updatedAnalysisData
+            : data
+        )
+      )
+
+      console.log('✅ [답변저장] 완료 - 다음 단계 준비')
+      
+      // 2차 AI 분석 실행 (시장조사, 페르소나 분석, 제안서 작성)
+      await triggerSecondaryAnalysis(selectedAnalysis.analysis.id, updatedQuestions)
+      
+    } catch (error) {
+      console.error('❌ [답변저장] 실패:', error)
+      throw error
+    }
+  }
+
+  // 2차 AI 분석 트리거 함수
+  const triggerSecondaryAnalysis = async (analysisId: string, questions: AnalysisQuestion[]) => {
+    try {
+      console.log('🚀 [2차분석] 다중 분석 시작:', analysisId)
+      
+      // 질문-답변 쌍 생성
+      const questionResponses = questions
+        .filter(q => q.answer && q.answer.trim())
+        .map(q => ({
+          question: q.question_text || q.question || '',
+          answer: q.answer || '',
+          questionId: q.id
+        }))
+
+      if (questionResponses.length === 0) {
+        throw new Error('답변이 없습니다.')
+      }
+
+      // 병렬로 3가지 분석 실행
+      const analysisPromises = [
+        // 1. 시장조사 분석
+        fetch('/api/rfp/secondary-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rfp_analysis_id: analysisId,
+            question_responses: questionResponses,
+            analysis_type: 'market_research',
+            user_id: 'current-user', // 실제 사용자 ID로 교체 필요
+            project_id: projectId
+          })
+        }),
+        // 2. 페르소나 분석
+        fetch('/api/rfp/secondary-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rfp_analysis_id: analysisId,
+            question_responses: questionResponses,
+            analysis_type: 'persona_analysis',
+            user_id: 'current-user', // 실제 사용자 ID로 교체 필요
+            project_id: projectId
+          })
+        }),
+        // 3. 제안서 작성
+        fetch('/api/rfp/secondary-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rfp_analysis_id: analysisId,
+            question_responses: questionResponses,
+            analysis_type: 'proposal_generation',
+            user_id: 'current-user', // 실제 사용자 ID로 교체 필요
+            project_id: projectId
+          })
+        })
+      ]
+
+      const results = await Promise.allSettled(analysisPromises)
+      
+      // 결과 처리
+      const successfulAnalyses: string[] = []
+      results.forEach((result, index) => {
+        const analysisTypes = ['market_research', 'persona_analysis', 'proposal_generation']
+        if (result.status === 'fulfilled') {
+          successfulAnalyses.push(analysisTypes[index])
+          console.log(`✅ [2차분석] ${analysisTypes[index]} 분석 완료`)
+        } else {
+          console.error(`❌ [2차분석] ${analysisTypes[index]} 분석 실패:`, result.reason)
+        }
+      })
+
+      if (successfulAnalyses.length > 0) {
+        console.log(`🎉 [2차분석] ${successfulAnalyses.length}개 분석 완료:`, successfulAnalyses)
+        
+        // 다음 단계로 자동 전환 (시장조사 탭으로)
+        setTimeout(() => {
+          console.log('🔄 [자동전환] 시장조사 탭으로 이동')
+          handleNextStepTransition('market_research')
+        }, 1500)
+      } else {
+        throw new Error('모든 2차 분석이 실패했습니다.')
+      }
+      
+    } catch (error) {
+      console.error('❌ [2차분석] 전체 실패:', error)
+      // 실패해도 다음 단계 버튼은 표시하도록 처리
+    }
+  }
+
   // 후속 질문 답변 저장 함수
   const saveQuestionAnswers = async (analysisId: string, answers: {[key: string]: string}) => {
     try {
@@ -303,8 +431,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }
 
-  // AI 자동 답변 함수
-  const generateAIAnswers = async (analysisId: string) => {
+  // AI 자동 답변 함수 (현재 미사용)
+  const _generateAIAnswers = async (analysisId: string) => {
     try {
       console.log('🤖 [AI답변] AI 자동 답변 생성 시작...', analysisId)
       
@@ -629,7 +757,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
   // 후속 질문 렌더링 함수
   const renderFollowUpQuestions = (analysisData: AnalysisData) => {
-    const { analysis, follow_up_questions, questionnaire_completed, next_step_ready } = analysisData
+    const { follow_up_questions, questionnaire_completed, next_step_ready } = analysisData
 
     return (
       <Card className="p-6">
@@ -710,17 +838,11 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             {!questionnaire_completed && (
               <div className="flex gap-3">
                 <Button
-                  onClick={() => generateAIAnswers(analysis.id)}
+                  onClick={() => setShowQuestionnaire(true)}
                   className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  AI 자동 답변 생성
-                </Button>
-                <Button
-                  onClick={() => setShowQuestionnaire(true)}
-                  variant="outline"
-                >
-                  직접 답변하기
+                  답변 작성하기
                 </Button>
               </div>
             )}
@@ -1148,55 +1270,16 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         </>
       )}
 
-      {/* RFP 후속 질문 답변 모달 */}
+      {/* 통합된 답변 작성 모달 */}
       {showQuestionnaire && selectedAnalysis && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">RFP 후속 질문 답변</h3>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowQuestionnaire(false)}
-                >
-                  ✕
-                </Button>
-              </div>
-              <RFPFollowUpQuestionAnswer
-                questions={selectedAnalysis.follow_up_questions}
-                analysisId={selectedAnalysis.analysis.id}
-                projectId={projectId}
-                onAnswersSubmitted={(answers) => {
-                  console.log('RFP 후속 질문 답변 완료:', answers)
-                  // 답변 완료 후 처리 로직
-                  setShowQuestionnaire(false)
-                  fetchAnalysisResults() // 데이터 새로고침
-                }}
-                onSecondaryAnalysisGenerated={(secondaryAnalysis) => {
-                  console.log('2차 분석 결과 생성:', secondaryAnalysis)
-                  // 2차 분석 결과를 현재 선택된 분석에 추가
-                  if (selectedAnalysis) {
-                    const updatedAnalysis = {
-                      ...selectedAnalysis,
-                      secondary_analysis: secondaryAnalysis,
-                      next_step_ready: true
-                    }
-                    setSelectedAnalysis(updatedAnalysis)
-                    
-                    // analysisData 배열도 업데이트
-                    setAnalysisData(prev => 
-                      prev.map(data => 
-                        data.analysis.id === selectedAnalysis.analysis.id 
-                          ? updatedAnalysis 
-                          : data
-                      )
-                    )
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <IntegratedAnswerModal
+          questions={selectedAnalysis.follow_up_questions}
+          analysisId={selectedAnalysis.analysis.id}
+          projectId={projectId}
+          isOpen={showQuestionnaire}
+          onClose={() => setShowQuestionnaire(false)}
+          onSave={handleAnswerSave}
+        />
       )}
     </div>
   )
