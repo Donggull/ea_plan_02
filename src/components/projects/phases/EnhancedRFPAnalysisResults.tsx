@@ -489,8 +489,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         return question
       })
 
-      // analysis_questions 테이블 업데이트 (TypeScript 타입 오류 회피를 위해 as any 사용)
-      const updatePromises = updatedQuestions.map((question: any) => {
+      // analysis_questions 테이블 업데이트 (더 강력한 오류 처리 추가)
+      const updatePromises = updatedQuestions.map(async (question: any) => {
         const answerData = answersWithTypes[question.id]
         if (answerData) {
           // 답변 타입에 따라 적절한 필드 업데이트
@@ -509,16 +509,24 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             // AI 답변은 기존 값 유지 (덮어쓰지 않음)
           }
           
-          console.log(`🔄 [DB업데이트] 질문 ${question.id} 업데이트:`, updateData)
+          console.log(`🔄 [DB업데이트] 질문 ${question.id} 업데이트 시작:`, updateData)
           
-          // 실제 DB 업데이트 실행 (.select()를 추가하여 쿼리 실행)
-          return (supabase as any)
-            .from('analysis_questions')
-            .update(updateData)
-            .eq('id', question.id)
-            .select()
+          try {
+            // 실제 DB 업데이트 실행
+            const result = await (supabase as any)
+              .from('analysis_questions')
+              .update(updateData)
+              .eq('id', question.id)
+              .select()
+            
+            console.log(`✅ [DB업데이트] 질문 ${question.id} 업데이트 성공:`, result)
+            return result
+          } catch (updateError) {
+            console.error(`❌ [DB업데이트] 질문 ${question.id} 업데이트 실패:`, updateError)
+            return { data: null, error: updateError }
+          }
         }
-        return Promise.resolve({ data: null, error: null })
+        return { data: null, error: null }
       })
 
       const updateResults = await Promise.all(updatePromises)
