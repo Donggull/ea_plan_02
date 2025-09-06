@@ -1,170 +1,119 @@
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 
-// Service role client for privileged operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
-
-interface SecondaryAnalysisResult {
-  market_research_insights: {
-    target_market_definition: string
-    competitor_analysis_direction: string
-    market_size_estimation: string
-    key_market_trends: string[]
-    research_priorities: string[]
-  }
-  persona_analysis_insights: {
-    primary_persona_characteristics: string
-    persona_pain_points: string[]
-    persona_goals_motivations: string[]
-    persona_scenarios: string[]
-    research_focus_areas: string[]
-  }
-  enhanced_recommendations: {
-    market_research_approach: string
-    persona_research_methods: string[]
-    data_collection_strategy: string
-    analysis_timeline: string
-    success_metrics: string[]
-  }
-  integration_points: {
-    project_alignment: string
-    resource_allocation: string
-    timeline_coordination: string
-    deliverable_connections: string[]
-  }
-}
-
-export async function POST(request: NextRequest) {
-  console.log('🔄 Secondary Analysis API called')
-  
+export async function POST(req: NextRequest) {
   try {
-    // 사용자 인증 확인
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    const supabase = await createClient()
     
-    if (sessionError || !session?.user) {
-      return NextResponse.json(
-        { message: '인증이 필요합니다.' },
-        { status: 401 }
-      )
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { rfp_analysis_id } = body
+    const body = await req.json()
+    const { rfpAnalysisId, answers } = body
 
-    if (!rfp_analysis_id) {
-      return NextResponse.json(
-        { message: 'RFP 분석 ID가 필요합니다.' },
-        { status: 400 }
-      )
+    if (!rfpAnalysisId || !answers || !Array.isArray(answers)) {
+      return NextResponse.json({ 
+        error: 'Missing required fields: rfpAnalysisId, answers' 
+      }, { status: 400 })
     }
 
-    console.log('🔍 Starting secondary analysis for:', rfp_analysis_id)
+    console.log('🔄 2차 AI 분석 시작:', { rfpAnalysisId, answersCount: answers.length })
 
-    // RFP 분석 데이터 및 사용자 답변 조회
-    const { data: rfpAnalysis, error: fetchError } = await supabaseAdmin
+    // RFP 분석 데이터 조회
+    const { data: rfpAnalysis, error: fetchError } = await supabase
       .from('rfp_analyses')
       .select('*')
-      .eq('id', rfp_analysis_id)
-      .eq('answers_analyzed', false) // 아직 2차 분석이 안 된 것만
+      .eq('id', rfpAnalysisId)
       .single()
 
     if (fetchError || !rfpAnalysis) {
-      console.error('❌ Failed to fetch RFP analysis:', fetchError)
-      return NextResponse.json(
-        { message: 'RFP 분석 데이터를 찾을 수 없거나 이미 분석되었습니다.' },
-        { status: 404 }
-      )
+      console.error('RFP 분석 데이터 조회 오류:', fetchError)
+      return NextResponse.json({ 
+        error: 'RFP 분석 데이터를 찾을 수 없습니다.' 
+      }, { status: 404 })
     }
 
-    if (!rfpAnalysis.follow_up_answers || Object.keys(rfpAnalysis.follow_up_answers).length === 0) {
-      return NextResponse.json(
-        { message: '사용자 답변이 없어 2차 분석을 진행할 수 없습니다.' },
-        { status: 400 }
-      )
+    // 질문-답변 쌍을 텍스트로 변환
+    const qaText = answers.map((answer: any) => 
+      `질문: ${answer.question}\n답변: ${answer.answer}`
+    ).join('\n\n')
+
+    // AI 2차 분석 프롬프트 생성 - 안전한 타입 캐스팅
+    const analysisRecord = rfpAnalysis as any
+    const analysisData = {
+      project_overview: analysisRecord.project_overview,
+      functional_requirements: analysisRecord.functional_requirements,
+      business_requirements: analysisRecord.business_requirements,
+      technical_specifications: analysisRecord.technical_specifications,
+      planning_analysis: analysisRecord.planning_analysis,
+      design_analysis: analysisRecord.design_analysis,
+      publishing_analysis: analysisRecord.publishing_analysis,
+      development_analysis: analysisRecord.development_analysis
     }
 
-    console.log('📊 Found answers for secondary analysis:', Object.keys(rfpAnalysis.follow_up_answers).length)
-
-    // Anthropic API를 위한 2차 분석 프롬프트 생성
     const secondaryAnalysisPrompt = `
-당신은 RFP 분석 전문가입니다. 기존 RFP 분석 결과와 사용자의 구체적인 답변을 바탕으로 시장조사와 페르소나 분석을 위한 심화 인사이트를 제공해주세요.
+다음 RFP 분석 결과와 사용자의 추가 답변을 바탕으로 심화된 시장조사 인사이트와 페르소나 분석 인사이트를 생성해주세요.
 
-## 기존 RFP 분석 결과:
-**프로젝트 개요:** ${rfpAnalysis.analysis_result?.project_summary || '없음'}
-**기획 분석:** ${JSON.stringify(rfpAnalysis.planning_analysis || {}, null, 2)}
-**디자인 분석:** ${JSON.stringify(rfpAnalysis.design_analysis || {}, null, 2)}
-**퍼블리싱 분석:** ${JSON.stringify(rfpAnalysis.publishing_analysis || {}, null, 2)}
-**개발 분석:** ${JSON.stringify(rfpAnalysis.development_analysis || {}, null, 2)}
-**프로젝트 실행 가능성:** ${JSON.stringify(rfpAnalysis.project_feasibility || {}, null, 2)}
+## 기존 RFP 분석 내용:
+${JSON.stringify(analysisData, null, 2)}
 
-## 사용자 구체적 답변:
-${Object.entries(rfpAnalysis.follow_up_answers).map(([question, answer]) => 
-  `**질문:** ${question}\n**답변:** ${answer}`
-).join('\n\n')}
+## 사용자의 추가 답변:
+${qaText}
 
-## 요청사항:
-위의 RFP 분석과 사용자 답변을 종합하여 다음 형식으로 2차 분석을 제공해주세요:
+위 정보를 종합하여 다음 두 가지 영역에서 심화된 인사이트를 JSON 형태로 제공해주세요:
 
+1. **시장조사 인사이트 (market_research_insights)**:
+   - target_market_definition: 타겟 시장 세분화 및 정의
+   - market_size_analysis: 시장 규모 및 성장 가능성
+   - competitive_landscape: 경쟁사 분석 및 포지셔닝
+   - market_trends: 시장 트렌드 및 기회 요소
+   - entry_barriers: 진입 장벽 및 위험 요소
+   - go_to_market_strategy: 시장 진입 전략 제안
+
+2. **페르소나 분석 인사이트 (persona_analysis_insights)**:
+   - primary_persona: 주요 타겟 페르소나 상세 분석
+   - secondary_personas: 보조 타겟 페르소나들
+   - user_journey_mapping: 사용자 여정 맵핑
+   - pain_points: 핵심 문제점 및 니즈
+   - behavioral_patterns: 행동 패턴 및 선호도
+   - engagement_strategies: 페르소나별 참여 전략
+
+다음 JSON 형식으로 응답해주세요:
 {
   "market_research_insights": {
-    "target_market_definition": "구체적인 타겟 시장 정의 (사용자 답변 기반)",
-    "competitor_analysis_direction": "경쟁사 분석 방향성과 중점 사항",
-    "market_size_estimation": "시장 규모 추정 방법과 예상 범위",
-    "key_market_trends": ["핵심 시장 트렌드 1", "핵심 시장 트렌드 2", "..."],
-    "research_priorities": ["시장조사 우선순위 1", "우선순위 2", "..."]
+    "target_market_definition": "...",
+    "market_size_analysis": "...",
+    "competitive_landscape": "...",
+    "market_trends": "...",
+    "entry_barriers": "...",
+    "go_to_market_strategy": "..."
   },
   "persona_analysis_insights": {
-    "primary_persona_characteristics": "주요 페르소나 특성 (사용자 답변 반영)",
-    "persona_pain_points": ["페르소나 고충 포인트 1", "고충 포인트 2", "..."],
-    "persona_goals_motivations": ["페르소나 목표 1", "동기 1", "..."],
-    "persona_scenarios": ["사용 시나리오 1", "시나리오 2", "..."],
-    "research_focus_areas": ["페르소나 연구 중점 영역 1", "영역 2", "..."]
-  },
-  "enhanced_recommendations": {
-    "market_research_approach": "권장하는 시장조사 접근 방법",
-    "persona_research_methods": ["페르소나 연구 방법 1", "방법 2", "..."],
-    "data_collection_strategy": "데이터 수집 전략",
-    "analysis_timeline": "분석 일정 권장안",
-    "success_metrics": ["성공 지표 1", "지표 2", "..."]
-  },
-  "integration_points": {
-    "project_alignment": "프로젝트와의 연계 방안",
-    "resource_allocation": "리소스 배분 권장안",
-    "timeline_coordination": "일정 조율 방안",
-    "deliverable_connections": ["연결될 산출물 1", "산출물 2", "..."]
+    "primary_persona": {
+      "name": "...",
+      "demographics": "...",
+      "psychographics": "...",
+      "goals": "...",
+      "frustrations": "..."
+    },
+    "secondary_personas": [...],
+    "user_journey_mapping": "...",
+    "pain_points": [...],
+    "behavioral_patterns": "...",
+    "engagement_strategies": "..."
   }
 }
+`
 
-**중요:** 반드시 유효한 JSON 형식으로만 응답하고, 사용자의 실제 답변 내용을 적극 반영하여 구체적이고 실행 가능한 인사이트를 제공해주세요.
-`;
-
-    console.log('🤖 Calling Anthropic API for secondary analysis...')
-
-    // Anthropic API 호출
+    // Anthropic Claude API 호출
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다.')
+      throw new Error('ANTHROPIC_API_KEY가 설정되지 않았습니다.')
     }
 
+    console.log('🤖 AI 2차 분석 요청 전송 중...')
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -182,70 +131,93 @@ ${Object.entries(rfpAnalysis.follow_up_answers).map(([question, answer]) =>
 
     if (!anthropicResponse.ok) {
       const errorData = await anthropicResponse.json()
-      console.error('❌ Anthropic API error:', errorData)
+      console.error('Anthropic API 오류:', errorData)
       throw new Error(`Anthropic API error (${anthropicResponse.status}): ${errorData.error?.message}`)
     }
 
     const anthropicData = await anthropicResponse.json()
     const aiResponse = anthropicData.content[0].text
 
-    console.log('✅ Secondary analysis completed, processing response...')
+    console.log('✅ AI 2차 분석 응답 수신 완료')
 
-    // AI 응답에서 JSON 추출
-    let secondaryAnalysisData: SecondaryAnalysisResult
+    // JSON 파싱 시도
+    let secondaryAnalysis
     try {
-      // AI 응답에서 JSON 부분만 추출
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error('AI 응답에서 JSON을 찾을 수 없습니다.')
+      const jsonMatch = aiResponse.match(/{[\s\S]*}/)
+      if (jsonMatch) {
+        secondaryAnalysis = JSON.parse(jsonMatch[0])
+      } else {
+        throw new Error('유효한 JSON 형식을 찾을 수 없습니다.')
       }
-      
-      secondaryAnalysisData = JSON.parse(jsonMatch[0])
-      console.log('📋 Parsed secondary analysis data successfully')
     } catch (parseError) {
-      console.error('❌ Failed to parse AI response:', parseError)
-      console.log('Raw AI response:', aiResponse)
-      throw new Error('AI 응답을 파싱할 수 없습니다.')
+      console.error('JSON 파싱 오류:', parseError)
+      
+      // 파싱 실패 시 기본 구조로 처리
+      secondaryAnalysis = {
+        market_research_insights: {
+          target_market_definition: 'AI 분석 결과 파싱에 실패했습니다. 원본 응답을 확인해주세요.',
+          market_size_analysis: '분석 결과를 확인할 수 없습니다.',
+          competitive_landscape: '분석 결과를 확인할 수 없습니다.',
+          market_trends: '분석 결과를 확인할 수 없습니다.',
+          entry_barriers: '분석 결과를 확인할 수 없습니다.',
+          go_to_market_strategy: '분석 결과를 확인할 수 없습니다.'
+        },
+        persona_analysis_insights: {
+          primary_persona: {
+            name: '분석 결과를 확인할 수 없습니다.',
+            demographics: '분석 결과를 확인할 수 없습니다.',
+            psychographics: '분석 결과를 확인할 수 없습니다.',
+            goals: '분석 결과를 확인할 수 없습니다.',
+            frustrations: '분석 결과를 확인할 수 없습니다.'
+          },
+          secondary_personas: [],
+          user_journey_mapping: '분석 결과를 확인할 수 없습니다.',
+          pain_points: [],
+          behavioral_patterns: '분석 결과를 확인할 수 없습니다.',
+          engagement_strategies: '분석 결과를 확인할 수 없습니다.'
+        },
+        raw_response: aiResponse
+      }
     }
 
-    // 2차 분석 결과를 데이터베이스에 저장
-    const { data: _updatedAnalysis, error: updateError } = await supabaseAdmin
+    // 데이터베이스 업데이트 - secondary_analysis 필드에 저장
+    const { data: updatedAnalysis, error: updateError } = await supabase
       .from('rfp_analyses')
       .update({
-        secondary_analysis: secondaryAnalysisData,
-        answers_analyzed: true,
-        secondary_analysis_completed_at: new Date().toISOString(),
+        secondary_analysis: secondaryAnalysis,
+        follow_up_answers: answers,
         updated_at: new Date().toISOString()
       })
-      .eq('id', rfp_analysis_id)
+      .eq('id', rfpAnalysisId)
       .select()
       .single()
 
     if (updateError) {
-      console.error('❌ Failed to save secondary analysis:', updateError)
-      throw new Error(`2차 분석 저장 실패: ${updateError.message}`)
+      console.error('데이터베이스 업데이트 오류:', updateError)
+      return NextResponse.json({ 
+        error: '2차 분석 결과 저장에 실패했습니다.',
+        details: updateError.message
+      }, { status: 500 })
     }
 
-    console.log('✅ Secondary analysis saved successfully')
-    
+    console.log('✅ 2차 AI 분석 완료 및 DB 저장 성공')
+
     return NextResponse.json({
       success: true,
-      message: '2차 AI 분석이 성공적으로 완료되었습니다.',
-      secondary_analysis: secondaryAnalysisData,
-      market_research_ready: true,
-      persona_analysis_ready: true
+      data: {
+        secondary_analysis: secondaryAnalysis,
+        rfp_analysis: updatedAnalysis
+      },
+      message: '2차 AI 분석이 완료되었습니다.'
     })
 
   } catch (error) {
-    console.error('💥 Secondary analysis error:', error)
-    
-    return NextResponse.json(
-      { 
-        success: false,
-        message: error instanceof Error ? error.message : '2차 분석 중 오류가 발생했습니다.',
-        error: error instanceof Error ? error.message : String(error)
-      },
-      { status: 500 }
-    )
+    console.error('❌ 2차 AI 분석 실패:', error)
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      details: '2차 AI 분석 중 오류가 발생했습니다.',
+      timestamp: new Date().toISOString()
+    }, { status: 500 })
   }
 }

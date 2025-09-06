@@ -402,22 +402,25 @@ async function performRFPAnalysis(extractedText: string, options: any, userId: s
       estimatedTokens: Math.ceil(processedText.length / 4)
     })
 
-    // RFP 분석을 위한 프롬프트 생성
+    // RFP 분석을 위한 프롬프트 생성 - 기획/디자인/퍼블리싱/개발 관점 강화
     const analysisPrompt = `
-다음 RFP(제안요청서) 문서를 상세히 분석하고, JSON 형식으로 결과를 제공해주세요.
+다음 RFP(제안요청서) 문서를 기획, 디자인, 퍼블리싱, 개발 관점에서 종합적으로 분석하고, JSON 형식으로 결과를 제공해주세요.
 
 === RFP 문서 내용 ===
 ${processedText}
 
 === 분석 요구사항 ===
-위 RFP 문서를 분석하여 다음 형식의 JSON 결과를 제공해주세요:
+위 RFP 문서를 기획/디자인/퍼블리싱/개발의 4가지 관점에서 심층 분석하여 다음 형식의 JSON 결과를 제공해주세요:
 
 {
   "project_overview": {
     "title": "프로젝트 제목",
     "description": "프로젝트 상세 설명", 
     "scope": "프로젝트 범위",
-    "objectives": ["목표1", "목표2", "목표3"]
+    "objectives": ["목표1", "목표2", "목표3"],
+    "project_type": "web_application|mobile_app|desktop_app|api_service|platform",
+    "target_market": "B2B|B2C|B2G|internal",
+    "complexity_level": "simple|moderate|complex|enterprise"
   },
   "functional_requirements": [
     {
@@ -426,7 +429,12 @@ ${processedText}
       "priority": "critical|high|medium|low",
       "category": "카테고리",
       "acceptance_criteria": ["기준1", "기준2"],
-      "estimated_effort": 예상작업일수
+      "estimated_effort": 예상작업일수,
+      "planning_considerations": "기획 관점에서의 고려사항",
+      "design_implications": "디자인에 미치는 영향",
+      "frontend_requirements": "퍼블리싱/프론트엔드 요구사항",
+      "backend_requirements": "백엔드/개발 요구사항",
+      "user_impact": "사용자 경험에 미치는 영향도 (1-5)"
     }
   ],
   "non_functional_requirements": [
@@ -434,9 +442,11 @@ ${processedText}
       "title": "비기능 요구사항 제목",
       "description": "상세 설명",
       "priority": "critical|high|medium|low", 
-      "category": "성능|보안|사용성|확장성",
+      "category": "성능|보안|사용성|확장성|호환성",
       "acceptance_criteria": ["기준1", "기준2"],
-      "estimated_effort": 예상작업일수
+      "estimated_effort": 예상작업일수,
+      "technical_constraints": "기술적 제약사항",
+      "architecture_impact": "아키텍처에 미치는 영향"
     }
   ],
   "technical_specifications": {
@@ -446,38 +456,100 @@ ${processedText}
     "performance_requirements": {
       "응답시간": "< 3초",
       "처리량": "1000 req/min", 
-      "가용성": "99.9%"
-    }
+      "가용성": "99.9%",
+      "동시사용자": "예상 동시접속자 수",
+      "데이터용량": "예상 데이터 처리량"
+    },
+    "security_requirements": ["보안요구사항1", "보안요구사항2"],
+    "compliance_requirements": ["규정준수사항1", "규정준수사항2"]
   },
   "business_requirements": {
     "budget_range": "예산 범위",
     "timeline": "프로젝트 기간",
     "target_users": ["사용자그룹1", "사용자그룹2"],
-    "success_metrics": ["성공지표1", "성공지표2"]
+    "success_metrics": ["성공지표1", "성공지표2"],
+    "roi_expectations": "ROI 기대치 및 비즈니스 가치",
+    "market_positioning": "시장에서의 포지셔닝"
+  },
+  "development_perspectives": {
+    "planning_insights": {
+      "user_research_needs": ["사용자 리서치 필요사항"],
+      "feature_prioritization": "기능 우선순위 방법론",
+      "stakeholder_management": "이해관계자 관리 방안",
+      "project_methodology": "추천 프로젝트 방법론 (agile|waterfall|hybrid)",
+      "timeline_considerations": ["일정 고려사항"]
+    },
+    "design_insights": {
+      "ui_ux_requirements": ["UI/UX 요구사항"],
+      "design_system_needs": "디자인 시스템 필요성 및 범위",
+      "accessibility_requirements": ["접근성 요구사항"],
+      "responsive_design": "반응형 디자인 필요성",
+      "branding_guidelines": "브랜딩 가이드라인 필요사항",
+      "user_journey_complexity": "사용자 여정 복잡도 (1-5)"
+    },
+    "frontend_insights": {
+      "framework_recommendations": ["추천 프론트엔드 프레임워크"],
+      "component_architecture": "컴포넌트 아키텍처 요구사항",
+      "state_management_needs": "상태관리 필요성",
+      "performance_optimization": ["성능 최적화 요구사항"],
+      "browser_support": ["지원 브라우저"],
+      "responsive_breakpoints": ["반응형 브레이크포인트"],
+      "animation_requirements": ["애니메이션 요구사항"]
+    },
+    "backend_insights": {
+      "architecture_pattern": "추천 아키텍처 패턴",
+      "database_requirements": ["데이터베이스 요구사항"],
+      "api_design_needs": ["API 설계 요구사항"],
+      "scalability_considerations": ["확장성 고려사항"],
+      "infrastructure_needs": ["인프라 요구사항"],
+      "third_party_integrations": ["3rd party 연동 요구사항"],
+      "data_processing_needs": ["데이터 처리 요구사항"]
+    }
   },
   "keywords": [
-    {"term": "키워드", "importance": 0.95, "category": "business|technical|functional"}
+    {"term": "키워드", "importance": 0.95, "category": "business|technical|functional|design"}
   ],
   "risk_factors": [
     {
       "factor": "위험요소 설명",
       "level": "high|medium|low",
-      "mitigation": "완화방안"
+      "mitigation": "완화방안",
+      "impact_area": "planning|design|frontend|backend|business",
+      "probability": "확률 (1-5)",
+      "impact": "영향도 (1-5)"
     }
   ],
   "questions_for_client": [
     "고객에게 확인할 질문1",
     "고객에게 확인할 질문2"
   ],
+  "project_complexity_analysis": {
+    "overall_complexity": "전체 복잡도 (1-10)",
+    "planning_complexity": "기획 복잡도 (1-10)",
+    "design_complexity": "디자인 복잡도 (1-10)", 
+    "frontend_complexity": "프론트엔드 복잡도 (1-10)",
+    "backend_complexity": "백엔드 복잡도 (1-10)",
+    "integration_complexity": "연동 복잡도 (1-10)"
+  },
+  "estimated_timeline": {
+    "planning_phase": "기획 단계 예상 기간 (주)",
+    "design_phase": "디자인 단계 예상 기간 (주)",
+    "development_phase": "개발 단계 예상 기간 (주)",
+    "testing_phase": "테스트 단계 예상 기간 (주)",
+    "deployment_phase": "배포 단계 예상 기간 (주)",
+    "total_timeline": "전체 예상 기간 (주)"
+  },
   "confidence_score": 0.85
 }
 
 분석 시 주의사항:
 1. 모든 텍스트는 한국어로 작성
 2. 실제 문서 내용을 기반으로 분석 (가상의 내용 생성 금지)
-3. 우선순위는 문서에 명시된 중요도를 반영
-4. confidence_score는 분석의 확신도 (0.0-1.0)
-5. 각 항목에 고유 ID는 자동 생성되므로 포함하지 않음
+3. 기획/디자인/퍼블리싱/개발 각 관점에서 실무적이고 구체적인 인사이트 제공
+4. 우선순위는 문서에 명시된 중요도를 반영
+5. confidence_score는 분석의 확신도 (0.0-1.0)
+6. 복잡도와 예상 기간은 실제 프로젝트 경험을 바탕으로 현실적으로 제시
+7. 각 항목에 고유 ID는 자동 생성되므로 포함하지 않음
 
 JSON 결과만 반환해주세요:
 `
