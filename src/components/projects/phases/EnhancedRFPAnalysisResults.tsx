@@ -19,7 +19,9 @@ import {
   BrainCircuit,
   Lightbulb,
   BarChart3,
-  UserSearch
+  UserSearch,
+  Sparkles,
+  User
 } from 'lucide-react'
 import type { RFPAnalysis, AnalysisQuestion } from '@/types/rfp-analysis'
 
@@ -330,6 +332,12 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       
       // 2차 AI 분석 실행 (시장조사, 페르소나 분석, 제안서 작성)
       await triggerSecondaryAnalysis(selectedAnalysis.analysis.id, updatedQuestions)
+      
+      // 답변 저장 완료 후 자동으로 다음 단계 진행
+      setTimeout(() => {
+        console.log('🔄 [자동진행] 답변 저장 완료 후 시장조사 단계로 자동 전환...')
+        handleNextStepTransition('market_research')
+      }, 2500) // 2.5초 후 자동 진행
       
     } catch (error) {
       console.error('❌ [답변저장] 실패:', error)
@@ -885,133 +893,6 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     )
   }
 
-  // 후속 질문 렌더링 함수
-  const renderFollowUpQuestions = (analysisData: AnalysisData) => {
-    const { follow_up_questions, questionnaire_completed, next_step_ready } = analysisData
-
-    return (
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            AI 후속 질문
-          </h3>
-          {questionnaire_completed && (
-            <div className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-4 w-4" />
-              <span className="text-sm font-medium">답변 완료</span>
-            </div>
-          )}
-        </div>
-
-        {follow_up_questions.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="flex items-center justify-center mb-4">
-              <Loader className="h-6 w-6 animate-spin text-blue-600" />
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">
-              AI가 후속 질문을 생성 중입니다...
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* 질문 목록 */}
-            <div className="space-y-4">
-              {follow_up_questions.map((question: any, index: number) => (
-                <div key={question.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                        {question.question_text}
-                      </h4>
-                      
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded">
-                          {question.category}
-                        </span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          question.importance === 'high' ? 'bg-red-100 text-red-600' :
-                          question.importance === 'medium' ? 'bg-yellow-100 text-yellow-600' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {question.importance}
-                        </span>
-                      </div>
-
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                        {question.purpose}
-                      </p>
-
-                      {question.user_answer && (
-                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded p-3">
-                          <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
-                            답변:
-                          </p>
-                          <p className="text-sm text-green-700 dark:text-green-300">
-                            {question.user_answer}
-                          </p>
-                          <p className="text-xs text-green-600 dark:text-green-400 mt-2">
-                            답변 시간: {question.answered_at ? new Date(question.answered_at).toLocaleString('ko-KR') : ''}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 액션 버튼 */}
-            {!questionnaire_completed && (
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setShowQuestionnaire(true)}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  답변 작성하기
-                </Button>
-              </div>
-            )}
-
-            {/* 다음 단계 진행 버튼 */}
-            {questionnaire_completed && next_step_ready && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle className="h-5 w-5 text-blue-600" />
-                  <h4 className="font-medium text-blue-900 dark:text-blue-100">
-                    다음 단계 준비 완료
-                  </h4>
-                </div>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                  RFP 분석과 후속 질문 답변이 완료되어 시장 조사 또는 페르소나 분석으로 진행할 수 있습니다.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleNextStepTransition('market_research')}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    시장 조사 시작
-                  </Button>
-                  <Button
-                    onClick={() => handleNextStepTransition('persona_analysis')}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    페르소나 분석 시작
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
-    )
-  }
 
   const renderAnalysisOverview = (analysis: RFPAnalysis) => {
     return (
@@ -1286,6 +1167,186 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           </p>
         </Card>
       </div>
+    )
+  }
+
+  // 후속 질문과 답변 렌더링 함수
+  const renderFollowUpQuestions = (analysisData: AnalysisData) => {
+    const questions = analysisData.follow_up_questions
+    
+    if (!questions || questions.length === 0) {
+      return (
+        <Card className="p-6 text-center">
+          <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            후속 질문이 없습니다
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            AI가 자동으로 후속 질문을 생성 중입니다...
+          </p>
+          <div className="flex justify-center">
+            <Loader className="h-6 w-6 animate-spin text-blue-600" />
+          </div>
+        </Card>
+      )
+    }
+
+    // 답변 완료 여부 확인
+    const answeredQuestions = questions.filter(q => (q as any).user_answer && (q as any).user_answer.trim())
+    const totalQuestions = questions.length
+    const completionRate = totalQuestions > 0 ? (answeredQuestions.length / totalQuestions) * 100 : 0
+    const isCompleted = answeredQuestions.length === totalQuestions
+
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <MessageSquare className="h-6 w-6 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              후속 질문 및 답변
+            </h3>
+            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+              {totalQuestions}개 질문
+            </span>
+          </div>
+          
+          {!isCompleted && (
+            <Button
+              onClick={() => setShowQuestionnaire(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              질문 답변하기
+            </Button>
+          )}
+        </div>
+
+        {/* 진행률 표시 */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              답변 완료율
+            </span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {answeredQuestions.length} / {totalQuestions}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div 
+              className={`h-2 rounded-full transition-all duration-300 ${
+                isCompleted ? 'bg-green-600' : 'bg-blue-600'
+              }`}
+              style={{ width: `${completionRate}%` }}
+            />
+          </div>
+          {isCompleted && (
+            <div className="flex items-center gap-2 mt-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-600 font-medium">
+                모든 질문 답변 완료
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 질문과 답변 목록 */}
+        <div className="space-y-4">
+          {questions.map((question, index) => {
+            const hasAnswer = (question as any).user_answer && (question as any).user_answer.trim()
+            const answerType = (question as any).answer_type || 'user'
+            
+            return (
+              <div 
+                key={question.id} 
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900"
+              >
+                {/* 질문 */}
+                <div className="mb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-sm font-medium">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                        {question.question_text || question.question}
+                      </h4>
+                      {question.context && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {question.context}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 답변 */}
+                {hasAnswer ? (
+                  <div className="ml-9 bg-white dark:bg-gray-800 rounded-lg p-4 border-l-4 border-green-500">
+                    <div className="flex items-center gap-2 mb-2">
+                      {answerType === 'ai' ? (
+                        <Sparkles className="h-4 w-4 text-purple-600" />
+                      ) : (
+                        <User className="h-4 w-4 text-blue-600" />
+                      )}
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {answerType === 'ai' ? 'AI 답변' : '사용자 답변'}
+                      </span>
+                      {(question as any).answered_at && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date((question as any).answered_at).toLocaleDateString('ko-KR')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {(question as any).user_answer}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="ml-9 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-sm">답변이 필요합니다</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* 다음 단계 버튼 */}
+        {isCompleted && analysisData.next_step_ready && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="font-medium text-green-700 dark:text-green-300">
+                  답변 완료! 다음 단계로 진행할 수 있습니다
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                모든 후속 질문에 대한 답변이 완료되었습니다. 이제 시장 조사나 페르소나 분석을 시작할 수 있습니다.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleNextStepTransition('market_research')}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  시장 조사 시작
+                </Button>
+                <Button
+                  onClick={() => handleNextStepTransition('persona_analysis')}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  <UserSearch className="h-4 w-4 mr-2" />
+                  페르소나 분석 시작
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
     )
   }
 
