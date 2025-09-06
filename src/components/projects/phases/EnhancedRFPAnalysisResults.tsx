@@ -79,14 +79,24 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     try {
       console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
 
-      // 프로젝트 복잡성에 따라 질문 수 동적 결정
-      const currentAnalysis = analysisData.find(data => data.analysis.id === analysisId)
-      const complexity = (currentAnalysis?.analysis as any)?.analysis_data || {}
+      // 분석 데이터를 직접 DB에서 조회해서 복잡성 계산
+      const { data: analysisRecord, error: analysisError } = await supabase
+        .from('rfp_analyses')
+        .select('*')
+        .eq('id', analysisId)
+        .single()
+      
+      if (analysisError) {
+        console.error('❌ [후속질문-AI] 분석 데이터 조회 실패:', analysisError)
+        // 기본값으로 진행
+      }
+      
+      const complexity = (analysisRecord as any)?.functional_requirements || (analysisRecord as any)?.technical_requirements || {}
       
       // 복잡성 점수 계산 (간단한 휴리스틱)
-      const functionalReqs = complexity.functional_requirements?.length || 0
-      const technicalReqs = complexity.technical_requirements?.length || 0
-      const keywords = complexity.keywords?.length || 0
+      const functionalReqs = (analysisRecord as any)?.functional_requirements?.length || 0
+      const technicalReqs = (analysisRecord as any)?.technical_requirements?.length || 0
+      const keywords = (analysisRecord as any)?.keywords?.length || 0
       const complexityScore = functionalReqs + technicalReqs + Math.floor(keywords / 3)
       
       // 복잡성에 따른 질문 수 결정
@@ -132,11 +142,22 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
         
         if (questions.length > 0) {
-          setAnalysisData(prev => prev.map(data => 
-            data.analysis.id === analysisId 
-              ? { ...data, follow_up_questions: questions }
-              : data
-          ))
+          // 무한 루프 방지: 상태 업데이트를 한 번만 수행하고 다시 트리거되지 않도록 설정
+          setAnalysisData(prev => {
+            const updated = prev.map(data => 
+              data.analysis.id === analysisId 
+                ? { ...data, follow_up_questions: questions }
+                : data
+            )
+            // 업데이트가 실제로 발생했는지 확인
+            const hasChanged = prev.some(data => 
+              data.analysis.id === analysisId && data.follow_up_questions.length !== questions.length
+            )
+            if (hasChanged) {
+              console.log('🔄 [후속질문-AI] 상태 업데이트 완료:', questions.length, '개')
+            }
+            return updated
+          })
         } else {
           console.warn('⚠️ [후속질문-AI] 생성된 질문이 없습니다.')
         }
@@ -158,7 +179,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       })
       alert(`후속 질문 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }, [setAnalysisData, analysisData])
+  }, [])
 
   // 후속 질문 로드 함수 (두 번째 - generateAIFollowUpQuestions에 의존)
   const _loadFollowUpQuestions = useCallback(async (analysisId: string) => {
@@ -239,7 +260,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }, [generateAIFollowUpQuestions])
 
-  // 분석 결과 조회 함수 (세 번째 - loadFollowUpQuestions에 의존)
+  // 분석 결과 조회 함수 (세 번째 - 무한루프 방지 버전)
   const fetchAnalysisResults = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -336,11 +357,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       if (analysisDataList.length > 0) {
         setSelectedAnalysis(analysisDataList[0])
         
-        // DB에 후속 질문이 없으면 자동 생성 트리거
+        // DB에 후속 질문이 없으면 자동 생성 트리거 - 별도 실행으로 무한루프 방지
         const firstAnalysis = analysisDataList[0]
         if (firstAnalysis.follow_up_questions.length === 0) {
           console.log('🤖 [분석데이터] 후속 질문이 없어 자동 생성 트리거')
-          await generateAIFollowUpQuestions(firstAnalysis.analysis.id)
+          // setTimeout으로 비동기 실행하여 현재 렌더링 사이클과 분리
+          setTimeout(() => {
+            generateAIFollowUpQuestions(firstAnalysis.analysis.id)
+          }, 100)
         } else {
           console.log('✅ [분석데이터] 기존 후속 질문 발견:', firstAnalysis.follow_up_questions.length, '개')
         }
@@ -350,7 +374,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, generateAIFollowUpQuestions])
+  }, [projectId])
 
   useEffect(() => {
     fetchAnalysisResults()
