@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     const analysisResult = analysisResultWithUsage.analysisResult
     totalTokensUsed += analysisResultWithUsage.tokensUsed || 0
 
-    // 분석 결과 저장 (Service Role 사용)
+    // 분석 결과 저장 (Service Role 사용) - 4가지 관점 분석 포함
     const { data: analysisData, error: analysisError } = await supabaseAdmin
       .from('rfp_analyses')
       .insert({
@@ -174,7 +174,12 @@ export async function POST(request: NextRequest) {
         keywords: analysisResult.keywords,
         risk_factors: analysisResult.risk_factors,
         questions_for_client: analysisResult.questions_for_client,
-        confidence_score: analysisResult.confidence_score
+        confidence_score: analysisResult.confidence_score,
+        // 4가지 관점 심층 분석 결과 저장
+        planning_analysis: analysisResult.planning_insights || {},
+        design_analysis: analysisResult.design_insights || {},
+        publishing_analysis: analysisResult.frontend_insights || {},
+        development_analysis: analysisResult.backend_insights || {}
       })
       .select()
       .single()
@@ -204,6 +209,22 @@ export async function POST(request: NextRequest) {
         followUpQuestions = await questionGenerator.generateMarketResearchQuestions(analysisData as any)
         
         console.log('RFP Analysis: Generated follow-up questions:', followUpQuestions.length)
+        
+        // 후속 질문을 DB에 저장
+        if (followUpQuestions.length > 0) {
+          const { error: updateError } = await supabaseAdmin
+            .from('rfp_analyses')
+            .update({
+              follow_up_questions: followUpQuestions
+            })
+            .eq('id', analysisData.id)
+            
+          if (updateError) {
+            console.error('Follow-up questions save error:', updateError)
+          } else {
+            console.log('✅ Follow-up questions saved to DB')
+          }
+        }
         
       } catch (error) {
         console.error('Question generation error:', error)
