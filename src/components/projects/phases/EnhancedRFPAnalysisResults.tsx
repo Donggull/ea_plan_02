@@ -217,7 +217,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           console.log('📊 [분석데이터] 로드된 분석:', analysis.id)
           
           // analysis_questions 테이블에서 AI 생성 답변을 포함한 질문들 로드
-          const { data: detailedQuestions, error: questionsError } = await supabase
+          const { data: detailedQuestions, error: questionsError } = await (supabase as any)
             .from('analysis_questions')
             .select('*')
             .eq('rfp_analysis_id', analysis.id)
@@ -229,7 +229,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             console.log('🤖 [분석데이터] analysis_questions에서 AI 답변 포함 질문 로드:', detailedQuestions.length, '개')
             
             // analysis_questions에서 로드한 데이터를 기본으로 사용
-            finalQuestions = detailedQuestions.map(q => {
+            finalQuestions = detailedQuestions.map((q: any) => {
               const questionRecord = q as any // TypeScript 타입 오류 회피
               return {
                 id: questionRecord.id,
@@ -434,7 +434,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       console.log('💾 [질문답변] 질문 답변 저장 중 (타입 정보 포함)...', { analysisId, answersWithTypes })
       
       // analysis_questions 테이블에서 질문들 조회
-      const { data: questions, error: questionsError } = await supabase
+      const { data: questions, error: questionsError } = await (supabase as any)
         .from('analysis_questions')
         .select('*')
         .eq('rfp_analysis_id', analysisId)
@@ -455,11 +455,11 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         return question
       })
 
-      // analysis_questions 테이블 업데이트
-      const updatePromises = updatedQuestions.map(question => {
+      // analysis_questions 테이블 업데이트 (TypeScript 타입 오류 회피를 위해 as any 사용)
+      const updatePromises = updatedQuestions.map((question: any) => {
         const answerData = answersWithTypes[question.id]
         if (answerData) {
-          return supabase
+          return (supabase as any)
             .from('analysis_questions')
             .update({
               user_answer: answerData.answer,
