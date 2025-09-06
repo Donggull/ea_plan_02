@@ -91,7 +91,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         // 기본값으로 진행
       }
       
-      const complexity = (analysisRecord as any)?.functional_requirements || (analysisRecord as any)?.technical_requirements || {}
+      // const complexity = (analysisRecord as any)?.functional_requirements || (analysisRecord as any)?.technical_requirements || {}
       
       // 복잡성 점수 계산 (간단한 휴리스틱)
       const functionalReqs = (analysisRecord as any)?.functional_requirements?.length || 0
@@ -293,7 +293,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             .from('analysis_questions')
             .select('*')
             .eq('rfp_analysis_id', analysis.id)
-            .order('order_index')
+            .order('created_at', { ascending: true })
 
           let finalQuestions = analysisWithFollowUp.follow_up_questions || []
           
@@ -379,7 +379,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId])
+  }, [projectId, selectedAnalysis?.analysis.id])
 
   useEffect(() => {
     fetchAnalysisResults()
@@ -423,17 +423,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       console.log('✅ [답변저장] 완료 - 다음 단계 준비')
       
-      // 2차 AI 분석 실행 (시장조사, 페르소나 분석, 제안서 작성)
-      await triggerSecondaryAnalysis(selectedAnalysis.analysis.id, updatedQuestions)
-      
       // 답변 저장 후 최신 데이터를 다시 로드하여 UI에 반영
       console.log('🔄 [데이터새로고침] 답변 저장 후 최신 데이터 다시 로드...')
       await fetchAnalysisResults()
       
-      // 모달 닫기
+      // 데이터 로드 완료 후 모달 닫기
       setShowQuestionnaire(false)
       
       console.log('✅ [답변저장] 모든 과정 완료 - 분석 결과 페이지에서 답변 확인 가능')
+      
+      // 2차 AI 분석은 별도로 실행 (자동 이동 없이)
+      console.log('💡 [안내] 답변 완료! 이제 시장조사나 페르소나 분석을 수동으로 시작할 수 있습니다.')
       
     } catch (error) {
       console.error('❌ [답변저장] 실패:', error)
@@ -441,96 +441,6 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }
 
-  // 2차 AI 분석 트리거 함수 - 시장조사 자동 실행
-  const triggerSecondaryAnalysis = async (analysisId: string, _updatedQuestions: AnalysisQuestion[]) => {
-    try {
-      console.log('🚀 [2차분석] 시장조사 자동 분석 시작:', analysisId)
-      
-      // DB에서 최신 답변 정보를 다시 조회 (저장 직후 최신 상태 확보)
-      const { data: latestQuestions, error: questionsError } = await (supabase as any)
-        .from('analysis_questions')
-        .select('*')
-        .eq('rfp_analysis_id', analysisId)
-        .order('order_index')
-      
-      if (questionsError) {
-        console.error('❌ [2차분석] 최신 질문 데이터 조회 실패:', questionsError)
-        throw questionsError
-      }
-
-      console.log('📋 [2차분석] 조회된 최신 질문 데이터:', latestQuestions.map((q: any) => ({
-        id: q.id,
-        question_text: q.question_text,
-        answer_type: q.answer_type,
-        user_answer: q.user_answer ? q.user_answer.substring(0, 50) + '...' : 'null',
-        ai_generated_answer: q.ai_generated_answer ? q.ai_generated_answer.substring(0, 50) + '...' : 'null'
-      })))
-      
-      // 질문-답변 쌍 생성 (answer_type에 따라 적절한 답변 선택)
-      const questionResponses = latestQuestions
-        .filter((q: any) => {
-          // answer_type에 따라 적절한 답변이 있는지 확인
-          const userAnswer = q.user_answer
-          const aiAnswer = q.ai_generated_answer
-          const answerType = q.answer_type || 'user'
-          
-          if (answerType === 'ai') {
-            return aiAnswer && aiAnswer.trim()
-          } else if (answerType === 'user') {
-            return userAnswer && userAnswer.trim()
-          }
-          
-          // fallback
-          return (userAnswer && userAnswer.trim()) || (aiAnswer && aiAnswer.trim())
-        })
-        .map((q: any) => {
-          // answer_type에 따라 적절한 답변 선택
-          const userAnswer = q.user_answer || ''
-          const aiAnswer = q.ai_generated_answer || ''
-          const answerType = q.answer_type || 'user'
-          
-          let finalAnswer = ''
-          if (answerType === 'ai' && aiAnswer.trim()) {
-            finalAnswer = aiAnswer
-          } else if (answerType === 'user' && userAnswer.trim()) {
-            finalAnswer = userAnswer
-          } else if (userAnswer.trim()) {
-            finalAnswer = userAnswer
-          } else if (aiAnswer.trim()) {
-            finalAnswer = aiAnswer
-          }
-
-          return {
-            question_id: q.id,
-            question_text: q.question_text || q.question || '',
-            response: finalAnswer,
-            category: q.category || 'general'
-          }
-        })
-
-      console.log('📝 [2차분석] 필터링된 질문-답변 쌍:', questionResponses.length, '개')
-      questionResponses.forEach((qr: any, index: number) => {
-        console.log(`  ${index + 1}. Q: ${qr.question_text.substring(0, 50)}...`)
-        console.log(`     A: ${qr.response.substring(0, 50)}...`)
-      })
-
-      if (questionResponses.length === 0) {
-        console.warn('⚠️ [2차분석] 답변이 없어 시장조사 분석을 건너뜁니다.')
-        return
-      }
-
-      console.log('📝 [2차분석] 시장조사 API 호출 데이터:', {
-        project_id: projectId,
-        rfp_analysis_id: analysisId,
-        question_responses: questionResponses
-      })
-
-      console.log('✅ [후속질문 저장 완료] 질문-답변 데이터가 성공적으로 저장되었습니다.')
-      console.log('💡 [시장조사/페르소나] 해당 탭에서 RFP 분석 결과를 선택하여 진행할 수 있습니다.')
-    } catch (error) {
-      console.error('❌ [후속질문 저장] 저장 중 오류 발생:', error)
-    }
-  }
 
   // 후속 질문 답변 저장 함수
   // 새로운 답변 저장 함수 - 타입 정보 포함
@@ -551,7 +461,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         .from('analysis_questions')
         .select('*')
         .eq('rfp_analysis_id', analysisId)
-        .order('order_index')
+        .order('created_at', { ascending: true })
 
       if (questionsError) throw questionsError
 
