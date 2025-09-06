@@ -80,15 +80,11 @@ export function IntegratedAnswerModal({
     }
   }
 
-  // 답변 완료 여부 확인 (수정)
-  const getAnsweredCount = () => {
+  // AI 답변 선택된 개수 확인
+  const getAISelectedCount = () => {
     let count = 0
     questions.forEach(question => {
-      const answerType = selectedAnswerTypes[question.id]
-      const hasUserAnswer = userAnswers[question.id]?.trim()
-      const hasAIAnswer = (question as any).ai_generated_answer
-      
-      if ((answerType === 'user' && hasUserAnswer) || (answerType === 'ai' && hasAIAnswer)) {
+      if (selectedAnswerTypes[question.id] === 'ai') {
         count++
       }
     })
@@ -127,6 +123,17 @@ export function IntegratedAnswerModal({
     console.log('✅ [전체AI선택] 모든 질문을 AI 답변으로 선택 완료:', questions.length, '개')
   }
 
+  // 전체 AI 답변 선택 취소
+  const clearAllAIAnswers = () => {
+    const allUserTypes: {[key: string]: 'user' | 'ai'} = {}
+    questions.forEach(question => {
+      allUserTypes[question.id] = 'user'
+    })
+    setSelectedAnswerTypes(allUserTypes)
+    
+    console.log('🔄 [전체AI취소] 모든 질문을 사용자 답변으로 변경 완료:', questions.length, '개')
+  }
+
 
   // AI 답변 선택 (DB 호출 없이 선택만)
   const generateAIAnswer = (questionId: string) => {
@@ -149,32 +156,33 @@ export function IntegratedAnswerModal({
   }
 
   const validateAnswers = () => {
+    // 진행률과 관계없이 저장할 수 있도록 유효성 검사 단순화
+    // 사용자 답변이 선택되었지만 입력되지 않은 경우만 체크
     const newErrors: {[key: string]: string} = {}
     
     questions.forEach(question => {
       const answerType = selectedAnswerTypes[question.id]
-      const hasAIAnswer = (question as any).ai_generated_answer
       
       if (answerType === 'user') {
         const userAnswer = userAnswers[question.id]?.trim()
         if (!userAnswer) {
-          newErrors[question.id] = '사용자 답변을 입력하거나 AI 답변을 선택해주세요.'
-        } else if (userAnswer.length < 5) {
-          newErrors[question.id] = '답변을 더 구체적으로 작성해주세요. (최소 5자 이상)'
+          // 오류는 표시하지만 저장은 차단하지 않음
+          newErrors[question.id] = '답변을 입력해주세요.'
+        } else if (userAnswer.length < 3) {
+          newErrors[question.id] = '답변을 더 구체적으로 작성해주세요. (최소 3자 이상)'
         }
-      } else if (answerType === 'ai' && !hasAIAnswer) {
-        newErrors[question.id] = 'AI 답변이 아직 생성되지 않았습니다.'
       }
+      // AI 답변의 경우 검증하지 않음 (항상 유효)
     })
     
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    // 저장은 항상 가능하도록 true 반환
+    return true
   }
 
   const handleSave = async () => {
-    if (!validateAnswers()) {
-      return
-    }
+    // 유효성 검사는 실행하되 저장은 차단하지 않음
+    validateAnswers()
 
     setIsSaving(true)
     try {
@@ -193,11 +201,10 @@ export function IntegratedAnswerModal({
           finalAnswer = userAnswers[question.id] || ''
         }
         
-        if (finalAnswer.trim()) {
-          answersWithTypes[question.id] = {
-            answer: finalAnswer.trim(),
-            type: answerType
-          }
+        // 빈 답변이어도 저장 (부분 저장 허용)
+        answersWithTypes[question.id] = {
+          answer: finalAnswer.trim(),
+          type: answerType
         }
       })
       
@@ -206,15 +213,14 @@ export function IntegratedAnswerModal({
       onClose()
     } catch (error) {
       console.error('답변 저장 실패:', error)
-      alert('답변 저장 중 오륙가 발생했습니다.')
+      alert('답변 저장 중 오류가 발생했습니다.')
     } finally {
       setIsSaving(false)
     }
   }
 
-  const answeredCount = getAnsweredCount()
+  const aiSelectedCount = getAISelectedCount()
   const totalCount = questions.length
-  const isComplete = answeredCount === totalCount && Object.keys(errors).length === 0
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -238,24 +244,18 @@ export function IntegratedAnswerModal({
           </Button>
         </div>
 
-        {/* 진행률 및 전체 선택 */}
+        {/* AI 답변 선택 현황 및 전체 선택 */}
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              답변 진행률
+              AI 답변 선택 현황
             </span>
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {answeredCount} / {totalCount}
+            <span className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
+              {aiSelectedCount} / {totalCount}개 선택
             </span>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
-            <div 
-              className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(answeredCount / totalCount) * 100}%` }}
-            />
           </div>
           
-          {/* 전체 선택 버튼 */}
+          {/* 전체 선택/취소 버튼 */}
           <div className="flex items-center gap-3 justify-center">
             <Button
               onClick={selectAllAIAnswers}
@@ -266,6 +266,17 @@ export function IntegratedAnswerModal({
               <Sparkles className="h-3 w-3 mr-1" />
               모든 AI 답변 선택
             </Button>
+            {aiSelectedCount > 0 && (
+              <Button
+                onClick={clearAllAIAnswers}
+                variant="outline"
+                size="sm"
+                className="text-xs text-gray-600 hover:text-gray-800"
+              >
+                <X className="h-3 w-3 mr-1" />
+                AI 답변 선택 취소
+              </Button>
+            )}
           </div>
         </div>
 
@@ -424,14 +435,15 @@ export function IntegratedAnswerModal({
         {/* 푸터 */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            {isComplete ? (
-              <div className="flex items-center text-green-600 dark:text-green-400">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                모든 답변이 완료되었습니다
-              </div>
-            ) : (
-              `${totalCount - answeredCount}개 질문이 남았습니다`
-            )}
+            <div className="flex items-center gap-4">
+              <span>총 {totalCount}개 질문</span>
+              {aiSelectedCount > 0 && (
+                <div className="flex items-center text-blue-600 dark:text-blue-400">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  <span>AI 답변 {aiSelectedCount}개 선택</span>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="flex gap-3">
@@ -444,7 +456,7 @@ export function IntegratedAnswerModal({
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isSaving || !isComplete}
+              disabled={isSaving}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               {isSaving ? (
