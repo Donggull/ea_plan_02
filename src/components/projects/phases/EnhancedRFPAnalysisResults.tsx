@@ -444,42 +444,10 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         question_responses: questionResponses
       })
 
-      // 시장조사 자동 분석 실행
-      const marketResearchResponse = await fetch('/api/market-research/ai-analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          rfp_analysis_id: analysisId,
-          question_responses: questionResponses,
-          selected_model_id: 'claude-3-5-sonnet-20241022' // 기본 모델 설정
-        })
-      })
-
-      if (!marketResearchResponse.ok) {
-        const errorData = await marketResearchResponse.json()
-        throw new Error(`시장조사 분석 실패: ${errorData.error || 'Unknown error'}`)
-      }
-
-      const marketResearchResult = await marketResearchResponse.json()
-      console.log('✅ [2차분석] 시장조사 분석 완료:', marketResearchResult)
-
-      // 성공 메시지 표시
-      if (marketResearchResult.success) {
-        console.log('🎯 [자동진행] 시장조사 완료, 페르소나 분석으로 자동 전환 준비...')
-        // ProposalPhase 컴포넌트의 시장조사 탭 활성화를 위해 이벤트 발생
-        window.dispatchEvent(new CustomEvent('marketResearchCompleted', {
-          detail: {
-            projectId: projectId,
-            rfpAnalysisId: analysisId,
-            marketResearchId: marketResearchResult.market_research?.id
-          }
-        }))
-      }
-
+      console.log('✅ [후속질문 저장 완료] 질문-답변 데이터가 성공적으로 저장되었습니다.')
+      console.log('💡 [시장조사/페르소나] 해당 탭에서 RFP 분석 결과를 선택하여 진행할 수 있습니다.')
     } catch (error) {
-      console.error('❌ [2차분석] 시장조사 분석 실패:', error)
-      // 실패해도 사용자 경험을 해치지 않도록 에러를 잡아서 로그만 남김
+      console.error('❌ [후속질문 저장] 저장 중 오류 발생:', error)
     }
   }
 

@@ -53,6 +53,85 @@ export default function PersonaAnalysisDashboard({
   const [loading, setLoading] = useState(true);
   const [aiAnalysisInProgress, setAiAnalysisInProgress] = useState(false);
   const [aiPersonaData, setAiPersonaData] = useState<any>(null);
+  
+  // RFP 분석 결과 선택 관련 상태
+  const [showRFPSelector, setShowRFPSelector] = useState(false);
+  const [availableRFPAnalyses, setAvailableRFPAnalyses] = useState<any[]>([]);
+  const [_selectedRFPAnalysis, setSelectedRFPAnalysis] = useState<any>(null);
+
+  // RFP 분석 결과 조회 함수
+  const loadAvailableRFPAnalyses = useCallback(async () => {
+    try {
+      console.log('🔍 [페르소나-RFP선택] RFP 분석 결과 조회 시작:', { projectId });
+      
+      const { data, error } = await (supabase as any)
+        .from('rfp_analyses')
+        .select(`
+          id,
+          analysis_data,
+          created_at,
+          follow_up_questions (
+            id,
+            question_text,
+            user_answer,
+            ai_generated_answer,
+            answer_type
+          )
+        `)
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ [페르소나-RFP선택] RFP 분석 결과 조회 오류:', error);
+        return;
+      }
+
+      console.log('✅ [페르소나-RFP선택] RFP 분석 결과 조회 완료:', data?.length, '건');
+      setAvailableRFPAnalyses(data || []);
+    } catch (error) {
+      console.error('❌ [페르소나-RFP선택] RFP 분석 조회 실패:', error);
+    }
+  }, [projectId]);
+
+  // RFP 분석 선택 후 페르소나 분석 시작 함수
+  const startPersonaAnalysisFromRFP = async (rfpAnalysis: any) => {
+    try {
+      setLoading(true);
+      console.log('🚀 [페르소나] RFP 분석 기반 페르소나 분석 시작:', rfpAnalysis.id);
+
+      // 후속 질문 답변 데이터 확인
+      const answeredQuestions = (rfpAnalysis.follow_up_questions || []).filter((q: any) => 
+        q.user_answer?.trim() || q.ai_generated_answer?.trim()
+      );
+
+      if (answeredQuestions.length === 0) {
+        alert('후속 질문에 답변이 없습니다. RFP 분석 결과에서 후속 질문에 먼저 답변해 주세요.');
+        return;
+      }
+
+      // RFP 분석 기반 페르소나 데이터 준비
+      const rfpBasedData = {
+        rfp_analysis_id: rfpAnalysis.id,
+        analysis_data: rfpAnalysis.analysis_data,
+        answered_questions: answeredQuestions
+      };
+
+      setSelectedRFPAnalysis(rfpAnalysis);
+      setAiPersonaData(rfpBasedData);
+      setShowRFPSelector(false);
+      
+      // AI 분석 시작 또는 페르소나 빌더로 이동
+      setCurrentStep('persona_builder');
+      
+      console.log('✅ [페르소나] RFP 기반 페르소나 분석 준비 완료');
+      alert('RFP 분석 결과를 기반으로 페르소나 분석을 시작합니다.');
+    } catch (error) {
+      console.error('❌ [페르소나] RFP 기반 분석 시작 실패:', error);
+      alert(`페르소나 분석 시작 실패: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 기존 페르소나 로드 함수 (먼저 선언)
   const loadExistingPersonas = useCallback(async () => {
@@ -154,7 +233,9 @@ export default function PersonaAnalysisDashboard({
     } else {
       loadExistingPersonas();
     }
-  }, [loadExistingPersonas, triggerAIPersonaAnalysis, marketResearch, aiPersonaData, aiAnalysisInProgress]);
+    // RFP 분석 목록도 함께 로드
+    loadAvailableRFPAnalyses();
+  }, [loadExistingPersonas, triggerAIPersonaAnalysis, marketResearch, aiPersonaData, aiAnalysisInProgress, loadAvailableRFPAnalyses]);
 
   const handleQuestionnaireComplete = (newGuidance: any) => {
     setGuidance(newGuidance);
@@ -303,6 +384,74 @@ export default function PersonaAnalysisDashboard({
     </Card>
   );
 
+  // RFP 분석 선택 모달 렌더링
+  const renderRFPSelector = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">RFP 분석 결과 선택</h3>
+            <Button
+              onClick={() => setShowRFPSelector(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </Button>
+          </div>
+          
+          <p className="text-gray-600 mb-6">
+            페르소나 분석을 진행할 RFP 분석 결과를 선택하세요. 후속 질문에 답변이 있는 분석만 선택 가능합니다.
+          </p>
+
+          <div className="space-y-3">
+            {availableRFPAnalyses.map((rfpAnalysis: any) => {
+              const answeredQuestions = (rfpAnalysis.follow_up_questions || []).filter((q: any) => 
+                q.user_answer?.trim() || q.ai_generated_answer?.trim()
+              );
+              const totalQuestions = rfpAnalysis.follow_up_questions?.length || 0;
+              const hasAnswers = answeredQuestions.length > 0;
+
+              return (
+                <Card key={rfpAnalysis.id} className="p-4 hover:bg-gray-50 cursor-pointer border">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-medium">RFP 분석 결과</h4>
+                        <Badge className={hasAnswers ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                          {hasAnswers ? '답변 완료' : '답변 필요'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        생성일: {new Date(rfpAnalysis.created_at).toLocaleDateString('ko-KR')}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        후속 질문: {answeredQuestions.length}/{totalQuestions}개 답변 완료
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => startPersonaAnalysisFromRFP(rfpAnalysis)}
+                      disabled={!hasAnswers || loading}
+                      className={`ml-4 ${hasAnswers ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-500'}`}
+                    >
+                      {loading ? <Clock className="w-4 h-4 animate-spin" /> : '페르소나 분석 시작'}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {availableRFPAnalyses.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+              <p>사용 가능한 RFP 분석 결과가 없습니다.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderPersonaList = () => (
     <div className="space-y-6">
       <Card className="bg-white border border-gray-200">
@@ -380,11 +529,27 @@ export default function PersonaAnalysisDashboard({
             onSkip={() => setCurrentStep('persona_builder')}
           />
         ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">시장 조사 데이터가 없어 질문지 단계를 건너뜁니다.</p>
-            <Button onClick={() => setCurrentStep('persona_builder')}>
-              페르소나 생성으로 이동
-            </Button>
+          <div className="text-center py-12">
+            <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">페르소나 분석 시작</h3>
+            <p className="text-gray-600 mb-6">
+              RFP 분석 결과를 선택하여 AI 페르소나 분석을 진행하거나, 직접 설문을 통해 페르소나를 생성할 수 있습니다.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Button 
+                onClick={() => setShowRFPSelector(true)}
+                className="bg-blue-600 text-white flex items-center gap-2"
+              >
+                <Target className="w-4 h-4" />
+                RFP 분석 결과 선택
+              </Button>
+              <Button 
+                onClick={() => setCurrentStep('persona_builder')}
+                className="border border-gray-300 text-gray-700"
+              >
+                직접 페르소나 생성
+              </Button>
+            </div>
           </div>
         );
 
@@ -618,6 +783,9 @@ export default function PersonaAnalysisDashboard({
           </div>
         </Card>
       )}
+
+      {/* RFP 분석 선택 모달 */}
+      {showRFPSelector && renderRFPSelector()}
     </div>
   );
 }

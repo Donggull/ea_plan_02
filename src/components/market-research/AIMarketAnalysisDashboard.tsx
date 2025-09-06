@@ -101,9 +101,112 @@ export default function AIMarketAnalysisDashboard({
   onAnalysisComplete: _onAnalysisComplete
 }: AIMarketAnalysisDashboardProps) {
   const [marketResearch, setMarketResearch] = useState<MarketResearchRecord | null>(null);
-  const [loading, _setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [analysisHistory, setAnalysisHistory] = useState<MarketResearchRecord[]>([]);
+  
+  // RFP 분석 결과 선택 관련 상태
+  const [showRFPSelector, setShowRFPSelector] = useState(false);
+  const [availableRFPAnalyses, setAvailableRFPAnalyses] = useState<any[]>([]);
+  const [_selectedRFPAnalysis, setSelectedRFPAnalysis] = useState<any>(null);
+
+  // RFP 분석 결과 조회 함수
+  const loadAvailableRFPAnalyses = React.useCallback(async () => {
+    try {
+      console.log('🔍 [RFP선택] RFP 분석 결과 조회 시작:', { projectId });
+      
+      const { data, error } = await (supabase as any)
+        .from('rfp_analyses')
+        .select(`
+          id,
+          analysis_data,
+          created_at,
+          follow_up_questions (
+            id,
+            question_text,
+            user_answer,
+            ai_generated_answer,
+            answer_type
+          )
+        `)
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ [RFP선택] RFP 분석 결과 조회 오류:', error);
+        return;
+      }
+
+      console.log('✅ [RFP선택] RFP 분석 결과 조회 완료:', data?.length, '건');
+      setAvailableRFPAnalyses(data || []);
+    } catch (error) {
+      console.error('❌ [RFP선택] RFP 분석 조회 실패:', error);
+    }
+  }, [projectId]);
+
+  // RFP 분석 선택 후 시장조사 실행 함수
+  const runMarketAnalysisFromRFP = async (rfpAnalysis: any) => {
+    try {
+      setLoading(true);
+      console.log('🚀 [시장조사] RFP 분석 기반 시장조사 시작:', rfpAnalysis.id);
+
+      // 후속 질문 답변 데이터 준비
+      const questionResponses = (rfpAnalysis.follow_up_questions || [])
+        .filter((q: any) => {
+          const hasUserAnswer = q.user_answer?.trim();
+          const hasAIAnswer = q.ai_generated_answer?.trim();
+          return hasUserAnswer || hasAIAnswer;
+        })
+        .map((q: any) => {
+          const finalAnswer = q.answer_type === 'ai' ? q.ai_generated_answer : q.user_answer;
+          return {
+            question_id: q.id,
+            question_text: q.question_text,
+            response: finalAnswer,
+            category: 'general'
+          };
+        });
+
+      console.log('📝 [시장조사] 질문-답변 데이터:', questionResponses.length, '개');
+
+      if (questionResponses.length === 0) {
+        alert('후속 질문에 답변이 없습니다. RFP 분석 결과에서 후속 질문에 먼저 답변해 주세요.');
+        return;
+      }
+
+      // 시장조사 API 호출
+      const response = await fetch('/api/market-research/ai-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          rfp_analysis_id: rfpAnalysis.id,
+          question_responses: questionResponses,
+          selected_model_id: 'claude-3-5-sonnet-20241022'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`시장조사 분석 실패: ${errorData.error || 'Unknown error'}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [시장조사] 분석 완료:', result);
+
+      // 분석 완료 후 데이터 새로고침
+      await loadAnalysisHistory();
+      setShowRFPSelector(false);
+      setSelectedRFPAnalysis(rfpAnalysis);
+      
+      alert('시장조사 분석이 완료되었습니다!');
+    } catch (error) {
+      console.error('❌ [시장조사] 분석 실패:', error);
+      alert(`시장조사 분석 실패: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadAnalysisHistory = React.useCallback(async () => {
     try {
@@ -207,7 +310,8 @@ export default function AIMarketAnalysisDashboard({
 
   useEffect(() => {
     loadAnalysisHistory();
-  }, [loadAnalysisHistory]);
+    loadAvailableRFPAnalyses();
+  }, [loadAnalysisHistory, loadAvailableRFPAnalyses]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -224,15 +328,95 @@ export default function AIMarketAnalysisDashboard({
     }
   };
 
+  // RFP 분석 선택 모달 렌더링
+  const renderRFPSelector = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">RFP 분석 결과 선택</h3>
+            <Button
+              onClick={() => setShowRFPSelector(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </Button>
+          </div>
+          
+          <p className="text-gray-600 mb-6">
+            시장조사를 진행할 RFP 분석 결과를 선택하세요. 후속 질문에 답변이 있는 분석만 선택 가능합니다.
+          </p>
+
+          <div className="space-y-3">
+            {availableRFPAnalyses.map((rfpAnalysis: any) => {
+              const answeredQuestions = (rfpAnalysis.follow_up_questions || []).filter((q: any) => 
+                q.user_answer?.trim() || q.ai_generated_answer?.trim()
+              );
+              const totalQuestions = rfpAnalysis.follow_up_questions?.length || 0;
+              const hasAnswers = answeredQuestions.length > 0;
+
+              return (
+                <Card key={rfpAnalysis.id} className="p-4 hover:bg-gray-50 cursor-pointer border">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-medium">RFP 분석 결과</h4>
+                        <Badge className={hasAnswers ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                          {hasAnswers ? '답변 완료' : '답변 필요'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        생성일: {new Date(rfpAnalysis.created_at).toLocaleDateString('ko-KR')}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        후속 질문: {answeredQuestions.length}/{totalQuestions}개 답변 완료
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => runMarketAnalysisFromRFP(rfpAnalysis)}
+                      disabled={!hasAnswers || loading}
+                      className={`ml-4 ${hasAnswers ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-500'}`}
+                    >
+                      {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : '시장조사 실행'}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {availableRFPAnalyses.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+              <p>사용 가능한 RFP 분석 결과가 없습니다.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderOverview = () => {
     if (!marketResearch || !marketResearch.analysis_data) {
       return (
         <div className="text-center py-12">
           <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">AI 시장 조사 결과를 기다리는 중</h3>
+          <h3 className="text-lg font-semibold mb-2">시장조사 분석 시작</h3>
           <p className="text-gray-600 mb-6">
-            RFP 분석과 후속 질문 답변이 완료되면 AI가 자동으로 시장 조사를 분석합니다
+            RFP 분석 결과를 선택하여 AI 시장조사를 진행하거나, 직접 자료를 입력하여 분석할 수 있습니다.
           </p>
+          <div className="flex gap-4 justify-center">
+            <Button 
+              onClick={() => setShowRFPSelector(true)}
+              className="bg-blue-600 text-white flex items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              RFP 분석 결과 선택
+            </Button>
+            <Button className="border border-gray-300 text-gray-700">
+              직접 자료 입력
+            </Button>
+          </div>
         </div>
       );
     }
@@ -696,6 +880,9 @@ export default function AIMarketAnalysisDashboard({
           </div>
         </Card>
       )}
+
+      {/* RFP 분석 선택 모달 */}
+      {showRFPSelector && renderRFPSelector()}
     </div>
   );
 }
