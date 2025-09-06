@@ -611,12 +611,22 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       const legacyUpdatedQuestions = legacyQuestions.map((question: any) => {
         const answerData = answersWithTypes[question.id]
         if (answerData) {
-          return {
+          const updatedQuestion = {
             ...question,
-            user_answer: answerData.answer,
             answer_type: answerData.type,
             answered_at: new Date().toISOString()
           }
+          
+          // 답변 타입에 따라 적절한 필드에 저장
+          if (answerData.type === 'ai') {
+            updatedQuestion.ai_generated_answer = answerData.answer
+            updatedQuestion.user_answer = '' // AI 답변인 경우 user_answer는 비움
+          } else {
+            updatedQuestion.user_answer = answerData.answer
+            // 사용자 답변인 경우 ai_generated_answer는 기존값 유지
+          }
+          
+          return updatedQuestion
         }
         return question
       })
@@ -667,11 +677,24 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       if (fetchError) throw fetchError
 
       const questions = (analysis as any)?.follow_up_questions || []
-      const updatedQuestions = questions.map((question: any) => ({
-        ...question,
-        user_answer: answers[question.id] || '',
-        answered_at: new Date().toISOString()
-      }))
+      const updatedQuestions = questions.map((question: any) => {
+        const answer = answers[question.id] || ''
+        const updatedQuestion = {
+          ...question,
+          answered_at: new Date().toISOString()
+        }
+        
+        // 기존 함수는 사용자 답변만 처리하므로 user_answer에 저장
+        // 만약 기존 answer_type이 'ai'가 아니라면 사용자 답변으로 처리
+        if (question.answer_type === 'ai' && answer) {
+          updatedQuestion.ai_generated_answer = answer
+          updatedQuestion.user_answer = ''
+        } else {
+          updatedQuestion.user_answer = answer
+        }
+        
+        return updatedQuestion
+      })
 
       // follow_up_answers 필드용 데이터 구조 생성 (새로운 API와 호환)
       const followUpAnswers: Record<string, any> = {}
