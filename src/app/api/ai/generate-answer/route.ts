@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, model = 'claude-3-5-sonnet-20241022' } = await request.json()
+    const { 
+      prompt, 
+      question, 
+      context, 
+      analysis_id,
+      model = 'claude-3-5-sonnet-20241022' 
+    } = await request.json()
 
-    if (!prompt) {
+    const questionText = prompt || question
+    if (!questionText) {
       return NextResponse.json({
         success: false,
-        error: '프롬프트가 필요합니다.'
+        error: '질문 또는 프롬프트가 필요합니다.'
       }, { status: 400 })
     }
 
@@ -19,6 +26,14 @@ export async function POST(request: NextRequest) {
 
     console.log('🤖 [AI답변생성] API 호출 시작')
 
+    // 컨텍스트를 포함한 프롬프트 구성
+    let fullPrompt = questionText
+    if (context) {
+      fullPrompt = `질문: ${questionText}\n\n컨텍스트: ${context}\n\n위 질문에 대해 컨텍스트를 참고하여 구체적이고 실용적인 답변을 한국어로 작성해주세요.`
+    } else {
+      fullPrompt = `질문: ${questionText}\n\n위 질문에 대해 구체적이고 실용적인 답변을 한국어로 작성해주세요.`
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -28,7 +43,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: model,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content: fullPrompt }],
         max_tokens: 2000,
         temperature: 0.3
       })

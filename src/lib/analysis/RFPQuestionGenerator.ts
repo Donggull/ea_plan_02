@@ -7,7 +7,7 @@ import type {
 
 export class RFPQuestionGenerator {
   /**
-   * RFP 분석 결과를 바탕으로 시장 조사를 위한 맞춤형 질문 생성
+   * RFP 분석 결과를 바탕으로 시장 조사를 위한 맞춤형 질문 생성 (5~20개)
    */
   async generateMarketResearchQuestions(
     rfpAnalysis: RFPAnalysis
@@ -15,6 +15,8 @@ export class RFPQuestionGenerator {
     const questions: AnalysisQuestion[] = []
     const currentTime = new Date().toISOString()
     let orderIndex = 1
+    
+    // 기본 질문 수: 5개 + 조건부 질문: 최대 15개 = 총 최대 20개
     
     // 1. 시장 상황 질문 생성
     if (rfpAnalysis.business_requirements?.target_users?.length > 0) {
@@ -120,7 +122,308 @@ export class RFPQuestionGenerator {
       })
     }
     
-    return questions
+    // 6. 사용자 행동 패턴 질문
+    questions.push({
+      id: `mq_${Date.now()}_6`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '타겟 사용자들의 주요 접점 채널은 어디인가요?',
+      question_type: 'multiple_choice',
+      category: 'target_audience',
+      priority: 'medium',
+      context: '사용자 접촉 포인트 파악을 통한 마케팅 전략 수립',
+      options: [
+        '웹사이트',
+        '모바일 앱',
+        '소셜미디어',
+        '오프라인 매장',
+        '콜센터/고객센터',
+        '이메일',
+        '기타'
+      ],
+      next_step_impact: '사용자 경험 설계와 마케팅 채널 전략에 활용됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 7. 성공 지표 질문
+    questions.push({
+      id: `mq_${Date.now()}_7`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '프로젝트 성공을 측정할 핵심 지표(KPI)는 무엇인가요?',
+      question_type: 'text_long',
+      category: 'success_definition',
+      priority: 'high',
+      context: '프로젝트 성과 측정과 개선 방향 설정을 위함',
+      next_step_impact: '성과 측정 체계와 지속적 개선 계획에 반영됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 8. 브랜드 포지셔닝 질문
+    if (rfpAnalysis.business_requirements?.success_metrics?.length > 0) {
+      questions.push({
+        id: `mq_${Date.now()}_8`,
+        rfp_analysis_id: rfpAnalysis.id,
+        question_text: '어떤 브랜드 이미지로 인식되기를 원하시나요?',
+        question_type: 'single_choice',
+        category: 'business_model',
+        priority: 'medium',
+        context: '브랜드 포지셔닝과 마케팅 메시지 개발을 위함',
+        options: [
+          '혁신적이고 트렌디한',
+          '신뢰할 수 있고 안정적인',
+          '전문적이고 고급스러운',
+          '친근하고 접근하기 쉬운',
+          '비용 효율적인'
+        ],
+        next_step_impact: '브랜드 전략과 디자인 방향성 결정에 영향을 미칩니다',
+        order_index: orderIndex++,
+        created_at: currentTime
+      })
+    }
+    
+    // 9. 사용자 피드백 수집 방식 질문
+    questions.push({
+      id: `mq_${Date.now()}_9`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '사용자 피드백을 어떤 방식으로 수집하고 싶으신가요?',
+      question_type: 'multiple_choice',
+      category: 'target_audience',
+      priority: 'medium',
+      context: '사용자 의견 수집 및 개선 사이클 구축을 위함',
+      options: [
+        '앱/웹 내 피드백 기능',
+        '설문조사',
+        '사용자 인터뷰',
+        '포커스 그룹',
+        '소셜미디어 모니터링',
+        '고객센터 데이터 분석'
+      ],
+      next_step_impact: '사용자 경험 개선과 제품 발전 방향에 활용됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 10. 런칭 전략 질문
+    questions.push({
+      id: `mq_${Date.now()}_10`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '제품/서비스 런칭 시 어떤 전략을 고려하고 계신가요?',
+      question_type: 'single_choice',
+      category: 'business_model',
+      priority: 'medium',
+      context: '출시 전략과 초기 마케팅 방향 설정을 위함',
+      options: [
+        'MVP(최소 기능 제품) 먼저 출시',
+        '베타 테스트를 통한 단계적 출시',
+        '풀 버전 정식 출시',
+        '소프트 런칭 후 점진적 확산',
+        '기타'
+      ],
+      next_step_impact: '개발 일정과 마케팅 전략 수립에 반영됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 조건부 질문들 (RFP 내용에 따라 추가)
+    
+    // 11-15. 기술 관련 조건부 질문들
+    if (rfpAnalysis.technical_specifications?.technologies?.length > 0) {
+      const technologies = rfpAnalysis.technical_specifications.technologies
+      
+      // 11. 기술 도입 우선순위
+      questions.push({
+        id: `mq_${Date.now()}_11`,
+        rfp_analysis_id: rfpAnalysis.id,
+        question_text: '기술 도입 시 가장 중요하게 고려하는 요소는 무엇인가요?',
+        question_type: 'single_choice',
+        category: 'technology_preference',
+        priority: 'high',
+        context: `언급된 기술: ${technologies.join(', ')}`,
+        options: [
+          '안정성과 검증된 기술',
+          '최신 트렌드와 혁신성',
+          '개발 생산성',
+          '유지보수 용이성',
+          '비용 효율성'
+        ],
+        next_step_impact: '기술 스택 선정과 아키텍처 설계에 반영됩니다',
+        order_index: orderIndex++,
+        created_at: currentTime
+      })
+      
+      // 12. 확장성 고려사항
+      questions.push({
+        id: `mq_${Date.now()}_12`,
+        rfp_analysis_id: rfpAnalysis.id,
+        question_text: '향후 확장성을 위해 어느 정도까지 고려해야 할까요?',
+        question_type: 'single_choice',
+        category: 'technology_preference',
+        priority: 'medium',
+        context: '시스템 확장성과 성능 최적화 방향 설정',
+        options: [
+          '현재 요구사항 충족 수준',
+          '2-3배 트래픽 증가 대응',
+          '10배 이상 확장 가능',
+          '글로벌 서비스 수준',
+          '확장성보다 안정성 우선'
+        ],
+        next_step_impact: '인프라 설계와 아키텍처 복잡도에 영향을 미칩니다',
+        order_index: orderIndex++,
+        created_at: currentTime
+      })
+    }
+    
+    // 13-17. 비즈니스 모델 관련 조건부 질문들
+    if (rfpAnalysis.business_requirements) {
+      // 13. 수익 모델
+      questions.push({
+        id: `mq_${Date.now()}_13`,
+        rfp_analysis_id: rfpAnalysis.id,
+        question_text: '주요 수익 모델은 무엇인가요?',
+        question_type: 'multiple_choice',
+        category: 'business_model',
+        priority: 'high',
+        context: '비즈니스 모델과 수익 구조 파악',
+        options: [
+          '구독료/멤버십',
+          '건당 수수료',
+          '광고 수익',
+          '제품/서비스 판매',
+          '라이선스',
+          '컨설팅/서비스'
+        ],
+        next_step_impact: '제품 기능과 사용자 경험 설계에 반영됩니다',
+        order_index: orderIndex++,
+        created_at: currentTime
+      })
+      
+      // 14. 경쟁 우위 요소
+      questions.push({
+        id: `mq_${Date.now()}_14`,
+        rfp_analysis_id: rfpAnalysis.id,
+        question_text: '경쟁사 대비 차별화 포인트는 무엇인가요?',
+        question_type: 'text_long',
+        category: 'competitor_focus',
+        priority: 'high',
+        context: '경쟁 우위 확보와 차별화 전략 수립',
+        next_step_impact: '핵심 기능 우선순위와 마케팅 포인트 결정에 활용됩니다',
+        order_index: orderIndex++,
+        created_at: currentTime
+      })
+      
+      // 15. 파트너십/협력 관계
+      questions.push({
+        id: `mq_${Date.now()}_15`,
+        rfp_analysis_id: rfpAnalysis.id,
+        question_text: '중요한 파트너십이나 협력 관계가 있나요?',
+        question_type: 'text_long',
+        category: 'business_model',
+        priority: 'medium',
+        context: '외부 연동과 비즈니스 생태계 파악',
+        next_step_impact: 'API 연동과 비즈니스 로직 설계에 반영됩니다',
+        order_index: orderIndex++,
+        created_at: currentTime
+      })
+    }
+    
+    // 16-20. 사용자 경험 관련 추가 질문들
+    
+    // 16. 접근성 고려사항
+    questions.push({
+      id: `mq_${Date.now()}_16`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '접근성(Accessibility) 요구사항이 있나요?',
+      question_type: 'multiple_choice',
+      category: 'target_audience',
+      priority: 'medium',
+      context: '다양한 사용자를 위한 접근성 고려',
+      options: [
+        '시각 장애인 대응 (스크린 리더)',
+        '청각 장애인 대응 (자막, 수어)',
+        '신체적 제약 고려 (키보드 네비게이션)',
+        '다국어 지원',
+        '고령자 친화적 인터페이스',
+        '특별한 요구사항 없음'
+      ],
+      next_step_impact: 'UI/UX 설계와 개발 기준에 반영됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 17. 데이터 활용 전략
+    questions.push({
+      id: `mq_${Date.now()}_17`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '수집된 데이터를 어떻게 활용하고 싶으신가요?',
+      question_type: 'multiple_choice',
+      category: 'technology_preference',
+      priority: 'medium',
+      context: '데이터 수집과 활용 전략 수립',
+      options: [
+        '사용자 행동 분석',
+        '개인화 서비스 제공',
+        '비즈니스 인사이트 도출',
+        '머신러닝/AI 활용',
+        '마케팅 최적화',
+        '데이터 수집 최소화'
+      ],
+      next_step_impact: '데이터 아키텍처와 개인정보 처리 방침에 반영됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 18. 보안 수준 요구사항
+    questions.push({
+      id: `mq_${Date.now()}_18`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '보안 수준에 대한 요구사항은 어느 정도인가요?',
+      question_type: 'single_choice',
+      category: 'technology_preference',
+      priority: 'high',
+      context: '보안 설계와 인증 방식 결정',
+      options: [
+        '기본 보안 (HTTPS, 암호화)',
+        '금융 수준 보안 (다단계 인증)',
+        '개인정보보호 강화 (GDPR 준수)',
+        '기업 보안 표준 (ISO 27001)',
+        '정부/공공기관 수준'
+      ],
+      next_step_impact: '보안 아키텍처와 개발 비용에 영향을 미칩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 19. 성장 단계별 전략
+    questions.push({
+      id: `mq_${Date.now()}_19`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '사업 성장 단계별로 어떤 전략을 고려하고 계신가요?',
+      question_type: 'text_long',
+      category: 'business_model',
+      priority: 'medium',
+      context: '단계별 확장 전략과 로드맵 수립',
+      next_step_impact: '시스템 확장성과 비즈니스 로직 설계에 반영됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 20. 위험 요소와 대응 방안
+    questions.push({
+      id: `mq_${Date.now()}_20`,
+      rfp_analysis_id: rfpAnalysis.id,
+      question_text: '프로젝트 진행 시 우려되는 위험 요소가 있나요?',
+      question_type: 'text_long',
+      category: 'project_constraints',
+      priority: 'medium',
+      context: '리스크 관리와 대응 전략 수립',
+      next_step_impact: '프로젝트 계획과 품질 관리 전략에 반영됩니다',
+      order_index: orderIndex++,
+      created_at: currentTime
+    })
+    
+    // 질문 수를 5~20개 범위로 조정 (현재는 모든 조건을 만족하면 20개)
+    return questions.slice(0, 20) // 최대 20개로 제한
   }
   
   /**
