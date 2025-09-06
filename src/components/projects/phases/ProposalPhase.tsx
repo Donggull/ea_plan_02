@@ -59,12 +59,29 @@ export default function ProposalPhase({ projectId }: ProposalPhaseProps) {
       }
     }
 
+    // 시장조사 완료 이벤트 리스너 추가
+    const handleMarketResearchCompleted = (event: CustomEvent) => {
+      const { projectId: eventProjectId, rfpAnalysisId, marketResearchId } = event.detail
+      console.log('🎯 [ProposalPhase] 시장조사 자동 완료 이벤트 수신:', {
+        eventProjectId, rfpAnalysisId, marketResearchId
+      })
+      
+      if (eventProjectId === projectId) {
+        console.log('🔄 [ProposalPhase] 시장조사 탭으로 자동 전환...')
+        setTimeout(() => {
+          setActiveTab('market_research')
+        }, 1000) // 1초 후 탭 전환
+      }
+    }
+
     window.addEventListener('rfp-analysis-next-step', handleNextStepTransition as EventListener)
+    window.addEventListener('marketResearchCompleted', handleMarketResearchCompleted as EventListener)
 
     return () => {
       window.removeEventListener('rfp-analysis-next-step', handleNextStepTransition as EventListener)
+      window.removeEventListener('marketResearchCompleted', handleMarketResearchCompleted as EventListener)
     }
-  }, [])
+  }, [projectId])
   const [currentResearch, setCurrentResearch] = useState<MarketResearch | null>(null)
   const [_personaGuidance, setPersonaGuidance] = useState<PersonaGenerationGuidance | null>(null)
   const [isCreateRfpOpen, setIsCreateRfpOpen] = useState(false)

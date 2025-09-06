@@ -345,93 +345,100 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }
 
-  // 2차 AI 분석 트리거 함수
+  // 2차 AI 분석 트리거 함수 - 시장조사 자동 실행
   const triggerSecondaryAnalysis = async (analysisId: string, questions: AnalysisQuestion[]) => {
     try {
-      console.log('🚀 [2차분석] 다중 분석 시작:', analysisId)
+      console.log('🚀 [2차분석] 시장조사 자동 분석 시작:', analysisId)
       
-      // 질문-답변 쌍 생성
+      // 질문-답변 쌍 생성 (answer_type에 따라 적절한 답변 선택)
       const questionResponses = questions
-        .filter(q => q.answer && q.answer.trim())
-        .map(q => ({
-          question: q.question_text || q.question || '',
-          answer: q.answer || '',
-          questionId: q.id
-        }))
+        .filter(q => {
+          // answer_type에 따라 적절한 답변이 있는지 확인
+          const userAnswer = (q as any).user_answer
+          const aiAnswer = (q as any).ai_generated_answer
+          const answerType = (q as any).answer_type || 'user'
+          
+          if (answerType === 'ai') {
+            return aiAnswer && aiAnswer.trim()
+          } else if (answerType === 'user') {
+            return userAnswer && userAnswer.trim()
+          }
+          
+          // fallback
+          return (userAnswer && userAnswer.trim()) || (aiAnswer && aiAnswer.trim())
+        })
+        .map(q => {
+          // answer_type에 따라 적절한 답변 선택
+          const userAnswer = (q as any).user_answer || ''
+          const aiAnswer = (q as any).ai_generated_answer || ''
+          const answerType = (q as any).answer_type || 'user'
+          
+          let finalAnswer = ''
+          if (answerType === 'ai' && aiAnswer.trim()) {
+            finalAnswer = aiAnswer
+          } else if (answerType === 'user' && userAnswer.trim()) {
+            finalAnswer = userAnswer
+          } else if (userAnswer.trim()) {
+            finalAnswer = userAnswer
+          } else if (aiAnswer.trim()) {
+            finalAnswer = aiAnswer
+          }
+
+          return {
+            question_id: q.id,
+            question_text: q.question_text || q.question || '',
+            response: finalAnswer,
+            category: (q as any).category || 'general'
+          }
+        })
 
       if (questionResponses.length === 0) {
-        throw new Error('답변이 없습니다.')
+        console.warn('⚠️ [2차분석] 답변이 없어 시장조사 분석을 건너뜁니다.')
+        return
       }
 
-      // 병렬로 3가지 분석 실행
-      const analysisPromises = [
-        // 1. 시장조사 분석
-        fetch('/api/rfp/secondary-analysis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rfp_analysis_id: analysisId,
-            question_responses: questionResponses,
-            analysis_type: 'market_research',
-            user_id: 'current-user', // 실제 사용자 ID로 교체 필요
-            project_id: projectId
-          })
-        }),
-        // 2. 페르소나 분석
-        fetch('/api/rfp/secondary-analysis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rfp_analysis_id: analysisId,
-            question_responses: questionResponses,
-            analysis_type: 'persona_analysis',
-            user_id: 'current-user', // 실제 사용자 ID로 교체 필요
-            project_id: projectId
-          })
-        }),
-        // 3. 제안서 작성
-        fetch('/api/rfp/secondary-analysis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            rfp_analysis_id: analysisId,
-            question_responses: questionResponses,
-            analysis_type: 'proposal_generation',
-            user_id: 'current-user', // 실제 사용자 ID로 교체 필요
-            project_id: projectId
-          })
-        })
-      ]
-
-      const results = await Promise.allSettled(analysisPromises)
-      
-      // 결과 처리
-      const successfulAnalyses: string[] = []
-      results.forEach((result, index) => {
-        const analysisTypes = ['market_research', 'persona_analysis', 'proposal_generation']
-        if (result.status === 'fulfilled') {
-          successfulAnalyses.push(analysisTypes[index])
-          console.log(`✅ [2차분석] ${analysisTypes[index]} 분석 완료`)
-        } else {
-          console.error(`❌ [2차분석] ${analysisTypes[index]} 분석 실패:`, result.reason)
-        }
+      console.log('📝 [2차분석] 시장조사 API 호출 데이터:', {
+        project_id: projectId,
+        rfp_analysis_id: analysisId,
+        question_responses: questionResponses
       })
 
-      if (successfulAnalyses.length > 0) {
-        console.log(`🎉 [2차분석] ${successfulAnalyses.length}개 분석 완료:`, successfulAnalyses)
-        
-        // 다음 단계로 자동 전환 (시장조사 탭으로)
-        setTimeout(() => {
-          console.log('🔄 [자동전환] 시장조사 탭으로 이동')
-          handleNextStepTransition('market_research')
-        }, 1500)
-      } else {
-        throw new Error('모든 2차 분석이 실패했습니다.')
+      // 시장조사 자동 분석 실행
+      const marketResearchResponse = await fetch('/api/market-research/ai-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          rfp_analysis_id: analysisId,
+          question_responses: questionResponses,
+          selected_model_id: 'claude-3-5-sonnet-20241022' // 기본 모델 설정
+        })
+      })
+
+      if (!marketResearchResponse.ok) {
+        const errorData = await marketResearchResponse.json()
+        throw new Error(`시장조사 분석 실패: ${errorData.error || 'Unknown error'}`)
       }
-      
+
+      const marketResearchResult = await marketResearchResponse.json()
+      console.log('✅ [2차분석] 시장조사 분석 완료:', marketResearchResult)
+
+      // 성공 메시지 표시
+      if (marketResearchResult.success) {
+        console.log('🎯 [자동진행] 시장조사 완료, 페르소나 분석으로 자동 전환 준비...')
+        // ProposalPhase 컴포넌트의 시장조사 탭 활성화를 위해 이벤트 발생
+        window.dispatchEvent(new CustomEvent('marketResearchCompleted', {
+          detail: {
+            projectId: projectId,
+            rfpAnalysisId: analysisId,
+            marketResearchId: marketResearchResult.market_research?.id
+          }
+        }))
+      }
+
     } catch (error) {
-      console.error('❌ [2차분석] 전체 실패:', error)
-      // 실패해도 다음 단계 버튼은 표시하도록 처리
+      console.error('❌ [2차분석] 시장조사 분석 실패:', error)
+      // 실패해도 사용자 경험을 해치지 않도록 에러를 잡아서 로그만 남김
     }
   }
 
@@ -1191,8 +1198,23 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       )
     }
 
-    // 답변 완료 여부 확인
-    const answeredQuestions = questions.filter(q => (q as any).user_answer && (q as any).user_answer.trim())
+    // 답변 완료 여부 확인 (사용자 답변 또는 AI 답변이 있는 경우)
+    const answeredQuestions = questions.filter(q => {
+      const hasUserAnswer = (q as any).user_answer && (q as any).user_answer.trim()
+      const hasAIAnswer = (q as any).ai_generated_answer && (q as any).ai_generated_answer.trim()
+      const answerType = (q as any).answer_type
+      
+      // answer_type이 있는 경우 해당 타입에 맞는 답변 확인
+      if (answerType === 'ai') {
+        return hasAIAnswer
+      } else if (answerType === 'user') {
+        return hasUserAnswer
+      }
+      
+      // answer_type이 없는 경우 사용자 답변 우선 확인
+      return hasUserAnswer || hasAIAnswer
+    })
+    
     const totalQuestions = questions.length
     const completionRate = totalQuestions > 0 ? (answeredQuestions.length / totalQuestions) * 100 : 0
     const isCompleted = answeredQuestions.length === totalQuestions
@@ -1210,15 +1232,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             </span>
           </div>
           
-          {!isCompleted && (
-            <Button
-              onClick={() => setShowQuestionnaire(true)}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              질문 답변하기
-            </Button>
-          )}
+          <Button
+            onClick={() => setShowQuestionnaire(true)}
+            className={`${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            {isCompleted ? '답변 수정하기' : '질문 답변하기'}
+          </Button>
         </div>
 
         {/* 진행률 표시 */}
@@ -1252,8 +1272,29 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         {/* 질문과 답변 목록 */}
         <div className="space-y-4">
           {questions.map((question, index) => {
-            const hasAnswer = (question as any).user_answer && (question as any).user_answer.trim()
+            const userAnswer = (question as any).user_answer
+            const aiAnswer = (question as any).ai_generated_answer
             const answerType = (question as any).answer_type || 'user'
+            
+            // 선택된 답변 타입에 따라 표시할 답변 결정
+            let displayAnswer = ''
+            let hasAnswer = false
+            
+            if (answerType === 'ai' && aiAnswer && aiAnswer.trim()) {
+              displayAnswer = aiAnswer
+              hasAnswer = true
+            } else if (answerType === 'user' && userAnswer && userAnswer.trim()) {
+              displayAnswer = userAnswer
+              hasAnswer = true
+            } else if (userAnswer && userAnswer.trim()) {
+              // fallback to user answer
+              displayAnswer = userAnswer
+              hasAnswer = true
+            } else if (aiAnswer && aiAnswer.trim()) {
+              // fallback to AI answer
+              displayAnswer = aiAnswer
+              hasAnswer = true
+            }
             
             return (
               <div 
@@ -1298,7 +1339,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                       )}
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                      {(question as any).user_answer}
+                      {displayAnswer}
                     </p>
                   </div>
                 ) : (
