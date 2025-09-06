@@ -428,7 +428,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         })
 
       console.log('📝 [2차분석] 필터링된 질문-답변 쌍:', questionResponses.length, '개')
-      questionResponses.forEach((qr, index) => {
+      questionResponses.forEach((qr: any, index: number) => {
         console.log(`  ${index + 1}. Q: ${qr.question_text.substring(0, 50)}...`)
         console.log(`     A: ${qr.response.substring(0, 50)}...`)
       })
