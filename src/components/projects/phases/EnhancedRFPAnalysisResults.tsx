@@ -456,8 +456,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         }))
       })
       
-      // analysis_questions 테이블에서 질문들 조회
-      const { data: questions, error: questionsError } = await (supabase as any)
+      // analysis_questions 테이블에서 질문들 조회 (타입 캐스팅 제거)
+      const { data: questions, error: questionsError } = await supabase
         .from('analysis_questions')
         .select('*')
         .eq('rfp_analysis_id', analysisId)
@@ -489,47 +489,50 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         return question
       })
 
-      // analysis_questions 테이블 업데이트 (더 강력한 오류 처리 추가)
-      const updatePromises = updatedQuestions.map(async (question: any) => {
+      // analysis_questions 테이블 업데이트 (순차 처리로 변경하여 DB 락 문제 해결)
+      console.log('🔄 [DB업데이트] 총', updatedQuestions.length, '개 질문 순차 업데이트 시작')
+      
+      const updateResults = []
+      
+      for (const question of updatedQuestions) {
         const answerData = answersWithTypes[question.id]
         if (answerData) {
           // 답변 타입에 따라 적절한 필드 업데이트
-          const updateData: any = {
+          const updateData = {
             answer_type: answerData.type,
-            answered_at: new Date().toISOString()
-          }
-          
-          if (answerData.type === 'ai') {
-            // AI 답변인 경우 ai_generated_answer 필드에 저장
-            updateData.ai_generated_answer = answerData.answer
-            updateData.user_answer = null // 사용자 답변은 null로 설정
-          } else {
-            // 사용자 답변인 경우 user_answer 필드에 저장
-            updateData.user_answer = answerData.answer
-            // AI 답변은 기존 값 유지 (덮어쓰지 않음)
+            answered_at: new Date().toISOString(),
+            ...(answerData.type === 'ai' 
+              ? { ai_generated_answer: answerData.answer, user_answer: null }
+              : { user_answer: answerData.answer }
+            )
           }
           
           console.log(`🔄 [DB업데이트] 질문 ${question.id} 업데이트 시작:`, updateData)
           
           try {
-            // 실제 DB 업데이트 실행
-            const result = await (supabase as any)
+            // 타입 캐스팅 제거하고 정확한 Supabase 클라이언트 사용
+            const { data, error } = await supabase
               .from('analysis_questions')
               .update(updateData)
               .eq('id', question.id)
               .select()
             
-            console.log(`✅ [DB업데이트] 질문 ${question.id} 업데이트 성공:`, result)
-            return result
+            if (error) {
+              console.error(`❌ [DB업데이트] 질문 ${question.id} 업데이트 실패:`, error)
+              updateResults.push({ data: null, error })
+            } else {
+              console.log(`✅ [DB업데이트] 질문 ${question.id} 업데이트 성공:`, data)
+              updateResults.push({ data, error: null })
+            }
           } catch (updateError) {
-            console.error(`❌ [DB업데이트] 질문 ${question.id} 업데이트 실패:`, updateError)
-            return { data: null, error: updateError }
+            console.error(`❌ [DB업데이트] 질문 ${question.id} 예외 발생:`, updateError)
+            updateResults.push({ data: null, error: updateError })
           }
+        } else {
+          console.log(`⏭️ [DB업데이트] 질문 ${question.id} - 답변 데이터 없음, 건너뜀`)
+          updateResults.push({ data: null, error: null })
         }
-        return { data: null, error: null }
-      })
-
-      const updateResults = await Promise.all(updatePromises)
+      }
       const updateErrors = updateResults.filter(result => result.error)
       
       console.log('📊 [질문답변] 데이터베이스 업데이트 결과:', {
