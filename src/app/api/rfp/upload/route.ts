@@ -291,7 +291,12 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      return NextResponse.json(errorResponse, { status: 401 })
+      return NextResponse.json(errorResponse, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
     }
     
     console.log('🎉 Authentication successful:', {
@@ -311,7 +316,12 @@ export async function POST(request: NextRequest) {
     if (!file || !title) {
       return NextResponse.json(
         { message: '파일과 제목이 필요합니다.' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       )
     }
 
@@ -329,14 +339,24 @@ export async function POST(request: NextRequest) {
     if (file.size > maxSize) {
       return NextResponse.json(
         { message: '파일 크기가 50MB를 초과합니다.' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       )
     }
 
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { message: '지원되지 않는 파일 형식입니다.' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       )
     }
 
@@ -358,7 +378,12 @@ export async function POST(request: NextRequest) {
       console.error('File upload error:', uploadError)
       return NextResponse.json(
         { message: '파일 업로드 중 오류가 발생했습니다: ' + uploadError.message },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       )
     }
 
@@ -643,7 +668,12 @@ export async function POST(request: NextRequest) {
         
       return NextResponse.json(
         { message: '데이터베이스 저장 중 오류가 발생했습니다: ' + dbError.message },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       )
     }
 
@@ -653,13 +683,43 @@ export async function POST(request: NextRequest) {
       message: 'RFP 파일이 성공적으로 업로드되었습니다.'
     }
 
-    return NextResponse.json(response, { status: 201 })
+    return NextResponse.json(response, { 
+      status: 201,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
 
   } catch (error) {
-    console.error('RFP upload error:', error)
+    console.error('🚨 RFP upload critical error:', error)
+    
+    // 상세한 오류 정보 수집
+    const errorDetails = {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : 'Unknown',
+      timestamp: new Date().toISOString()
+    }
+    
+    console.error('🚨 Complete error details:', errorDetails)
+    
+    // JSON 응답 반환 보장
     return NextResponse.json(
-      { message: '서버 오류가 발생했습니다.' },
-      { status: 500 }
+      { 
+        success: false,
+        message: '서버 오류가 발생했습니다.',
+        error: errorDetails.message,
+        details: 'RFP 파일 업로드 중 예상치 못한 오류가 발생했습니다.',
+        timestamp: errorDetails.timestamp,
+        // 개발 환경에서만 스택 추가
+        ...(process.env.NODE_ENV === 'development' && { stack: errorDetails.stack })
+      },
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     )
   }
 }

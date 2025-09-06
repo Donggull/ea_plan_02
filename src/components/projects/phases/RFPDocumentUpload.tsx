@@ -234,11 +234,35 @@ export default function RFPDocumentUpload({
         })
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || 'RFP 업로드 중 오류가 발생했습니다.')
+          let errorMessage = 'RFP 업로드 중 오류가 발생했습니다.'
+          
+          try {
+            // 응답이 JSON인지 확인
+            const contentType = response.headers.get('content-type')
+            if (contentType && contentType.includes('application/json')) {
+              const errorData = await response.json()
+              errorMessage = errorData.message || errorData.error || errorMessage
+            } else {
+              // HTML 응답인 경우 상태 코드만 사용
+              const errorText = await response.text()
+              console.error('Server returned HTML instead of JSON:', errorText.substring(0, 500))
+              errorMessage = `서버 오류 (${response.status}): JSON 응답 실패`
+            }
+          } catch (parseError) {
+            console.error('Error parsing response:', parseError)
+            errorMessage = `네트워크 오류 (${response.status}): 응답 파싱 실패`
+          }
+          
+          throw new Error(errorMessage)
         }
 
-        const result = await response.json()
+        let result
+        try {
+          result = await response.json()
+        } catch (parseError) {
+          console.error('Success response parse error:', parseError)
+          throw new Error('서버 응답을 처리할 수 없습니다.')
+        }
         
         setUploadProgress(prev => ({ ...prev, [fileKey]: 100 }))
         
