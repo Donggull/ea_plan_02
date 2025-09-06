@@ -621,17 +621,29 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         return question
       })
 
+      // follow_up_answers 필드용 데이터 구조 생성 (새로운 API와 호환)
+      const followUpAnswers: Record<string, any> = {}
+      Object.entries(answersWithTypes).forEach(([questionId, answerData]) => {
+        followUpAnswers[questionId] = {
+          response_value: answerData.answer,
+          response_text: answerData.answer,
+          answer_type: answerData.type,
+          answered_at: new Date().toISOString()
+        }
+      })
+
       const { error: updateError } = await supabase
         .from('rfp_analyses')
         .update({ 
           follow_up_questions: legacyUpdatedQuestions,
+          follow_up_answers: followUpAnswers, // 새로운 API와 호환되는 답변 데이터 저장
           updated_at: new Date().toISOString()
         })
         .eq('id', analysisId)
 
       if (updateError) throw updateError
 
-      console.log('✅ [질문답변] 답변 저장 완료 (analysis_questions + rfp_analyses)')
+      console.log('✅ [질문답변] 답변 저장 완료 (analysis_questions + rfp_analyses + follow_up_answers)')
       return updatedQuestions
       
     } catch (error) {
@@ -661,18 +673,30 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         answered_at: new Date().toISOString()
       }))
 
+      // follow_up_answers 필드용 데이터 구조 생성 (새로운 API와 호환)
+      const followUpAnswers: Record<string, any> = {}
+      Object.entries(answers).forEach(([questionId, answer]) => {
+        followUpAnswers[questionId] = {
+          response_value: answer,
+          response_text: answer,
+          answer_type: 'user', // 기존 함수는 사용자 답변만 처리
+          answered_at: new Date().toISOString()
+        }
+      })
+
       // DB에 답변 업데이트
       const { error: updateError } = await supabase
         .from('rfp_analyses')
         .update({ 
           follow_up_questions: updatedQuestions,
+          follow_up_answers: followUpAnswers, // 새로운 API와 호환되는 답변 데이터 저장
           updated_at: new Date().toISOString()
         })
         .eq('id', analysisId)
 
       if (updateError) throw updateError
 
-      console.log('✅ [질문답변] 저장 완료')
+      console.log('✅ [질문답변] 저장 완료 (follow_up_questions + follow_up_answers)')
       return updatedQuestions
     } catch (error) {
       console.error('❌ [질문답변] 저장 실패:', error)
