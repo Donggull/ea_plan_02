@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
       prompt, 
       question, 
       context, 
-      analysis_id,
+      analysis_id: _analysis_id,
       model = 'claude-3-5-sonnet-20241022' 
     } = await request.json()
 

@@ -1,15 +1,25 @@
 'use client'
 
 import { useState } from 'react'
+import * as React from 'react'
 import Button from '@/basic/src/components/Button/Button'
 import { 
   X, 
   Bot, 
   Loader, 
   Save,
-  CheckCircle
+  CheckCircle,
+  User,
+  Sparkles,
+  // ToggleLeft,
+  // ToggleRight
 } from 'lucide-react'
 import type { AnalysisQuestion } from '@/types/rfp-analysis'
+
+interface AnswerWithType {
+  answer: string
+  type: 'user' | 'ai'
+}
 
 interface IntegratedAnswerModalProps {
   questions: AnalysisQuestion[]
@@ -17,7 +27,7 @@ interface IntegratedAnswerModalProps {
   projectId: string
   isOpen: boolean
   onClose: () => void
-  onSave: (answers: {[key: string]: string}) => Promise<void>
+  onSave: (answers: {[key: string]: AnswerWithType}) => Promise<void>
 }
 
 export function IntegratedAnswerModal({
@@ -29,9 +39,27 @@ export function IntegratedAnswerModal({
   onSave
 }: IntegratedAnswerModalProps) {
   const [answers, setAnswers] = useState<{[key: string]: string}>({})
+  const [selectedAnswerTypes, setSelectedAnswerTypes] = useState<{[key: string]: 'user' | 'ai'}>({})
   const [isGeneratingAI, setIsGeneratingAI] = useState<{[key: string]: boolean}>({})
   const [isSaving, setIsSaving] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+
+  // 컴포넌트 초기화 시 AI 생성 답변이 있는 질문들의 기본값 설정
+  React.useEffect(() => {
+    const initialAnswers: {[key: string]: string} = {}
+    const initialTypes: {[key: string]: 'user' | 'ai'} = {}
+    
+    questions.forEach(question => {
+      const aiAnswer = (question as any).ai_generated_answer
+      if (aiAnswer) {
+        initialAnswers[question.id] = aiAnswer
+        initialTypes[question.id] = 'ai'
+      }
+    })
+    
+    setAnswers(initialAnswers)
+    setSelectedAnswerTypes(initialTypes)
+  }, [questions])
 
   if (!isOpen) return null
 
@@ -40,6 +68,12 @@ export function IntegratedAnswerModal({
     setAnswers(prev => ({
       ...prev,
       [questionId]: value
+    }))
+    
+    // 사용자가 직접 입력하면 사용자 답변으로 설정
+    setSelectedAnswerTypes(prev => ({
+      ...prev,
+      [questionId]: 'user'
     }))
     
     // 오류 메시지 제거
@@ -51,6 +85,8 @@ export function IntegratedAnswerModal({
       })
     }
   }
+
+  // AI 답변 사용 선택 (onClick 핸들러에서 직접 처리)
 
   // 개별 AI 답변 생성
   const generateAIAnswer = async (questionId: string) => {
@@ -103,6 +139,10 @@ export function IntegratedAnswerModal({
           ...prev,
           [questionId]: data.answer
         }))
+        setSelectedAnswerTypes(prev => ({
+          ...prev,
+          [questionId]: 'ai'
+        }))
       } else {
         throw new Error(data.error || 'AI 답변 생성에 실패했습니다.')
       }
@@ -138,7 +178,20 @@ export function IntegratedAnswerModal({
 
     setIsSaving(true)
     try {
-      await onSave(answers)
+      // 답변과 타입 정보를 함께 전달
+      const answersWithTypes: {[key: string]: AnswerWithType} = {}
+      questions.forEach(question => {
+        const answer = answers[question.id]
+        const type = selectedAnswerTypes[question.id] || 'user'
+        if (answer?.trim()) {
+          answersWithTypes[question.id] = {
+            answer: answer.trim(),
+            type: type
+          }
+        }
+      })
+      
+      await onSave(answersWithTypes)
       onClose()
     } catch (error) {
       console.error('답변 저장 실패:', error)
@@ -219,44 +272,139 @@ export function IntegratedAnswerModal({
                   </div>
                 </div>
 
+                {/* AI 생성 답변 상태 종합 정보 */}
+                {(question as any).ai_generated_answer && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                        AI 생성 답변 사용 가능
+                      </span>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {selectedAnswerTypes[question.id] === 'ai' ? 'AI 답변' : '사용자 답변'}
+                        </span>
+                        <Button
+                          onClick={() => {
+                            if (selectedAnswerTypes[question.id] === 'ai') {
+                              setAnswers(prev => ({ ...prev, [question.id]: '' }))
+                              setSelectedAnswerTypes(prev => ({ ...prev, [question.id]: 'user' }))
+                            } else {
+                              const aiAnswer = (question as any)?.ai_generated_answer
+                              if (aiAnswer) {
+                                setAnswers(prev => ({
+                                  ...prev,
+                                  [question.id]: aiAnswer
+                                }))
+                                setSelectedAnswerTypes(prev => ({
+                                  ...prev,
+                                  [question.id]: 'ai'
+                                }))
+                                
+                                // 오류 메시지 제거
+                                if (errors[question.id]) {
+                                  setErrors(prev => {
+                                    const newErrors = { ...prev }
+                                    delete newErrors[question.id]
+                                    return newErrors
+                                  })
+                                }
+                              }
+                            }
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                        >
+                          {selectedAnswerTypes[question.id] === 'ai' ? (
+                            <>
+                              <User className="h-3 w-3 mr-1" />
+                              사용자 입력으로 바꿀기
+                            </>
+                          ) : (
+                            <>
+                              <Bot className="h-3 w-3 mr-1" />
+                              AI 답변 사용하기
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {selectedAnswerTypes[question.id] === 'ai' && (
+                      <div className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-2 rounded border">
+                        {(question as any).ai_generated_answer}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 답변 입력 영역 */}
                 <div className="mb-3">
-                  <textarea
-                    value={answers[question.id] || ''}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    placeholder="답변을 입력하세요..."
-                    rows={3}
-                    className={`w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 ${
-                      errors[question.id]
-                        ? 'border-red-300 focus:ring-red-500 bg-red-50 dark:bg-red-900/20'
-                        : 'border-gray-200 dark:border-gray-700 focus:ring-blue-500 bg-white dark:bg-gray-900'
-                    }`}
-                  />
+                  {selectedAnswerTypes[question.id] === 'user' || !selectedAnswerTypes[question.id] ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          사용자 답변
+                        </span>
+                      </div>
+                      <textarea
+                        value={selectedAnswerTypes[question.id] === 'user' ? answers[question.id] || '' : ''}
+                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                        placeholder="답변을 직접 입력하세요..."
+                        rows={3}
+                        className={`w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 ${
+                          errors[question.id]
+                            ? 'border-red-300 focus:ring-red-500 bg-red-50 dark:bg-red-900/20'
+                            : 'border-gray-200 dark:border-gray-700 focus:ring-blue-500 bg-white dark:bg-gray-900'
+                        }`}
+                      />
+                    </>
+                  ) : (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                          선택된 AI 답변
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-3 rounded border">
+                        {answers[question.id] || '(AI 답변 없음)'}
+                      </div>
+                    </div>
+                  )}
                   {errors[question.id] && (
                     <p className="text-red-500 text-sm mt-1">{errors[question.id]}</p>
                   )}
                 </div>
 
-                {/* AI 답변 생성 버튼 */}
+                {/* 추가 AI 답변 생성 버튼 */}
                 <div className="flex items-center justify-between">
-                  <Button
-                    onClick={() => generateAIAnswer(question.id)}
-                    disabled={isGeneratingAI[question.id]}
-                    variant="outline"
-                    className="text-sm"
-                  >
-                    {isGeneratingAI[question.id] ? (
-                      <Loader className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Bot className="h-4 w-4 mr-2" />
+                  <div className="flex items-center gap-3">
+                    {!(question as any).ai_generated_answer && (
+                      <Button
+                        onClick={() => generateAIAnswer(question.id)}
+                        disabled={isGeneratingAI[question.id]}
+                        variant="outline"
+                        className="text-sm"
+                      >
+                        {isGeneratingAI[question.id] ? (
+                          <Loader className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Bot className="h-4 w-4 mr-2" />
+                        )}
+                        {isGeneratingAI[question.id] ? 'AI 답변 생성 중...' : 'AI 답변 생성'}
+                      </Button>
                     )}
-                    {isGeneratingAI[question.id] ? 'AI 답변 생성 중...' : 'AI 답변 생성'}
-                  </Button>
+                  </div>
                   
                   {answers[question.id]?.trim() && (
                     <div className="flex items-center text-green-600 dark:text-green-400">
                       <CheckCircle className="h-4 w-4 mr-1" />
-                      <span className="text-sm">답변 완료</span>
+                      <span className="text-sm">
+                        답변 완료 ({selectedAnswerTypes[question.id] === 'ai' ? 'AI' : '사용자'})
+                      </span>
                     </div>
                   )}
                 </div>

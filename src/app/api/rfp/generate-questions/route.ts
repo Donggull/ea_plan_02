@@ -156,7 +156,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // DB에 후속 질문 업데이트
+    // analysis_questions 테이블에 질문과 AI 답변 함께 저장
+    const questionsWithAnswers = questionData.questions || []
+    const insertPromises = questionsWithAnswers.map((question: any, index: number) => {
+      return (supabase as any)
+        .from('analysis_questions')
+        .insert({
+          rfp_analysis_id: analysis_id,
+          question_text: question.question_text,
+          question_type: 'follow_up',
+          category: question.category || 'general',
+          priority: question.importance || 'medium',
+          context: question.purpose || '',
+          ai_generated_answer: question.suggested_answer || '',
+          ai_answer_generated_at: new Date().toISOString(),
+          order_index: index + 1
+        })
+    })
+
+    const insertResults = await Promise.all(insertPromises)
+    const insertErrors = insertResults.filter(result => result.error)
+    
+    if (insertErrors.length > 0) {
+      console.error('❌ [후속질문-생성] 질문 저장 실패:', insertErrors)
+      return NextResponse.json({
+        success: false,
+        error: 'AI 생성 질문 저장 중 오류가 발생했습니다.',
+        details: insertErrors.map(err => err.error?.message).join(', ')
+      }, { status: 500 })
+    }
+
+    // rfp_analyses 테이블에도 후속 질문 업데이트 (기존 호환성)
     const { error: updateError } = await (supabase as any)
       .from('rfp_analyses')
       .update({ 
@@ -166,12 +196,7 @@ export async function POST(request: NextRequest) {
       .eq('id', analysis_id)
 
     if (updateError) {
-      console.error('❌ [후속질문-생성] DB 업데이트 실패:', updateError)
-      return NextResponse.json({
-        success: false,
-        error: 'DB 업데이트 중 오류가 발생했습니다.',
-        details: updateError.message
-      }, { status: 500 })
+      console.error('⚠️ [후속질문-생성] rfp_analyses 테이블 업데이트 실패 (비중요):', updateError)
     }
 
     console.log('✅ [후속질문-생성] 후속 질문 생성 완료:', questionData.questions?.length || 0, '개')

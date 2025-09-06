@@ -210,23 +210,59 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       if (error) throw error
 
-      const analysisDataList: AnalysisData[] = analyses?.map(analysis => {
-        const analysisWithFollowUp = analysis as any
-        console.log('📊 [분석데이터] 로드된 분석:', analysis.id, '후속질문 수:', analysisWithFollowUp.follow_up_questions?.length || 0)
-        
-        // 답변 완료 상태 확인 (answers_analyzed가 true인지)
-        const isAnswerCompleted = analysisWithFollowUp.answers_analyzed === true
-        
-        return {
-          analysis: {
-            ...analysis
-          } as unknown as RFPAnalysis,
-          follow_up_questions: analysisWithFollowUp.follow_up_questions || [], // DB에 저장된 후속 질문 사용
-          questionnaire_completed: isAnswerCompleted,
-          next_step_ready: isAnswerCompleted,
-          secondary_analysis: analysisWithFollowUp.secondary_analysis || null
-        }
-      }) || []
+      // 각 분석에 대해 analysis_questions 테이블에서 질문들 및 AI 답변 로드
+      const analysisDataList: AnalysisData[] = await Promise.all(
+        analyses?.map(async (analysis) => {
+          const analysisWithFollowUp = analysis as any
+          console.log('📊 [분석데이터] 로드된 분석:', analysis.id)
+          
+          // analysis_questions 테이블에서 AI 생성 답변을 포함한 질문들 로드
+          const { data: detailedQuestions, error: questionsError } = await supabase
+            .from('analysis_questions')
+            .select('*')
+            .eq('rfp_analysis_id', analysis.id)
+            .order('order_index')
+
+          let finalQuestions = analysisWithFollowUp.follow_up_questions || []
+          
+          if (!questionsError && detailedQuestions && detailedQuestions.length > 0) {
+            console.log('🤖 [분석데이터] analysis_questions에서 AI 답변 포함 질문 로드:', detailedQuestions.length, '개')
+            
+            // analysis_questions에서 로드한 데이터를 기본으로 사용
+            finalQuestions = detailedQuestions.map(q => {
+              const questionRecord = q as any // TypeScript 타입 오류 회피
+              return {
+                id: questionRecord.id,
+                question: questionRecord.question_text,
+                question_text: questionRecord.question_text,
+                category: questionRecord.category,
+                priority: questionRecord.priority,
+                context: questionRecord.context,
+                ai_generated_answer: questionRecord.ai_generated_answer,
+                user_answer: questionRecord.user_answer,
+                answer_type: questionRecord.answer_type,
+                answered_at: questionRecord.answered_at
+              }
+            })
+          } else {
+            console.log('📚 [분석데이터] 기존 follow_up_questions 사용:', finalQuestions.length, '개')
+          }
+          
+          // 답변 완룈 상태 확인
+          const isAnswerCompleted = analysisWithFollowUp.answers_analyzed === true ||
+                                  finalQuestions.some((q: any) => q.user_answer || q.answer_type)
+          
+          return {
+            analysis: {
+              ...analysis
+            } as unknown as RFPAnalysis,
+            follow_up_questions: finalQuestions,
+            questionnaire_completed: isAnswerCompleted,
+            next_step_ready: isAnswerCompleted,
+            secondary_analysis: analysisWithFollowUp.secondary_analysis || null
+          }
+        }) || []
+      )
 
       setAnalysisData(analysisDataList)
       
@@ -264,14 +300,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   }
 
   // 통합 모달에서 사용할 답변 저장 함수
-  const handleAnswerSave = async (answers: {[key: string]: string}) => {
+  const handleAnswerSave = async (answersWithTypes: {[key: string]: {answer: string, type: 'user' | 'ai'}}) => {
     if (!selectedAnalysis) return
 
     try {
-      console.log('💾 [답변저장] 시작:', selectedAnalysis.analysis.id, answers)
+      console.log('💾 [답변저장] 시작:', selectedAnalysis.analysis.id, answersWithTypes)
       
-      // 답변 저장
-      const updatedQuestions = await saveQuestionAnswers(selectedAnalysis.analysis.id, answers)
+      // 답변 저장 (타입 정보 포함)
+      const updatedQuestions = await saveQuestionAnswersWithTypes(selectedAnalysis.analysis.id, answersWithTypes)
       
       // 상태 업데이트 - 답변 완료 표시
       const updatedAnalysisData = {
@@ -392,6 +428,100 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   }
 
   // 후속 질문 답변 저장 함수
+  // 새로운 답변 저장 함수 - 타입 정보 포함
+  const saveQuestionAnswersWithTypes = async (analysisId: string, answersWithTypes: {[key: string]: {answer: string, type: 'user' | 'ai'}}) => {
+    try {
+      console.log('💾 [질문답변] 질문 답변 저장 중 (타입 정보 포함)...', { analysisId, answersWithTypes })
+      
+      // analysis_questions 테이블에서 질문들 조회
+      const { data: questions, error: questionsError } = await supabase
+        .from('analysis_questions')
+        .select('*')
+        .eq('rfp_analysis_id', analysisId)
+        .order('order_index')
+
+      if (questionsError) throw questionsError
+
+      const updatedQuestions = questions.map((question: any) => {
+        const answerData = answersWithTypes[question.id]
+        if (answerData) {
+          return {
+            ...question,
+            user_answer: answerData.answer,
+            answer_type: answerData.type,
+            answered_at: new Date().toISOString()
+          }
+        }
+        return question
+      })
+
+      // analysis_questions 테이블 업데이트
+      const updatePromises = updatedQuestions.map(question => {
+        const answerData = answersWithTypes[question.id]
+        if (answerData) {
+          return supabase
+            .from('analysis_questions')
+            .update({
+              user_answer: answerData.answer,
+              answer_type: answerData.type,
+              answered_at: new Date().toISOString()
+            })
+            .eq('id', question.id)
+        }
+        return Promise.resolve({ data: null, error: null })
+      })
+
+      const updateResults = await Promise.all(updatePromises)
+      const updateErrors = updateResults.filter(result => result.error)
+      
+      if (updateErrors.length > 0) {
+        console.error('❌ [질문답변] analysis_questions 업데이트 실패:', updateErrors)
+        throw new Error('질문 답변 업데이트 중 오류가 발생했습니다.')
+      }
+
+      // 기존 rfp_analyses 테이블에도 호환성을 위해 업데이트
+      const { data: analysis, error: fetchError } = await supabase
+        .from('rfp_analyses')
+        .select('follow_up_questions')
+        .eq('id', analysisId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      const legacyQuestions = (analysis as any)?.follow_up_questions || []
+      const legacyUpdatedQuestions = legacyQuestions.map((question: any) => {
+        const answerData = answersWithTypes[question.id]
+        if (answerData) {
+          return {
+            ...question,
+            user_answer: answerData.answer,
+            answer_type: answerData.type,
+            answered_at: new Date().toISOString()
+          }
+        }
+        return question
+      })
+
+      const { error: updateError } = await supabase
+        .from('rfp_analyses')
+        .update({ 
+          follow_up_questions: legacyUpdatedQuestions,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', analysisId)
+
+      if (updateError) throw updateError
+
+      console.log('✅ [질문답변] 답변 저장 완료 (analysis_questions + rfp_analyses)')
+      return updatedQuestions
+      
+    } catch (error) {
+      console.error('❌ [질문답변] 질문 답변 저장 실패:', error)
+      throw error
+    }
+  }
+
+  // 기존 함수 유지 (호환성)
   const saveQuestionAnswers = async (analysisId: string, answers: {[key: string]: string}) => {
     try {
       console.log('💾 [질문답변] 질문 답변 저장 중...', { analysisId, answers })
