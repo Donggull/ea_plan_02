@@ -24,9 +24,10 @@ const supabaseAdmin = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { analysisId: string } }
+  { params }: { params: Promise<{ analysisId: string }> }
 ) {
-  console.log('🔄 Next Step Guidance API called:', params.analysisId)
+  const resolvedParams = await params
+  console.log('🔄 Next Step Guidance API called:', resolvedParams.analysisId)
   
   try {
     // 사용자 인증 확인
@@ -42,7 +43,7 @@ export async function POST(
 
     const body = await request.json()
     const { rfp_analysis_id, responses } = body
-    const analysisId = params.analysisId
+    const analysisId = resolvedParams.analysisId
 
     if (!analysisId || analysisId !== rfp_analysis_id) {
       return NextResponse.json(

@@ -5,9 +5,10 @@ import { cookies } from 'next/headers'
 // RFP 분석 데이터 조회 API (GET /api/rfp/[analysisId]/analysis)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { analysisId: string } }
+  { params }: { params: Promise<{ analysisId: string }> }
 ) {
-  console.log('🔍 RFP Analysis Data API called:', params.analysisId)
+  const resolvedParams = await params
+  console.log('🔍 RFP Analysis Data API called:', resolvedParams.analysisId)
   
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -21,7 +22,7 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const analysisId = params.analysisId
+    const analysisId = resolvedParams.analysisId
 
     if (!analysisId) {
       return NextResponse.json({
@@ -103,9 +104,10 @@ export async function GET(
 // 분석 데이터 업데이트 API (PUT)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { analysisId: string } }
+  { params }: { params: Promise<{ analysisId: string }> }
 ) {
-  console.log('🔄 RFP Analysis Update API called:', params.analysisId)
+  const resolvedParams = await params
+  console.log('🔄 RFP Analysis Update API called:', resolvedParams.analysisId)
   
   try {
     const supabase = createRouteHandlerClient({ cookies })
@@ -119,7 +121,7 @@ export async function PUT(
       }, { status: 401 })
     }
 
-    const analysisId = params.analysisId
+    const analysisId = resolvedParams.analysisId
     const body = await request.json()
 
     if (!analysisId) {

@@ -24,9 +24,10 @@ const supabaseAdmin = createClient(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { analysisId: string } }
+  { params }: { params: Promise<{ analysisId: string }> }
 ) {
-  console.log('🔄 RFP Analysis Questions Generation API called:', params.analysisId)
+  const resolvedParams = await params
+  console.log('🔄 RFP Analysis Questions Generation API called:', resolvedParams.analysisId)
   
   try {
     // 사용자 인증 확인
@@ -42,7 +43,7 @@ export async function POST(
 
     const body = await request.json()
     const { focus_categories, max_questions = 10 } = body
-    const analysisId = params.analysisId
+    const analysisId = resolvedParams.analysisId
 
     if (!analysisId) {
       return NextResponse.json(
@@ -236,9 +237,10 @@ export async function POST(
 // 기존 질문 조회 API (GET)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { analysisId: string } }
+  { params }: { params: Promise<{ analysisId: string }> }
 ) {
-  console.log('🔍 RFP Analysis Questions GET API called:', params.analysisId)
+  const resolvedParams = await params
+  console.log('🔍 RFP Analysis Questions GET API called:', resolvedParams.analysisId)
   
   try {
     // 사용자 인증 확인
@@ -252,7 +254,7 @@ export async function GET(
       )
     }
 
-    const analysisId = params.analysisId
+    const analysisId = resolvedParams.analysisId
 
     // RFP 분석 데이터에서 질문 조회
     const { data: analysisData, error: fetchError } = await supabase
