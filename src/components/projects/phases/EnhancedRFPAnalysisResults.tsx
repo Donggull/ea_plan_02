@@ -353,9 +353,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       setAnalysisData(analysisDataList)
       
-      // 첫 번째 분석이 있으면 자동 선택
+      // 현재 선택된 분석이 있으면 업데이트된 데이터로 다시 설정, 없으면 첫 번째 선택
       if (analysisDataList.length > 0) {
-        setSelectedAnalysis(analysisDataList[0])
+        const currentSelectedId = selectedAnalysis?.analysis.id
+        const updatedSelectedAnalysis = currentSelectedId 
+          ? analysisDataList.find(data => data.analysis.id === currentSelectedId)
+          : analysisDataList[0]
+        
+        setSelectedAnalysis(updatedSelectedAnalysis || analysisDataList[0])
         
         // DB에 후속 질문이 없으면 자동 생성 트리거 - 별도 실행으로 무한루프 방지
         const firstAnalysis = analysisDataList[0]
@@ -421,11 +426,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       // 2차 AI 분석 실행 (시장조사, 페르소나 분석, 제안서 작성)
       await triggerSecondaryAnalysis(selectedAnalysis.analysis.id, updatedQuestions)
       
-      // 답변 저장 완료 후 자동으로 다음 단계 진행
-      setTimeout(() => {
-        console.log('🔄 [자동진행] 답변 저장 완료 후 시장조사 단계로 자동 전환...')
-        handleNextStepTransition('market_research')
-      }, 2500) // 2.5초 후 자동 진행
+      // 답변 저장 후 최신 데이터를 다시 로드하여 UI에 반영
+      console.log('🔄 [데이터새로고침] 답변 저장 후 최신 데이터 다시 로드...')
+      await fetchAnalysisResults()
+      
+      // 모달 닫기
+      setShowQuestionnaire(false)
+      
+      console.log('✅ [답변저장] 모든 과정 완료 - 분석 결과 페이지에서 답변 확인 가능')
       
     } catch (error) {
       console.error('❌ [답변저장] 실패:', error)
