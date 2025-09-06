@@ -379,7 +379,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, selectedAnalysis?.analysis.id])
+  }, [projectId, selectedAnalysis?.analysis.id, generateAIFollowUpQuestions])
 
   useEffect(() => {
     fetchAnalysisResults()
@@ -491,6 +491,55 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       // analysis_questions 테이블 업데이트 (순차 처리로 변경하여 DB 락 문제 해결)
       console.log('🔄 [DB업데이트] 총', updatedQuestions.length, '개 질문 순차 업데이트 시작')
+      
+      // 먼저 analysis_questions 테이블에 질문이 있는지 확인하고, 없으면 생성
+      console.log('🔍 [질문확인] analysis_questions 테이블에 질문 존재 여부 확인...')
+      const { data: existingQuestions } = await (supabase as any)
+        .from('analysis_questions')
+        .select('id')
+        .eq('rfp_analysis_id', analysisId)
+      
+      const existingQuestionIds = existingQuestions?.map((q: any) => q.id) || []
+      const missingQuestions = updatedQuestions.filter(q => !existingQuestionIds.includes(q.id))
+      
+      console.log(`📋 [질문상태] 기존 질문: ${existingQuestionIds.length}개, 누락된 질문: ${missingQuestions.length}개`)
+      
+      // 누락된 질문들을 analysis_questions 테이블에 먼저 생성
+      if (missingQuestions.length > 0) {
+        console.log('➕ [질문생성] 누락된 질문들을 analysis_questions 테이블에 생성 중...')
+        
+        for (const question of missingQuestions) {
+          const questionRecord = {
+            id: question.id,
+            rfp_analysis_id: analysisId,
+            question_text: question.question_text || question.question,
+            question_type: question.question_type || 'text_long',
+            category: question.category || 'general',
+            priority: question.priority || 'medium',
+            context: question.context || null,
+            options: question.options || null,
+            validation_rules: question.validation_rules || null,
+            depends_on: question.depends_on || null,
+            next_step_impact: question.next_step_impact || null,
+            order_index: question.order_index || 0,
+            created_at: new Date().toISOString(),
+            ai_generated_answer: question.ai_generated_answer || null,
+            user_answer: null,
+            answer_type: 'user',
+            answered_at: null
+          }
+          
+          const { error: insertError } = await (supabase as any)
+            .from('analysis_questions')
+            .insert(questionRecord)
+          
+          if (insertError) {
+            console.error(`❌ [질문생성] 질문 ${question.id} 생성 실패:`, insertError)
+          } else {
+            console.log(`✅ [질문생성] 질문 ${question.id} 생성 성공`)
+          }
+        }
+      }
       
       const updateResults = []
       
