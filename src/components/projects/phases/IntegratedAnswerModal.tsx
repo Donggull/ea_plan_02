@@ -30,15 +30,14 @@ interface IntegratedAnswerModalProps {
 
 export function IntegratedAnswerModal({
   questions,
-  analysisId,
-  projectId,
+  analysisId: _analysisId,
+  projectId: _projectId,
   isOpen,
   onClose,
   onSave
 }: IntegratedAnswerModalProps) {
   const [userAnswers, setUserAnswers] = useState<{[key: string]: string}>({})
   const [selectedAnswerTypes, setSelectedAnswerTypes] = useState<{[key: string]: 'user' | 'ai'}>({})
-  const [isGeneratingAI, setIsGeneratingAI] = useState<{[key: string]: boolean}>({})
   const [isSaving, setIsSaving] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
   const [_isGeneratingAllAI, _setIsGeneratingAllAI] = useState(false)
@@ -117,86 +116,36 @@ export function IntegratedAnswerModal({
   const selectAllAIAnswers = () => {
     const allAITypes: {[key: string]: 'user' | 'ai'} = {}
     questions.forEach(question => {
-      const hasAIAnswer = (question as any).ai_generated_answer
-      if (hasAIAnswer) {
-        allAITypes[question.id] = 'ai'
-      }
+      // AI가 미리 생성한 답변이 있거나, 없어도 AI 답변으로 선택 가능
+      allAITypes[question.id] = 'ai'
     })
-    setSelectedAnswerTypes(prev => ({ ...prev, ...allAITypes }))
+    setSelectedAnswerTypes(allAITypes)
     
     // 모든 오류 메시지 제거
     setErrors({})
+    
+    console.log('✅ [전체AI선택] 모든 질문을 AI 답변으로 선택 완료:', questions.length, '개')
   }
 
-  // 전체 사용자 답변 선택
-  const selectAllUserAnswers = () => {
-    const allUserTypes: {[key: string]: 'user' | 'ai'} = {}
-    questions.forEach(question => {
-      allUserTypes[question.id] = 'user'
-    })
-    setSelectedAnswerTypes(allUserTypes)
-  }
 
-  // 개별 AI 답변 생성
-  const generateAIAnswer = async (questionId: string) => {
-    const question = questions.find(q => q.id === questionId)
-    if (!question) return
-
-    setIsGeneratingAI(prev => ({ ...prev, [questionId]: true }))
-
-    try {
-      // 프로젝트 설정에서 선택된 AI 모델 조회
-      let selectedModel = 'claude-3-5-sonnet-20241022' // 기본값
-      
-      try {
-        const { supabase } = await import('@/lib/supabase/client')
-        const { data: project } = await supabase
-          .from('projects')
-          .select('settings')
-          .eq('id', projectId)
-          .single()
-        
-        const settings = project?.settings as any
-        if (settings?.preferred_ai_model?.model_id) {
-          selectedModel = settings.preferred_ai_model.model_id
-          console.log('🤖 [AI답변] 프로젝트 선택 모델 사용:', selectedModel)
-        }
-      } catch (_error) {
-        console.log('⚠️ [AI답변] 프로젝트 모델 조회 실패, 기본 모델 사용:', selectedModel)
-      }
-
-      const response = await fetch('/api/ai/generate-answer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: question.question_text || question.question,
-          context: question.context || '',
-          analysis_id: analysisId,
-          model: selectedModel
-        })
+  // AI 답변 선택 (DB 호출 없이 선택만)
+  const generateAIAnswer = (questionId: string) => {
+    // 해당 질문을 AI 답변 타입으로 선택
+    setSelectedAnswerTypes(prev => ({
+      ...prev,
+      [questionId]: 'ai'
+    }))
+    
+    // 오류 메시지 제거 (AI 답변은 항상 유효)
+    if (errors[questionId]) {
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[questionId]
+        return newErrors
       })
-
-      if (!response.ok) {
-        throw new Error(`AI 답변 생성 실패: ${response.status}`)
-      }
-
-      const data = await response.json()
-      if (data.success && data.answer) {
-        // AI 답변 생성 성공 시 해당 질문의 AI 답변 업데이트
-        // 실제로는 이 답변이 DB에 저장되어야 하지만 여기서는 UI에만 반영
-        console.log('✅ [AI답변] 질문', questionId, '에 대한 AI 답변 생성 완료')
-      } else {
-        throw new Error(data.error || 'AI 답변 생성에 실패했습니다.')
-      }
-
-    } catch (error) {
-      console.error('❌ [AI답변] 생성 실패:', error)
-      alert('AI 답변 생성 중 오류가 발생했습니다. 직접 답변을 작성해주세요.')
-    } finally {
-      setIsGeneratingAI(prev => ({ ...prev, [questionId]: false }))
     }
+    
+    console.log('✅ [AI답변선택] 질문', questionId, '에 대해 AI 답변 선택됨')
   }
 
   const validateAnswers = () => {
@@ -306,17 +255,8 @@ export function IntegratedAnswerModal({
             />
           </div>
           
-          {/* 전체 선택 버튼들 */}
+          {/* 전체 선택 버튼 */}
           <div className="flex items-center gap-3 justify-center">
-            <Button
-              onClick={selectAllUserAnswers}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              <User className="h-3 w-3 mr-1" />
-              모든 답변을 직접 작성
-            </Button>
             <Button
               onClick={selectAllAIAnswers}
               variant="outline"
@@ -441,17 +381,12 @@ export function IntegratedAnswerModal({
                     {!(question as any).ai_generated_answer && selectedAnswerTypes[question.id] !== 'ai' && (
                       <Button
                         onClick={() => generateAIAnswer(question.id)}
-                        disabled={isGeneratingAI[question.id]}
                         variant="outline"
                         size="sm"
                         className="text-xs"
                       >
-                        {isGeneratingAI[question.id] ? (
-                          <Loader className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <Bot className="h-3 w-3 mr-1" />
-                        )}
-                        {isGeneratingAI[question.id] ? '생성 중...' : 'AI 답변 생성'}
+                        <Bot className="h-3 w-3 mr-1" />
+                        AI 답변 선택
                       </Button>
                     )}
                   </div>

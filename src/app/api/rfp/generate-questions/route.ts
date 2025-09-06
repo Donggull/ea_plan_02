@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     console.log('🤖 [후속질문-생성] AI 기반 후속 질문 생성 시작')
     
     const body: QuestionGenerationRequest = await request.json()
-    const { analysis_id, max_questions = 8, categories = ['market_context', 'target_audience', 'competitor_focus'] } = body
+    const { analysis_id, max_questions = 15, categories = ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements'] } = body
 
     // 입력 검증
     if (!analysis_id) {
@@ -53,8 +53,10 @@ export async function POST(request: NextRequest) {
 **비기능 요구사항:** ${JSON.stringify(rfpAnalysis.non_functional_requirements || [])}
 
 ## 요구사항:
-위의 RFP 분석 결과를 바탕으로 ${max_questions}개의 후속 질문을 생성해주세요.
-질문은 다음 카테고리들을 포함해야 합니다: ${categories.join(', ')}
+위의 RFP 분석 결과를 바탕으로 프로젝트의 복잡성과 범위에 따라 5개에서 20개 사이의 후속 질문을 생성해주세요.
+단순한 프로젝트는 5-10개, 중간 복잡도는 10-15개, 복잡한 프로젝트는 15-20개 정도가 적절합니다.
+최대 ${max_questions}개를 초과하지 않도록 하되, 프로젝트에 필요한 만큼 생성해주세요.
+질문은 다음 카테고리들을 균형있게 포함해야 합니다: ${categories.join(', ')}
 
 질문들은 다음 JSON 형식으로 제공해주세요:
 
