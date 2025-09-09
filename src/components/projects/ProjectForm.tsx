@@ -26,9 +26,10 @@ interface ProjectFormProps {
   }
   onSubmit?: (data: any) => void
   onCancel?: () => void
+  isSubmitting?: boolean // 부모 컴포넌트의 제출 상태
 }
 
-export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
+export function ProjectForm({ project, onSubmit, onCancel, isSubmitting: parentIsSubmitting }: ProjectFormProps) {
   const router = useRouter()
   const { user, organization: _organization } = useAuthStore()
   const [loading, setLoading] = useState(false)
@@ -56,7 +57,7 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
     e.preventDefault()
     
     // 중복 제출 방지
-    if (isSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending) {
+    if (isSubmitting || parentIsSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending) {
       console.log('이미 제출 중입니다. 중복 제출을 방지합니다.')
       return
     }
@@ -316,10 +317,10 @@ export function ProjectForm({ project, onSubmit, onCancel }: ProjectFormProps) {
           <Button
             type="submit"
             variant="primary"
-            disabled={loading || isSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending || !formData.name}
+            disabled={loading || isSubmitting || parentIsSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending || !formData.name}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loading ? '저장 중...' : project?.id ? '수정' : '생성'}
+            {(loading || parentIsSubmitting) ? '저장 중...' : project?.id ? '수정' : '생성'}
           </Button>
         </div>
       </div>

@@ -32,6 +32,12 @@ export default function ProjectsPage() {
   // }, [user, subscribeToProjects])
 
   const handleCreateProject = async (projectData: any) => {
+    // 이미 진행 중인 경우 중복 실행 방지
+    if (createProjectMutation.isPending) {
+      console.log('⚠️ 프로젝트 생성이 이미 진행 중입니다.')
+      return
+    }
+
     try {
       await createProjectMutation.mutateAsync(projectData)
       setShowCreateModal(false)
@@ -151,6 +157,7 @@ export default function ProjectsPage() {
           <ProjectForm
             onSubmit={handleCreateProject}
             onCancel={() => setShowCreateModal(false)}
+            isSubmitting={createProjectMutation.isPending}
           />
         </Modal>
       )}
