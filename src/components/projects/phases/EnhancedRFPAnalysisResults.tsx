@@ -502,6 +502,11 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       const updatedQuestions = currentQuestions.map((question: any) => {
         const answerData = answersWithTypes[question.id]
         if (answerData) {
+          console.log(`💾 [답변저장] 질문 ${question.id} 업데이트:`, {
+            type: answerData.type,
+            answer: answerData.answer.substring(0, 100) + '...'
+          })
+          
           const updatedQuestion = {
             ...question,
             answer_type: answerData.type,
@@ -511,12 +516,18 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           if (answerData.type === 'ai') {
             // AI 답변인 경우
             updatedQuestion.ai_generated_answer = answerData.answer
-            updatedQuestion.user_answer = null
+            updatedQuestion.user_answer = null // 명시적으로 null 설정
           } else {
             // 사용자 답변인 경우  
             updatedQuestion.user_answer = answerData.answer
-            // AI 답변 타입이 아닌 경우에만 ai_generated_answer를 null로 설정하지 않음
+            updatedQuestion.ai_generated_answer = null // 명시적으로 null 설정
           }
+          
+          console.log(`✅ [답변저장] 질문 ${question.id} 저장 완료:`, {
+            user_answer: updatedQuestion.user_answer,
+            ai_generated_answer: updatedQuestion.ai_generated_answer,
+            answer_type: updatedQuestion.answer_type
+          })
           
           return updatedQuestion
         }
@@ -1365,25 +1376,27 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             let hasAnswer = false
             let actualAnswerType = answerType
             
-            // 더 유연한 답변 표시 로직
-            if (answerType === 'ai' && aiAnswer && aiAnswer.trim()) {
-              displayAnswer = aiAnswer
-              hasAnswer = true
-              actualAnswerType = 'ai'
-            } else if (answerType === 'user' && userAnswer && userAnswer.trim()) {
-              displayAnswer = userAnswer
-              hasAnswer = true
-              actualAnswerType = 'user'
-            } else if (userAnswer && userAnswer.trim()) {
-              // fallback to user answer
+            // 더 유연한 답변 표시 로직 - 데이터 우선으로 판단
+            if (userAnswer && userAnswer.trim()) {
+              // user_answer가 있으면 우선 표시
               displayAnswer = userAnswer
               hasAnswer = true
               actualAnswerType = 'user'
             } else if (aiAnswer && aiAnswer.trim()) {
-              // fallback to AI answer
+              // ai_generated_answer가 있으면 표시
               displayAnswer = aiAnswer
               hasAnswer = true
               actualAnswerType = 'ai'
+            } else if (answerType === 'ai' && aiAnswer && aiAnswer.trim()) {
+              // 타입 기반 AI 답변 확인
+              displayAnswer = aiAnswer
+              hasAnswer = true
+              actualAnswerType = 'ai'
+            } else if (answerType === 'user' && userAnswer && userAnswer.trim()) {
+              // 타입 기반 사용자 답변 확인
+              displayAnswer = userAnswer
+              hasAnswer = true
+              actualAnswerType = 'user'
             }
             
             console.log(`📝 [답변표시] 질문 ${index + 1} 최종 상태:`, {
