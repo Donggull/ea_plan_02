@@ -514,13 +514,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           }
           
           if (answerData.type === 'ai') {
-            // AI 답변을 선택한 경우: ai_generated_answer에 저장, user_answer는 null
-            updatedQuestion.ai_generated_answer = answerData.answer
-            updatedQuestion.user_answer = null
+            // AI 답변을 선택한 경우: user_answer에 선택된 AI 답변 저장 (표시 우선순위 때문에)
+            updatedQuestion.user_answer = answerData.answer
+            // ai_generated_answer는 기존 AI 생성 답변 유지
           } else {
             // 사용자가 직접 입력한 경우: user_answer에 저장
             updatedQuestion.user_answer = answerData.answer
-            // ai_generated_answer는 기존값 유지 (필요시 다시 선택 가능)
+            // ai_generated_answer는 기존값 유지
           }
           
           console.log(`✅ [답변저장] 질문 ${question.id} 저장 완료:`, {
@@ -563,9 +563,9 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           }
           
           if (answerData.type === 'ai') {
-            // AI 답변인 경우 ai_generated_answer 필드에 저장
-            updateData.ai_generated_answer = answerData.answer
-            updateData.user_answer = null // 사용자 답변은 null로 설정
+            // AI 답변 선택인 경우에도 user_answer에 저장 (일관된 표시를 위해)
+            updateData.user_answer = answerData.answer
+            // ai_generated_answer는 기존 값 유지
           } else {
             // 사용자 답변인 경우 user_answer 필드에 저장
             updateData.user_answer = answerData.answer
