@@ -37,6 +37,16 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
+    // project_id가 없는 경우 (RFP 분석 자동화에서 생성된 데이터) 후속 질문 생성 제한
+    if (!rfpAnalysis.project_id) {
+      console.log('⚠️ [후속질문-생성] RFP 분석 자동화 데이터는 후속 질문 생성을 지원하지 않습니다.')
+      return NextResponse.json({
+        success: false,
+        error: 'RFP 분석 자동화에서 생성된 데이터는 후속 질문 생성을 지원하지 않습니다. 프로젝트에 연결된 후에 다시 시도해주세요.',
+        code: 'PROJECT_ID_REQUIRED'
+      }, { status: 400 })
+    }
+
     // AI 모델을 위한 프롬프트 구성
     const analysisPrompt = `
 다음 RFP 분석 결과를 바탕으로 시장조사를 위한 후속 질문들을 생성해주세요.
