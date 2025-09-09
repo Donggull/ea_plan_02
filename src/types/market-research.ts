@@ -266,6 +266,12 @@ export interface MarketResearchRequest {
   industry?: string;
   region?: string;
   timeframe?: string;
+  additional_context?: {
+    research_focus?: string[];
+    target_market_hints?: string[];
+    competitor_context?: string[];
+    user_insights?: string[];
+  };
 }
 
 export interface MarketResearchResult extends MarketResearch {

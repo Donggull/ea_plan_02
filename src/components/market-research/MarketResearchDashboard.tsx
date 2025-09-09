@@ -35,6 +35,13 @@ export default function MarketResearchDashboard({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [researchHistory, setResearchHistory] = useState<MarketResearch[]>([]);
+  const [rfpInsights, setRfpInsights] = useState<{
+    hasAnswers: boolean;
+    extractedKeywords: string[];
+    detectedIndustry: string;
+    detectedRegion: string;
+    answerCount: number;
+  } | null>(null);
 
   const loadResearchHistory = React.useCallback(async () => {
     try {
@@ -55,9 +62,61 @@ export default function MarketResearchDashboard({
     }
   }, [projectId]);
 
+  // RFP 인사이트 미리 로드
+  const loadRfpInsights = React.useCallback(async () => {
+    if (!rfpAnalysisId) {
+      setRfpInsights(null);
+      return;
+    }
+
+    try {
+      console.log('🔍 [RFP인사이트] RFP 분석 데이터 미리 로드:', rfpAnalysisId);
+      
+      // 후속 질문 답변 데이터 가져오기
+      const { data: questionAnswers } = await (supabase as any)
+        .from('analysis_questions')
+        .select('question_text, user_answer, ai_generated_answer, answer_type, category')
+        .eq('rfp_analysis_id', rfpAnalysisId)
+        .not('user_answer', 'is', null)
+        .or('user_answer.neq.,ai_generated_answer.neq.');
+
+      if (questionAnswers && questionAnswers.length > 0) {
+        const insights = extractMarketInsightsFromAnswers(questionAnswers);
+        
+        setRfpInsights({
+          hasAnswers: true,
+          extractedKeywords: insights.keywords,
+          detectedIndustry: insights.enhancedParams.industry,
+          detectedRegion: insights.enhancedParams.region,
+          answerCount: questionAnswers.length
+        });
+        
+        console.log('✅ [RFP인사이트] 인사이트 로드 완료:', {
+          answerCount: questionAnswers.length,
+          keywords: insights.keywords.length,
+          industry: insights.enhancedParams.industry,
+          region: insights.enhancedParams.region
+        });
+      } else {
+        setRfpInsights({
+          hasAnswers: false,
+          extractedKeywords: [],
+          detectedIndustry: 'Technology',
+          detectedRegion: 'Global',
+          answerCount: 0
+        });
+        console.log('📝 [RFP인사이트] 답변 데이터가 없습니다.');
+      }
+    } catch (error) {
+      console.error('❌ [RFP인사이트] 로드 실패:', error);
+      setRfpInsights(null);
+    }
+  }, [rfpAnalysisId]);
+
   useEffect(() => {
     loadResearchHistory();
-  }, [loadResearchHistory]);
+    loadRfpInsights();
+  }, [loadResearchHistory, loadRfpInsights]);
 
   const startNewResearch = async () => {
     setLoading(true);
@@ -65,16 +124,59 @@ export default function MarketResearchDashboard({
       const engine = new MarketResearchEngine();
       
       let keywords: string[] = ['digital transformation', 'SaaS', 'enterprise'];
+      let enhancedParams = {
+        industry: 'Technology',
+        region: 'Global',
+        timeframe: '2024-2025',
+        research_focus: [] as string[],
+        target_market_hints: [] as string[],
+        competitor_context: [] as string[]
+      };
       
       if (rfpAnalysisId) {
+        console.log('🔍 [시장조사] RFP 분석 ID로 후속 질문 답변 데이터 가져오기:', rfpAnalysisId);
+        
+        // RFP 분석 기본 데이터 (키워드 등) 가져오기
         const { data: rfpData } = await (supabase as any)
           .from('rfp_analyses')
-          .select('keywords')
+          .select('keywords, project_overview, target_audience')
           .eq('id', rfpAnalysisId)
           .single();
         
         if (rfpData && rfpData.keywords) {
           keywords = rfpData.keywords as string[];
+          console.log('📋 [시장조사] 기본 키워드 로드:', keywords);
+        }
+        
+        // 후속 질문 답변 데이터 가져오기 (analysis_questions 테이블에서)
+        const { data: questionAnswers } = await (supabase as any)
+          .from('analysis_questions')
+          .select('question_text, user_answer, ai_generated_answer, answer_type, category')
+          .eq('rfp_analysis_id', rfpAnalysisId)
+          .not('user_answer', 'is', null)
+          .or('user_answer.neq.,ai_generated_answer.neq.');
+
+        console.log('📊 [시장조사] 후속 질문 답변 데이터:', questionAnswers?.length || 0, '개');
+
+        if (questionAnswers && questionAnswers.length > 0) {
+          // 답변에서 키워드 및 인사이트 추출
+          const extractedInsights = extractMarketInsightsFromAnswers(questionAnswers);
+          
+          // 키워드 강화
+          if (extractedInsights.keywords.length > 0) {
+            keywords = [...keywords, ...extractedInsights.keywords];
+            // 중복 제거
+            keywords = [...new Set(keywords)];
+            console.log('🔧 [시장조사] 강화된 키워드:', keywords);
+          }
+          
+          // 시장 조사 매개변수 강화
+          enhancedParams = {
+            ...enhancedParams,
+            ...extractedInsights.enhancedParams
+          };
+          
+          console.log('✨ [시장조사] 강화된 조사 매개변수:', enhancedParams);
         }
       }
 
@@ -83,11 +185,17 @@ export default function MarketResearchDashboard({
         rfp_analysis_id: rfpAnalysisId,
         research_type: 'comprehensive',
         keywords,
-        industry: 'Technology',
-        region: 'Global',
-        timeframe: '2024-2025'
+        industry: enhancedParams.industry,
+        region: enhancedParams.region,
+        timeframe: enhancedParams.timeframe,
+        additional_context: {
+          research_focus: enhancedParams.research_focus,
+          target_market_hints: enhancedParams.target_market_hints,
+          competitor_context: enhancedParams.competitor_context
+        }
       };
 
+      console.log('🚀 [시장조사] 강화된 조사 요청:', request);
       const result = await engine.conductResearch(request);
       setResearch(result);
       await loadResearchHistory();
@@ -100,6 +208,105 @@ export default function MarketResearchDashboard({
     } finally {
       setLoading(false);
     }
+  };
+
+  // 후속 질문 답변에서 시장 조사 인사이트 추출하는 함수
+  const extractMarketInsightsFromAnswers = (questionAnswers: any[]) => {
+    const insights = {
+      keywords: [] as string[],
+      enhancedParams: {
+        industry: 'Technology',
+        region: 'Global', 
+        timeframe: '2024-2025',
+        research_focus: [] as string[],
+        target_market_hints: [] as string[],
+        competitor_context: [] as string[]
+      }
+    };
+
+    questionAnswers.forEach(qa => {
+      const answer = qa.answer_type === 'ai' ? qa.ai_generated_answer : qa.user_answer;
+      if (!answer) return;
+      
+      const lowerAnswer = answer.toLowerCase();
+      const category = qa.category?.toLowerCase() || '';
+      
+      // 산업 분야 추출
+      if (lowerAnswer.includes('금융') || lowerAnswer.includes('finance')) {
+        insights.enhancedParams.industry = 'Finance';
+      } else if (lowerAnswer.includes('교육') || lowerAnswer.includes('education')) {
+        insights.enhancedParams.industry = 'Education';
+      } else if (lowerAnswer.includes('의료') || lowerAnswer.includes('healthcare')) {
+        insights.enhancedParams.industry = 'Healthcare';
+      } else if (lowerAnswer.includes('제조') || lowerAnswer.includes('manufacturing')) {
+        insights.enhancedParams.industry = 'Manufacturing';
+      } else if (lowerAnswer.includes('리테일') || lowerAnswer.includes('retail') || lowerAnswer.includes('커머스')) {
+        insights.enhancedParams.industry = 'Retail';
+      }
+      
+      // 지역 추출
+      if (lowerAnswer.includes('한국') || lowerAnswer.includes('국내')) {
+        insights.enhancedParams.region = 'Korea';
+      } else if (lowerAnswer.includes('아시아')) {
+        insights.enhancedParams.region = 'Asia-Pacific';
+      } else if (lowerAnswer.includes('유럽')) {
+        insights.enhancedParams.region = 'Europe';
+      } else if (lowerAnswer.includes('미국') || lowerAnswer.includes('북미')) {
+        insights.enhancedParams.region = 'North America';
+      }
+      
+      // 키워드 추출 (일반적인 기술 및 비즈니스 용어)
+      const techKeywords = [
+        'ai', 'artificial intelligence', '인공지능', 
+        'machine learning', '머신러닝', 
+        'cloud', '클라우드',
+        'mobile', '모바일',
+        'web', '웹',
+        'data', '데이터',
+        'api', 'rest', 'graphql',
+        'react', 'vue', 'angular',
+        'node', 'python', 'java',
+        'docker', 'kubernetes',
+        'microservice', '마이크로서비스',
+        'blockchain', '블록체인',
+        'iot', 'internet of things',
+        'automation', '자동화',
+        'digital transformation', '디지털 전환'
+      ];
+      
+      techKeywords.forEach(keyword => {
+        if (lowerAnswer.includes(keyword) && !insights.keywords.includes(keyword)) {
+          insights.keywords.push(keyword);
+        }
+      });
+      
+      // 카테고리별 연구 초점 추가
+      if (category.includes('market') || category.includes('시장')) {
+        insights.enhancedParams.research_focus.push('market_size_analysis');
+        insights.enhancedParams.research_focus.push('growth_trends');
+      }
+      
+      if (category.includes('competitor') || category.includes('경쟁')) {
+        insights.enhancedParams.research_focus.push('competitive_landscape');
+        insights.enhancedParams.competitor_context.push(answer.substring(0, 200)); // 첫 200자
+      }
+      
+      if (category.includes('target') || category.includes('타겟') || category.includes('고객')) {
+        insights.enhancedParams.research_focus.push('target_audience_analysis');
+        insights.enhancedParams.target_market_hints.push(answer.substring(0, 200)); // 첫 200자
+      }
+      
+      if (category.includes('technical') || category.includes('기술')) {
+        insights.enhancedParams.research_focus.push('technology_trends');
+      }
+    });
+    
+    // 중복 제거
+    insights.enhancedParams.research_focus = [...new Set(insights.enhancedParams.research_focus)];
+    insights.enhancedParams.target_market_hints = [...new Set(insights.enhancedParams.target_market_hints)];
+    insights.enhancedParams.competitor_context = [...new Set(insights.enhancedParams.competitor_context)];
+    
+    return insights;
   };
 
   const getStatusIcon = (status: string) => {
@@ -120,25 +327,105 @@ export default function MarketResearchDashboard({
   const renderOverview = () => {
     if (!research) {
       return (
-        <div className="text-center py-12">
-          <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">시장 조사를 시작하세요</h3>
-          <p className="text-gray-600 mb-6">
-            AI 기반 시장 분석으로 경쟁사, 트렌드, 기술 동향을 파악합니다
-          </p>
-          <Button onClick={startNewResearch} disabled={loading} variant="primary">
-            {loading ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                조사 중...
-              </>
-            ) : (
-              <>
-                <Search className="mr-2 h-4 w-4" />
-                새 시장 조사 시작
-              </>
-            )}
-          </Button>
+        <div className="space-y-6">
+          {/* RFP 인사이트 활용 정보 */}
+          {rfpInsights && (
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <Target className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                    {rfpInsights.hasAnswers ? 'RFP 분석 데이터를 활용한 맞춤형 시장 조사' : 'RFP 분석 연동'}
+                  </h3>
+                  
+                  {rfpInsights.hasAnswers ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        {rfpInsights.answerCount}개의 후속 질문 답변을 바탕으로 더욱 정확한 시장 조사를 수행합니다.
+                      </p>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">감지된 산업 분야</h4>
+                          <span className="inline-flex items-center px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs">
+                            {rfpInsights.detectedIndustry}
+                          </span>
+                        </div>
+                        
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">대상 지역</h4>
+                          <span className="inline-flex items-center px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">
+                            {rfpInsights.detectedRegion}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {rfpInsights.extractedKeywords.length > 0 && (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                            추출된 키워드 ({rfpInsights.extractedKeywords.length}개)
+                          </h4>
+                          <div className="flex flex-wrap gap-1">
+                            {rfpInsights.extractedKeywords.slice(0, 8).map((keyword, index) => (
+                              <span key={index} className="inline-flex items-center px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded text-xs">
+                                {keyword}
+                              </span>
+                            ))}
+                            {rfpInsights.extractedKeywords.length > 8 && (
+                              <span className="inline-flex items-center px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs">
+                                +{rfpInsights.extractedKeywords.length - 8}개 더
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>이 정보들이 시장 조사 정확도를 높입니다</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        RFP 분석과 연동되어 있지만 아직 후속 질문 답변이 완료되지 않았습니다.
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        RFP 분석의 후속 질문을 완료하면 더욱 정확한 시장 조사를 받을 수 있습니다.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+          
+          {/* 시장 조사 시작 섹션 */}
+          <div className="text-center py-12">
+            <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">시장 조사를 시작하세요</h3>
+            <p className="text-gray-600 mb-6">
+              {rfpInsights?.hasAnswers 
+                ? 'RFP 분석 답변을 활용한 AI 기반 맞춤형 시장 분석'
+                : 'AI 기반 시장 분석으로 경쟁사, 트렌드, 기술 동향을 파악합니다'
+              }
+            </p>
+            <Button onClick={startNewResearch} disabled={loading} variant="primary">
+              {loading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  {rfpInsights?.hasAnswers ? '맞춤형 조사 중...' : '조사 중...'}
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  {rfpInsights?.hasAnswers ? '강화된 시장 조사 시작' : '새 시장 조사 시작'}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       );
     }
