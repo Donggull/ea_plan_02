@@ -65,14 +65,16 @@ export function AnalysisQuestionnaire({
     setIsGenerating(true)
 
     try {
-      const response = await fetch(`/api/rfp/${analysisId}/questions`, {
+      console.log('🤖 [AnalysisQuestionnaire] AI 기반 질문 생성 시작:', analysisId)
+      const response = await fetch('/api/rfp/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          focus_categories: selectedCategories,
-          max_questions: maxQuestions
+          analysis_id: analysisId,
+          max_questions: maxQuestions,
+          categories: selectedCategories
         })
       })
 
@@ -82,8 +84,14 @@ export function AnalysisQuestionnaire({
       }
 
       const result = await response.json()
-      setQuestions(result.questions)
-      onQuestionsGenerated?.(result.questions)
+      
+      if (!result.success) {
+        throw new Error(result.error || 'AI 질문 생성에 실패했습니다.')
+      }
+      
+      console.log('✅ [AnalysisQuestionnaire] AI 질문 생성 완료:', result.generated_count, '개')
+      setQuestions(result.questions || [])
+      onQuestionsGenerated?.(result.questions || [])
       
     } catch (error) {
       console.error('Question generation error:', error)
