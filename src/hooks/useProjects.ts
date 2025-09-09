@@ -440,6 +440,7 @@ export function useCreateProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
+    mutationKey: ['createProject'], // 중복 방지를 위한 key
     mutationFn: async (data: CreateProjectData): Promise<Project> => {
       console.log('🔨 프로젝트 생성 시작:', data.name)
       

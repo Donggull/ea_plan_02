@@ -34,6 +34,7 @@ export function ProjectForm({ project, onSubmit, onCancel, isSubmitting: parentI
   const { user, organization: _organization } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false) // 중복 제출 방지
+  const [hasSubmitted, setHasSubmitted] = useState(false) // 이미 제출됨 여부
   const createProjectMutation = useCreateProject()
   const updateProjectMutation = useUpdateProject(project?.id || '')
   const [formData, setFormData] = useState({
@@ -57,13 +58,17 @@ export function ProjectForm({ project, onSubmit, onCancel, isSubmitting: parentI
     e.preventDefault()
     
     // 중복 제출 방지
-    if (isSubmitting || parentIsSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending) {
+    if (hasSubmitted || isSubmitting || parentIsSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending) {
       console.log('이미 제출 중입니다. 중복 제출을 방지합니다.')
       return
     }
     
+    // 제출 시작 마크
+    setHasSubmitted(true)
+    
     if (!user) {
-      alert('로그인이 필요합니다.')
+      console.error('로그인이 필요합니다.')
+      setHasSubmitted(false)
       return
     }
 
@@ -117,7 +122,7 @@ export function ProjectForm({ project, onSubmit, onCancel, isSubmitting: parentI
       }
     } catch (error) {
       console.error('Error saving project:', error)
-      alert(error instanceof Error ? error.message : '프로젝트 저장 중 오류가 발생했습니다.')
+      setHasSubmitted(false) // 오류 발생 시 재시도 가능하도록
     } finally {
       setLoading(false)
       setIsSubmitting(false)
@@ -317,10 +322,10 @@ export function ProjectForm({ project, onSubmit, onCancel, isSubmitting: parentI
           <Button
             type="submit"
             variant="primary"
-            disabled={loading || isSubmitting || parentIsSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending || !formData.name}
+            disabled={hasSubmitted || loading || isSubmitting || parentIsSubmitting || createProjectMutation.isPending || updateProjectMutation.isPending || !formData.name}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {(loading || parentIsSubmitting) ? '저장 중...' : project?.id ? '수정' : '생성'}
+            {(hasSubmitted || loading || parentIsSubmitting) ? '저장 중...' : project?.id ? '수정' : '생성'}
           </Button>
         </div>
       </div>
