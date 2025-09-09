@@ -14,6 +14,7 @@ import { RFPSummary } from '@/components/planning/proposal/RFPSummary'
 import { AnalysisQuestionnaire } from '@/components/planning/proposal/AnalysisQuestionnaire'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthStore } from '@/stores/auth-store'
+import { useCreateProject } from '@/hooks/useProjects'
 import { cn } from '@/lib/utils'
 import { RFPAnalysis, RFPUploadResponse } from '@/types/rfp-analysis'
 import { supabase } from '@/lib/supabase/client'
@@ -55,6 +56,10 @@ export default function RFPAnalysisPage() {
   // AI 모델 관련 상태
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel | null>(null)
   const [assignLoading, setAssignLoading] = useState(false)
+  const [isCreatingProject, setIsCreatingProject] = useState(false) // 중복 생성 방지
+  
+  // React Query 훅
+  const createProjectMutation = useCreateProject()
 
   // URL 파라미터에 따른 초기 탭 설정
   useEffect(() => {
@@ -168,6 +173,12 @@ export default function RFPAnalysisPage() {
   }
 
   const handleCreateNewProject = async () => {
+    // 중복 생성 방지
+    if (isCreatingProject || createProjectMutation.isPending) {
+      console.log('⚠️ 프로젝트 생성이 이미 진행 중입니다.')
+      return
+    }
+
     if (!authUser || !newProjectName.trim() || !analysisData) {
       console.error('프로젝트 생성 필수 데이터 부족:', {
         authUser: !!authUser,
@@ -185,6 +196,8 @@ export default function RFPAnalysisPage() {
     })
 
     setAssignLoading(true)
+    setIsCreatingProject(true)
+    
     try {
       // 분석 데이터 구조 확인 및 안전한 접근
       const projectTitle = analysisData.project_overview?.title || 'RFP 분석 프로젝트'
@@ -196,54 +209,25 @@ export default function RFPAnalysisPage() {
         confidence_score: analysisData.confidence_score
       })
 
-      // 1. 신규 프로젝트 생성 (user_id 필드 추가)
-      console.log('💾 프로젝트 데이터베이스 삽입 시작...')
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .insert({
-          name: newProjectName.trim(),
-          description: `RFP 분석을 통해 생성된 프로젝트: ${projectTitle}`,
-          category: 'general',
-          current_phase: 'proposal',
-          status: 'active',
-          priority: 'medium',
-          progress: 0,
-          user_id: authUser.id,
-          owner_id: authUser.id
-        })
-        .select()
-        .single()
+      // React Query 훅을 사용하여 프로젝트 생성 (중복 방지 로직 포함)
+      console.log('💾 React Query로 프로젝트 생성 시작...')
+      const createdProject = await createProjectMutation.mutateAsync({
+        name: newProjectName.trim(),
+        description: `RFP 분석을 통해 생성된 프로젝트: ${projectTitle}`,
+        category: 'general',
+        current_phase: 'proposal',
+        status: 'active',
+        priority: 'medium'
+      })
 
-      if (projectError) {
-        console.error('❌ 프로젝트 생성 DB 오류:', projectError)
-        throw new Error(`프로젝트 생성 실패: ${projectError.message}`)
-      }
+      console.log('✅ 프로젝트 생성 성공:', createdProject)
 
-      console.log('✅ 프로젝트 생성 성공:', projectData)
-
-      // 2. 프로젝트 생성자를 멤버로 자동 등록
-      console.log('👥 프로젝트 멤버 등록 시작...')
-      const { error: memberError } = await supabase
-        .from('project_members')
-        .insert({
-          project_id: projectData.id,
-          user_id: authUser.id,
-          role: 'owner',
-          permissions: { all: true, admin: true, read: true, write: true }
-        })
-
-      if (memberError) {
-        console.warn('⚠️ 프로젝트 멤버 등록 실패:', memberError)
-      } else {
-        console.log('✅ 프로젝트 멤버 등록 성공')
-      }
-
-      // 3. RFP 문서를 새 프로젝트에 연결
+      // RFP 문서를 새 프로젝트에 연결
       if (currentDocumentId) {
         console.log('📄 RFP 문서 연결 시작:', currentDocumentId)
         const { error: updateError } = await supabase
           .from('rfp_documents')
-          .update({ project_id: projectData.id })
+          .update({ project_id: createdProject.id })
           .eq('id', currentDocumentId)
 
         if (updateError) {
@@ -253,12 +237,12 @@ export default function RFPAnalysisPage() {
         }
       }
 
-      // 4. RFP 분석 데이터를 프로젝트에 연결
+      // RFP 분석 데이터를 프로젝트에 연결
       if (currentAnalysisId) {
         console.log('🔬 RFP 분석 데이터 연결 시작:', currentAnalysisId)
         const { error: updateAnalysisError } = await supabase
           .from('rfp_analyses')
-          .update({ project_id: projectData.id })
+          .update({ project_id: createdProject.id })
           .eq('id', currentAnalysisId)
 
         if (updateAnalysisError) {
@@ -268,7 +252,7 @@ export default function RFPAnalysisPage() {
         }
       }
 
-      // 5. 프로젝트 phase_data에 RFP 분석 정보 저장
+      // 프로젝트 phase_data에 RFP 분석 정보 저장
       console.log('📋 프로젝트 phase_data 업데이트 시작...')
       const phaseDataPayload = {
         proposal: {
@@ -290,7 +274,7 @@ export default function RFPAnalysisPage() {
         .update({
           phase_data: phaseDataPayload
         })
-        .eq('id', projectData.id)
+        .eq('id', createdProject.id)
 
       if (phaseError) {
         console.warn('⚠️ 프로젝트 phase_data 업데이트 실패:', phaseError)
@@ -298,10 +282,10 @@ export default function RFPAnalysisPage() {
         console.log('✅ 프로젝트 phase_data 업데이트 성공')
       }
 
-      console.log('🎉 프로젝트 생성 완료! 프로젝트 페이지로 이동:', projectData.id)
+      console.log('🎉 프로젝트 생성 완료! 프로젝트 페이지로 이동:', createdProject.id)
       
       // 프로젝트 상세 페이지로 이동
-      router.push(`/dashboard/projects/${projectData.id}`)
+      router.push(`/dashboard/projects/${createdProject.id}`)
     } catch (error) {
       console.error('❌ 프로젝트 생성 중 오류 발생:', error)
       
@@ -313,6 +297,7 @@ export default function RFPAnalysisPage() {
       alert(`프로젝트 생성 중 오류가 발생했습니다:\n${errorMessage}\n\n자세한 내용은 개발자 콘솔을 확인해주세요.`)
     } finally {
       setAssignLoading(false)
+      setIsCreatingProject(false)
     }
   }
 
@@ -596,12 +581,17 @@ export default function RFPAnalysisPage() {
                 onClick={createNewProject ? handleCreateNewProject : handleAssignToExistingProject}
                 disabled={
                   assignLoading || 
+                  isCreatingProject ||
+                  createProjectMutation.isPending ||
                   (createNewProject && !newProjectName.trim()) || 
                   (!createNewProject && !selectedProject)
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {assignLoading ? '처리 중...' : createNewProject ? '프로젝트 생성' : '프로젝트 할당'}
+                {(assignLoading || isCreatingProject || createProjectMutation.isPending) 
+                  ? '처리 중...' 
+                  : createNewProject ? '프로젝트 생성' : '프로젝트 할당'
+                }
               </Button>
             </div>
           </Card>
