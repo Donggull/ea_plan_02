@@ -181,75 +181,85 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }, [])
 
-  // 후속 질문 로드 함수 (두 번째 - generateAIFollowUpQuestions에 의존)
+  // 후속 질문 로드 함수 (수정된 버전 - DB에서 직접 최신 데이터 로드)
   const _loadFollowUpQuestions = useCallback(async (analysisId: string) => {
     try {
-      console.log('📋 [후속질문] RFP 분석에서 직접 후속 질문 로드 시작:', analysisId)
-      console.log('📋 [후속질문] 현재 분석 ID:', analysisId)
+      console.log('📋 [후속질문] 최신 후속 질문 로드 시작:', analysisId)
       
-      // analysis_questions 테이블에서 실제 답변 데이터와 함께 질문 조회
-      const { data: detailedQuestions, error: questionsError } = await (supabase as any)
+      // ✅ 우선 rfp_analyses 테이블에서 실제 저장된 질문들 조회
+      const { data: analysis, error: analysisError } = await supabase
+        .from('rfp_analyses')
+        .select('follow_up_questions')
+        .eq('id', analysisId)
+        .single()
+
+      if (analysisError) {
+        console.error('❌ [후속질문] rfp_analyses 조회 실패:', analysisError)
+        return
+      }
+
+      let followUpQuestions = (analysis as any)?.follow_up_questions || []
+      console.log('📋 [후속질문] rfp_analyses에서 로드된 질문 수:', followUpQuestions.length)
+      
+      // 질문 데이터 샘플 로그 (디버깅용)
+      if (followUpQuestions.length > 0) {
+        console.log('📋 [후속질문] 첫 번째 질문 샘플:', {
+          id: followUpQuestions[0]?.id,
+          question_text: followUpQuestions[0]?.question_text?.substring(0, 50) + '...',
+          category: followUpQuestions[0]?.category,
+          created_at: followUpQuestions[0]?.created_at
+        })
+      }
+
+      // ✅ analysis_questions 테이블에서 추가 답변 정보가 있는지 확인
+      const { data: detailedQuestions, error: questionsError } = await supabase
         .from('analysis_questions')
         .select('*')
         .eq('rfp_analysis_id', analysisId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
 
-      if (questionsError) {
-        console.error('❌ [후속질문] analysis_questions 조회 실패:', questionsError)
-      }
-
-      console.log('📋 [후속질문] analysis_questions 조회 결과:', detailedQuestions?.length, '개')
-
-      // analysis_questions에서 답변이 있는 질문들을 가져왔다면 사용, 없으면 기본 질문 사용
-      let followUpQuestions = []
-
-      if (detailedQuestions && detailedQuestions.length > 0) {
-        // analysis_questions에서 로드한 상세 답변 포함 질문들
-        followUpQuestions = detailedQuestions
-        console.log('✅ [후속질문] analysis_questions에서 상세 답변 포함 질문 로드:', followUpQuestions.length, '개')
-      } else {
-        // 기본 질문만 rfp_analyses에서 로드
-        const { data: analysis, error } = await supabase
-          .from('rfp_analyses')
-          .select('follow_up_questions')
-          .eq('id', analysisId)
-          .single()
-
-        console.log('📋 [후속질문] Supabase 기본 응답:', { analysis, error })
-
-        if (error) {
-          console.error('❌ [후속질문] DB 조회 실패:', error)
-          return
-        }
-
-        followUpQuestions = (analysis as any)?.follow_up_questions || []
-        console.log('✅ [후속질문] 기본 질문 로드 성공:', followUpQuestions.length, '개')
-      }
-
-      // 후속 질문이 있으면 상태 업데이트
-      if (followUpQuestions.length > 0) {
-        console.log('🔄 [후속질문] 상태 업데이트 시작 - 분석 ID:', analysisId)
-        console.log('🔄 [후속질문] 업데이트할 질문 데이터 샘플:', followUpQuestions.slice(0, 2))
+      // analysis_questions에 더 상세한 답변이 있다면 병합
+      if (!questionsError && detailedQuestions && detailedQuestions.length > 0) {
+        console.log('📋 [후속질문] analysis_questions에서 추가 답변 데이터 발견:', detailedQuestions.length, '개')
         
+        // 기존 질문에 상세 답변 정보 병합
+        followUpQuestions = followUpQuestions.map((question: any) => {
+          const detailedQuestion = detailedQuestions.find((dq: any) => dq.id === question.id)
+          if (detailedQuestion) {
+            return {
+              ...question,
+              user_answer: (detailedQuestion as any).user_answer,
+              ai_generated_answer: (detailedQuestion as any).ai_generated_answer,
+              answer_type: (detailedQuestion as any).answer_type,
+              answered_at: (detailedQuestion as any).answered_at
+            }
+          }
+          return question
+        })
+      }
+
+      console.log('✅ [후속질문] 최종 로드된 질문 수:', followUpQuestions.length)
+
+      // ✅ 상태 업데이트 (무조건 최신 데이터로 덮어쓰기)
+      if (followUpQuestions.length > 0) {
         setAnalysisData(prev => {
-          console.log('🔄 [후속질문] 상태 업데이트 내부 - 이전 상태:', prev.length, '개')
           const updated = prev.map(data => {
             if (data.analysis.id === analysisId) {
-              console.log('🎯 [후속질문] 매칭된 분석 발견, 질문 업데이트:', data.analysis.id)
-              console.log('🎯 [후속질문] 업데이트 전 질문 수:', data.follow_up_questions?.length || 0)
-              console.log('🎯 [후속질문] 업데이트 후 질문 수:', followUpQuestions.length)
-              return { ...data, follow_up_questions: followUpQuestions }
+              console.log('🔄 [후속질문] 질문 데이터 업데이트 중 - ID:', analysisId)
+              return { 
+                ...data, 
+                follow_up_questions: followUpQuestions,
+                questionnaire_completed: followUpQuestions.some((q: any) => q.user_answer)
+              }
             }
             return data
           })
-          console.log('🔄 [후속질문] 상태 업데이트 완료 - 새 상태:', updated.length, '개')
           return updated
         })
-        
-        console.log('✅ [후속질문] 상태 업데이트 트리거 완료')
+        console.log('✅ [후속질문] 상태 업데이트 완료')
       } else {
-        // 후속 질문이 없으면 AI가 자동으로 생성하도록 트리거
-        console.log('🤖 [후속질문] 후속 질문이 없어 AI 자동 생성 시작')
+        console.log('⚠️ [후속질문] 저장된 후속 질문이 없습니다. AI 생성을 시도합니다.')
+        // 질문이 없으면 AI 생성 시도
         await generateAIFollowUpQuestions(analysisId)
       }
     } catch (error) {
@@ -292,6 +302,16 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           // JSON 필드의 follow_up_questions를 기본으로 사용 (실제 데이터는 여기에 있음)
           let finalQuestions = analysisWithFollowUp.follow_up_questions || []
           console.log('📚 [분석데이터] JSON 필드에서 질문 로드:', finalQuestions.length, '개')
+          
+          // 질문 데이터 샘플 로그 (디버깅용 - 실제 내용 확인)
+          if (finalQuestions.length > 0) {
+            console.log('🔍 [분석데이터] 첫 번째 질문 내용 확인:', {
+              id: finalQuestions[0]?.id,
+              question_text: finalQuestions[0]?.question_text,
+              category: finalQuestions[0]?.category,
+              context: finalQuestions[0]?.context?.substring(0, 100) + '...'
+            })
+          }
           
           // 답변 상태 디버깅 로그
           const answeredQuestions = finalQuestions.filter((q: any) => {
