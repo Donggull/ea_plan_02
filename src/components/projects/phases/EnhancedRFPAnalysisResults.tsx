@@ -74,55 +74,65 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // AI 후속 질문 생성 함수 (첫 번째 - 의존성 없음)
+  // AI 후속 질문 생성 함수 (프로젝트별 독립성 보장)
   const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
     try {
-      console.log('🤖 [후속질문-AI] AI 기반 후속 질문 생성 시작:', analysisId)
+      console.log('🤖 [후속질문-AI] 프로젝트별 맞춤 질문 생성 시작:', analysisId)
 
-      // 분석 데이터를 직접 DB에서 조회해서 복잡성 계산
+      // 중복 생성 방지: 이미 질문이 있는지 확인
+      const existingQuestions = analysisData.find(data => data.analysis.id === analysisId)?.follow_up_questions || []
+      if (existingQuestions.length > 0) {
+        console.log('⚠️ [후속질문-AI] 이미 질문이 존재함:', existingQuestions.length, '개')
+        return
+      }
+
+      // 분석 데이터를 직접 DB에서 조회해서 프로젝트별 고유 정보 추출
       const { data: analysisRecord, error: analysisError } = await supabase
         .from('rfp_analyses')
-        .select('*')
+        .select('*, projects(*)')
         .eq('id', analysisId)
         .single()
       
-      if (analysisError) {
+      if (analysisError || !analysisRecord) {
         console.error('❌ [후속질문-AI] 분석 데이터 조회 실패:', analysisError)
-        // 기본값으로 진행
+        throw new Error('RFP 분석 데이터를 찾을 수 없습니다.')
+      }
+
+      // 프로젝트 ID 확인 (독립성 보장)
+      const projectId = (analysisRecord as any)?.project_id
+      if (!projectId) {
+        console.error('❌ [후속질문-AI] 프로젝트 ID가 없어 독립적 질문 생성 불가')
+        throw new Error('프로젝트와 연결되지 않은 분석은 후속 질문을 생성할 수 없습니다.')
       }
       
-      // const complexity = (analysisRecord as any)?.functional_requirements || (analysisRecord as any)?.technical_requirements || {}
-      
-      // 복잡성 점수 계산 (간단한 휴리스틱)
+      // 프로젝트별 복잡성 점수 계산
       const functionalReqs = (analysisRecord as any)?.functional_requirements?.length || 0
       const technicalReqs = (analysisRecord as any)?.technical_requirements?.length || 0
       const keywords = (analysisRecord as any)?.keywords?.length || 0
       const complexityScore = functionalReqs + technicalReqs + Math.floor(keywords / 3)
       
-      // 복잡성에 따른 질문 수 결정
-      let maxQuestions = 8 // 기본값
-      if (complexityScore <= 5) {
-        maxQuestions = 6 // 단순한 프로젝트: 5-6개
-      } else if (complexityScore <= 15) {
-        maxQuestions = 10 // 중간 복잡도: 8-10개
-      } else {
-        maxQuestions = 15 // 복잡한 프로젝트: 12-15개
-      }
-
+      // 복잡성에 따른 질문 수 결정 (프로젝트별 최적화)
+      const maxQuestions = Math.max(6, Math.min(12, complexityScore + 4)) // 6-12개 범위
+      
       const requestBody = {
         analysis_id: analysisId,
         max_questions: maxQuestions,
-        categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements']
+        categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements'],
+        project_context: {
+          project_id: projectId,
+          project_title: (analysisRecord as any)?.project_overview?.title,
+          complexity_score: complexityScore
+        }
       }
       
-      console.log('📊 [후속질문-AI] 복잡성 분석:', {
+      console.log('📊 [후속질문-AI] 프로젝트별 분석 정보:', {
+        projectId,
         functionalReqs,
         technicalReqs, 
         keywords,
         complexityScore,
         maxQuestions
       })
-      console.log('📤 [후속질문-AI] 요청 데이터:', requestBody)
 
       const response = await fetch('/api/rfp/generate-questions', {
         method: 'POST',
@@ -179,7 +189,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       })
       alert(`후속 질문 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }, [])
+  }, [analysisData])
 
   // 후속 질문 로드 함수 (수정된 버전 - DB에서 직접 최신 데이터 로드)
   const _loadFollowUpQuestions = useCallback(async (analysisId: string) => {
@@ -270,13 +280,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     }
   }, [generateAIFollowUpQuestions])
 
-  // 분석 결과 조회 함수 (무한루프 방지 및 데이터 새로고침 최적화)
+  // 분석 결과 조회 함수 (프로젝트별 독립성 보장 및 최신 데이터 로드)
   const fetchAnalysisResults = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true)
-      console.log('🔄 [분석데이터] 데이터 로드 시작', forceRefresh ? '(강제 새로고침)' : '')
+      console.log('🔄 [분석데이터] 프로젝트별 데이터 로드 시작', forceRefresh ? '(강제 새로고침)' : '', 'Project ID:', projectId)
       
-      // 프로젝트의 RFP 분석 결과 조회
+      // 프로젝트별 RFP 분석 결과 조회 (최신 데이터 보장)
       const { data: analyses, error } = await supabase
         .from('rfp_analyses')
         .select(`
@@ -291,26 +301,60 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ [분석데이터] 프로젝트별 분석 데이터 조회 실패:', error)
+        throw error
+      }
 
-      // 각 분석에 대해 analysis_questions 테이블에서 질문들 및 AI 답변 로드
-      const analysisDataList: AnalysisData[] = await Promise.all(
+      console.log('📊 [분석데이터] 프로젝트별 분석 결과 조회 완료:', {
+        project_id: projectId,
+        analyses_count: analyses?.length || 0,
+        first_analysis_id: analyses?.[0]?.id
+      })
+
+      // 각 분석에 대해 프로젝트별 독립 질문 데이터 로드
+      const analysisDataList: (AnalysisData | null)[] = await Promise.all(
         analyses?.map(async (analysis) => {
           const analysisWithFollowUp = analysis as any
           console.log('📊 [분석데이터] 로드된 분석:', analysis.id)
           
-          // JSON 필드의 follow_up_questions를 기본으로 사용 (실제 데이터는 여기에 있음)
-          let finalQuestions = analysisWithFollowUp.follow_up_questions || []
-          console.log('📚 [분석데이터] JSON 필드에서 질문 로드:', finalQuestions.length, '개')
-          
-          // 질문 데이터 샘플 로그 (디버깅용 - 실제 내용 확인)
-          if (finalQuestions.length > 0) {
-            console.log('🔍 [분석데이터] 첫 번째 질문 내용 확인:', {
-              id: finalQuestions[0]?.id,
-              question_text: finalQuestions[0]?.question_text,
-              category: finalQuestions[0]?.category,
-              context: finalQuestions[0]?.context?.substring(0, 100) + '...'
+          // 프로젝트별 독립성 검증: project_id 일치 확인
+          if (analysisWithFollowUp.project_id !== projectId) {
+            console.warn('⚠️ [분석데이터] 프로젝트 ID 불일치 감지:', {
+              expected: projectId,
+              actual: analysisWithFollowUp.project_id,
+              analysis_id: analysis.id
             })
+            // 다른 프로젝트의 데이터는 제외
+            return null
+          }
+
+          // JSON 필드의 follow_up_questions를 기본으로 사용 (프로젝트별 독립 데이터)
+          let finalQuestions = analysisWithFollowUp.follow_up_questions || []
+          console.log('📚 [분석데이터] 프로젝트별 질문 로드:', {
+            project_id: projectId,
+            analysis_id: analysis.id,
+            questions_count: finalQuestions.length
+          })
+          
+          // 질문 데이터 프로젝트별 검증 및 로그
+          if (finalQuestions.length > 0) {
+            const sampleQuestion = finalQuestions[0]
+            console.log('🔍 [분석데이터] 프로젝트별 질문 샘플 확인:', {
+              project_id: sampleQuestion?.project_id || 'N/A',
+              question_id: sampleQuestion?.id,
+              question_text: sampleQuestion?.question_text?.substring(0, 80) + '...',
+              category: sampleQuestion?.category,
+              is_project_specific: sampleQuestion?.project_id === projectId
+            })
+            
+            // 프로젝트별 독립성 재검증
+            finalQuestions = finalQuestions.filter((q: any) => 
+              !q.project_id || q.project_id === projectId
+            )
+            console.log('✅ [분석데이터] 프로젝트별 질문 필터링 완료:', finalQuestions.length, '개')
+          } else {
+            console.log('⚠️ [분석데이터] 프로젝트별 질문이 없음 - AI 생성 필요')
           }
           
           // 답변 상태 디버깅 로그
@@ -333,31 +377,47 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             }))
           })
           
-          // analysis_questions 테이블도 확인하되, 보조적으로만 사용
+          // analysis_questions 테이블에서 프로젝트별 독립 데이터 조회 (보조 데이터)
           const { data: detailedQuestions, error: questionsError } = await (supabase as any)
             .from('analysis_questions')
             .select('*')
             .eq('rfp_analysis_id', analysis.id)
+            .eq('project_id', projectId) // 프로젝트별 독립성 보장
             .order('created_at', { ascending: true })
 
           if (!questionsError && detailedQuestions && detailedQuestions.length > 0) {
-            console.log('🤖 [분석데이터] analysis_questions 테이블에서 추가 데이터 확인:', detailedQuestions.length, '개')
+            console.log('🤖 [분석데이터] 프로젝트별 독립 테이블 데이터 확인:', {
+              project_id: projectId,
+              analysis_id: analysis.id,
+              table_questions_count: detailedQuestions.length,
+              project_validated: detailedQuestions.every((q: any) => q.project_id === projectId)
+            })
             
-            // 별도 테이블의 데이터로 JSON 질문을 업데이트 (있는 경우만)
+            // 프로젝트별 독립성 재검증
+            const validQuestions = detailedQuestions.filter((q: any) => q.project_id === projectId)
+            if (validQuestions.length !== detailedQuestions.length) {
+              console.warn('⚠️ [데이터무결성] 프로젝트 ID 불일치 질문 발견 및 제외:', 
+                detailedQuestions.length - validQuestions.length, '개')
+            }
+            
+            // 프로젝트별 검증된 테이블 데이터로 JSON 질문 업데이트
             finalQuestions = finalQuestions.map((jsonQ: any) => {
-              const tableQ = detailedQuestions.find((tq: any) => tq.id === jsonQ.id)
+              const tableQ = validQuestions.find((tq: any) => tq.id === jsonQ.id)
               if (tableQ) {
-                console.log(`🔄 [데이터동기화] 질문 ${jsonQ.id} 테이블 데이터로 업데이트`)
+                console.log(`🔄 [데이터동기화] 프로젝트별 질문 ${jsonQ.id} 업데이트`)
                 return {
                   ...jsonQ,
                   ai_generated_answer: tableQ.ai_generated_answer || jsonQ.ai_generated_answer,
                   user_answer: tableQ.user_answer || jsonQ.user_answer,
                   answer_type: tableQ.answer_type || jsonQ.answer_type,
-                  answered_at: tableQ.answered_at || jsonQ.answered_at
+                  answered_at: tableQ.answered_at || jsonQ.answered_at,
+                  project_id: projectId // 프로젝트 ID 명시적 보장
                 }
               }
-              return jsonQ
+              return { ...jsonQ, project_id: projectId } // 모든 질문에 프로젝트 ID 보장
             })
+            
+            console.log('✅ [데이터동기화] 프로젝트별 독립 데이터 동기화 완료:', finalQuestions.length, '개')
           }
           
           // 답변 완성 상태 확인 (AI 답변도 포함)
@@ -391,42 +451,69 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         }) || []
       )
 
-      setAnalysisData(analysisDataList)
+      // 프로젝트별 독립성 검증: null 값 제거 및 최종 검증
+      const validAnalysisDataList = analysisDataList.filter(data => data !== null) as AnalysisData[]
       
-      // 현재 선택된 분석이 있으면 업데이트된 데이터로 다시 설정, 없으면 첫 번째 선택
-      if (analysisDataList.length > 0) {
+      console.log('🔍 [최종검증] 프로젝트별 독립 데이터 최종 확인:', {
+        project_id: projectId,
+        total_analyses: analysisDataList.length,
+        valid_analyses: validAnalysisDataList.length,
+        filtered_out: analysisDataList.length - validAnalysisDataList.length,
+        has_questions: validAnalysisDataList.map(data => ({
+          analysis_id: data.analysis.id,
+          questions_count: data.follow_up_questions.length,
+          is_project_specific: data.follow_up_questions.every((q: any) => !q.project_id || q.project_id === projectId)
+        }))
+      })
+
+      setAnalysisData(validAnalysisDataList)
+      
+      // 프로젝트별 독립 분석 데이터가 있으면 선택된 분석 업데이트
+      if (validAnalysisDataList.length > 0) {
         const currentSelectedId = selectedAnalysis?.analysis.id
         const updatedSelectedAnalysis = currentSelectedId 
-          ? analysisDataList.find(data => data.analysis.id === currentSelectedId)
-          : analysisDataList[0]
+          ? validAnalysisDataList.find(data => data.analysis.id === currentSelectedId)
+          : validAnalysisDataList[0]
         
-        const finalSelected = updatedSelectedAnalysis || analysisDataList[0]
+        const finalSelected = updatedSelectedAnalysis || validAnalysisDataList[0]
         setSelectedAnalysis(finalSelected)
         
-        console.log('✅ [분석데이터] 선택된 분석 업데이트:', {
-          selectedId: finalSelected.analysis.id,
-          questionsCount: finalSelected.follow_up_questions.length,
-          isCompleted: finalSelected.questionnaire_completed
+        console.log('✅ [분석데이터] 프로젝트별 독립 분석 선택 완료:', {
+          project_id: projectId,
+          selected_analysis_id: finalSelected.analysis.id,
+          questions_count: finalSelected.follow_up_questions.length,
+          is_completed: finalSelected.questionnaire_completed,
+          is_project_specific: finalSelected.follow_up_questions.every((q: any) => !q.project_id || q.project_id === projectId)
         })
         
-        // DB에 후속 질문이 없으면 자동 생성 트리거 - 별도 실행으로 무한루프 방지
-        const firstAnalysis = analysisDataList[0]
+        // 프로젝트별 독립 후속 질문이 없으면 자동 생성 트리거
+        const firstAnalysis = validAnalysisDataList[0]
         if (!forceRefresh && firstAnalysis.follow_up_questions.length === 0) {
-          console.log('🤖 [분석데이터] 후속 질문이 없어 자동 생성 트리거')
-          // setTimeout으로 비동기 실행하여 현재 렌더링 사이클과 분리
+          console.log('🤖 [자동생성] 프로젝트별 맞춤 후속 질문 생성 필요')
+          // 비동기 실행으로 무한루프 방지하면서 프로젝트별 독립성 보장
           setTimeout(() => {
             generateAIFollowUpQuestions(firstAnalysis.analysis.id)
           }, 100)
         } else {
-          console.log('✅ [분석데이터] 기존 후속 질문 발견:', firstAnalysis.follow_up_questions.length, '개')
+          console.log('✅ [기존질문] 프로젝트별 독립 후속 질문 존재:', {
+            project_id: projectId,
+            questions_count: firstAnalysis.follow_up_questions.length,
+            sample_question: firstAnalysis.follow_up_questions[0]?.question_text?.substring(0, 50) + '...'
+          })
         }
+      } else {
+        console.warn('⚠️ [분석데이터] 프로젝트별 유효한 분석 데이터가 없음:', {
+          project_id: projectId,
+          total_found: analysisDataList.length,
+          valid_found: 0
+        })
       }
     } catch (error) {
       console.error('Failed to fetch analysis results:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, generateAIFollowUpQuestions])
+  }, [projectId, generateAIFollowUpQuestions, selectedAnalysis?.analysis.id])
 
   useEffect(() => {
     fetchAnalysisResults()
