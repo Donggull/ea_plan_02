@@ -198,10 +198,30 @@ export async function POST(request: NextRequest) {
     }
 
     // rfp_analyses 테이블에도 후속 질문 업데이트 (기존 호환성)
+    // AI 답변을 포함한 완전한 질문 데이터 생성
+    const enhancedQuestions = questionsWithAnswers.map((question: any, index: number) => ({
+      id: `mq_${Date.now()}_${index + 1}`,
+      question_text: question.question_text,
+      question_type: 'follow_up',
+      category: question.category || 'general',
+      priority: question.importance || 'medium',
+      context: question.purpose || '',
+      ai_generated_answer: question.suggested_answer || '',
+      user_answer: null,
+      answer_type: 'ai',
+      answered_at: new Date().toISOString(),
+      order_index: index + 1,
+      rfp_analysis_id: analysis_id,
+      created_at: new Date().toISOString(),
+      next_step_impact: question.purpose || ''
+    }))
+
+    console.log('💾 [후속질문-생성] JSON 필드에 AI 답변 포함 저장:', enhancedQuestions.length, '개')
+    
     const { error: updateError } = await (supabase as any)
       .from('rfp_analyses')
       .update({ 
-        follow_up_questions: questionData.questions || [],
+        follow_up_questions: enhancedQuestions,
         updated_at: new Date().toISOString()
       })
       .eq('id', analysis_id)
@@ -210,12 +230,12 @@ export async function POST(request: NextRequest) {
       console.error('⚠️ [후속질문-생성] rfp_analyses 테이블 업데이트 실패 (비중요):', updateError)
     }
 
-    console.log('✅ [후속질문-생성] 후속 질문 생성 완료:', questionData.questions?.length || 0, '개')
+    console.log('✅ [후속질문-생성] 후속 질문 생성 완료:', enhancedQuestions.length, '개')
 
     return NextResponse.json({
       success: true,
-      questions: questionData.questions || [],
-      generated_count: questionData.questions?.length || 0,
+      questions: enhancedQuestions,
+      generated_count: enhancedQuestions.length,
       categories_used: categories
     })
 
