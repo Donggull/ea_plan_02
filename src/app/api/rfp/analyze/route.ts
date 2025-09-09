@@ -131,15 +131,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 이미 분석된 문서인지 확인 (Service Role 사용)
-    const { data: existingAnalysis } = await supabaseAdmin
-      .from('rfp_analyses')
-      .select('*')
-      .eq('rfp_document_id', rfp_document_id)
-      .single()
+    // 프로젝트별 독립 분석 보장 - 중복 체크 조건 개선
+    let existingAnalysis = null
+    
+    if (rfpDocument.project_id) {
+      // 프로젝트별 제안 진행: 동일 RFP라도 매번 새로운 분석 수행
+      console.log('🔄 프로젝트별 제안 진행: 항상 새로운 RFP 분석 수행 (project_id:', rfpDocument.project_id, ')')
+      // 중복 체크 하지 않음 - 프로젝트별 독립 분석 보장
+    } else {
+      // RFP 분석 자동화: 기존 분석 결과 재사용 가능
+      console.log('🔄 RFP 분석 자동화: 중복 체크 수행')
+      const { data } = await supabaseAdmin
+        .from('rfp_analyses')
+        .select('*')
+        .eq('rfp_document_id', rfp_document_id)
+        .is('project_id', null) // RFP 분석 자동화 데이터만 체크
+        .single()
+      existingAnalysis = data
+    }
 
     if (existingAnalysis) {
-      // 기존 분석 결과 반환
+      // RFP 분석 자동화의 기존 분석 결과 반환
+      console.log('✅ RFP 분석 자동화: 기존 분석 결과 반환')
       const response: RFPAnalysisResponse = {
         analysis: existingAnalysis as any,
         estimated_duration: 0
