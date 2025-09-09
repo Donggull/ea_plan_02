@@ -130,18 +130,27 @@ export async function POST(request: NextRequest) {
     const aiResponse = anthropicResult.content[0]?.text || ''
 
     console.log('📄 [후속질문-생성] AI 응답 수신:', aiResponse.length, '문자')
+    console.log('🔍 [후속질문-생성] AI 응답 내용 (처음 500자):', aiResponse.substring(0, 500))
 
     // JSON 응답 파싱
     let questionData
     try {
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
+        console.log('✅ [후속질문-생성] JSON 매치 성공:', jsonMatch[0].substring(0, 200))
         questionData = JSON.parse(jsonMatch[0])
+        console.log('📊 [후속질문-생성] 파싱된 질문 수:', questionData.questions?.length || 0)
+        
+        // 첫 번째 질문의 suggested_answer 확인
+        if (questionData.questions && questionData.questions[0]) {
+          console.log('🔍 [후속질문-생성] 첫 번째 질문 suggested_answer:', questionData.questions[0].suggested_answer)
+        }
       } else {
         throw new Error('JSON 형식의 응답을 찾을 수 없습니다.')
       }
     } catch (parseError) {
       console.error('❌ [후속질문-생성] JSON 파싱 실패:', parseError)
+      console.error('🔍 [후속질문-생성] 원본 응답:', aiResponse)
       // 파싱 실패 시 fallback 질문들
       questionData = {
         questions: [
@@ -170,6 +179,13 @@ export async function POST(request: NextRequest) {
     // analysis_questions 테이블에 질문과 AI 답변 함께 저장
     const questionsWithAnswers = questionData.questions || []
     const insertPromises = questionsWithAnswers.map((question: any, index: number) => {
+      // AI 답변 fallback 로직 - 여러 필드명 시도
+      const aiAnswer = question.suggested_answer || 
+                       question.answer || 
+                       question.ai_answer || 
+                       question.default_answer || 
+                       `이 질문에 대한 답변을 제공해주세요. (${question.category || 'general'} 관련)`
+
       return (supabase as any)
         .from('analysis_questions')
         .insert({
@@ -180,7 +196,7 @@ export async function POST(request: NextRequest) {
           category: question.category || 'general',
           priority: question.importance || 'medium',
           context: question.purpose || '',
-          ai_generated_answer: question.suggested_answer || '',
+          ai_generated_answer: aiAnswer,
           ai_answer_generated_at: new Date().toISOString(),
           order_index: index + 1
         })
@@ -200,23 +216,34 @@ export async function POST(request: NextRequest) {
 
     // rfp_analyses 테이블에도 후속 질문 업데이트 (기존 호환성)
     // AI 답변을 포함한 완전한 질문 데이터 생성
-    const enhancedQuestions = questionsWithAnswers.map((question: any, index: number) => ({
-      id: `mq_${Date.now()}_${index + 1}`,
-      project_id: (rfpAnalysis as any).project_id,
-      question_text: question.question_text,
-      question_type: 'follow_up',
-      category: question.category || 'general',
-      priority: question.importance || 'medium',
-      context: question.purpose || '',
-      ai_generated_answer: question.suggested_answer || '',
-      user_answer: null,
-      answer_type: null, // 초기에는 답변 타입이 선택되지 않은 상태
-      answered_at: null, // 아직 답변이 완료되지 않은 상태
-      order_index: index + 1,
-      rfp_analysis_id: analysis_id,
-      created_at: new Date().toISOString(),
-      next_step_impact: question.purpose || ''
-    }))
+    const enhancedQuestions = questionsWithAnswers.map((question: any, index: number) => {
+      // AI 답변 fallback 로직 - 여러 필드명 시도
+      const aiAnswer = question.suggested_answer || 
+                       question.answer || 
+                       question.ai_answer || 
+                       question.default_answer || 
+                       `이 질문에 대한 답변을 제공해주세요. (${question.category || 'general'} 관련)`
+
+      console.log(`🔍 [후속질문-생성] 질문 ${index + 1} AI 답변:`, aiAnswer)
+
+      return {
+        id: `mq_${Date.now()}_${index + 1}`,
+        project_id: (rfpAnalysis as any).project_id,
+        question_text: question.question_text,
+        question_type: 'follow_up',
+        category: question.category || 'general',
+        priority: question.importance || 'medium',
+        context: question.purpose || '',
+        ai_generated_answer: aiAnswer,
+        user_answer: null,
+        answer_type: null, // 초기에는 답변 타입이 선택되지 않은 상태
+        answered_at: null, // 아직 답변이 완료되지 않은 상태
+        order_index: index + 1,
+        rfp_analysis_id: analysis_id,
+        created_at: new Date().toISOString(),
+        next_step_impact: question.purpose || ''
+      }
+    })
 
     console.log('💾 [후속질문-생성] JSON 필드에 AI 답변 포함 저장:', enhancedQuestions.length, '개')
     
