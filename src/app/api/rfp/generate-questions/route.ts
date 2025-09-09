@@ -173,6 +173,7 @@ export async function POST(request: NextRequest) {
       return (supabase as any)
         .from('analysis_questions')
         .insert({
+          project_id: (rfpAnalysis as any).project_id,
           rfp_analysis_id: analysis_id,
           question_text: question.question_text,
           question_type: 'follow_up',
@@ -201,6 +202,7 @@ export async function POST(request: NextRequest) {
     // AI 답변을 포함한 완전한 질문 데이터 생성
     const enhancedQuestions = questionsWithAnswers.map((question: any, index: number) => ({
       id: `mq_${Date.now()}_${index + 1}`,
+      project_id: (rfpAnalysis as any).project_id,
       question_text: question.question_text,
       question_type: 'follow_up',
       category: question.category || 'general',
