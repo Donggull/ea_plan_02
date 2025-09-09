@@ -514,9 +514,9 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           }
           
           if (answerData.type === 'ai') {
-            // AI 답변을 선택한 경우: user_answer에 선택된 AI 답변 저장 (표시 우선순위 때문에)
-            updatedQuestion.user_answer = answerData.answer
-            // ai_generated_answer는 기존 AI 생성 답변 유지
+            // AI 답변을 선택한 경우: ai_generated_answer에 저장하고 user_answer는 null로 설정
+            updatedQuestion.ai_generated_answer = answerData.answer
+            updatedQuestion.user_answer = null
           } else {
             // 사용자가 직접 입력한 경우: user_answer에 저장
             updatedQuestion.user_answer = answerData.answer
