@@ -140,7 +140,8 @@
       "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
       "Read(/D:\\ea_plan_02\\src\\components\\projects\\phases/**)",
       "Bash(echo:*)",
-      "Read(//d/**)"
+      "Read(//d/**)",
+      "Read(//c/Users/dg.an/Downloads/**)"
     ],
     "deny": [],
     "ask": []

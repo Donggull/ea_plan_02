@@ -208,8 +208,8 @@ export async function POST(request: NextRequest) {
       context: question.purpose || '',
       ai_generated_answer: question.suggested_answer || '',
       user_answer: null,
-      answer_type: 'ai',
-      answered_at: new Date().toISOString(),
+      answer_type: null, // 초기에는 답변 타입이 선택되지 않은 상태
+      answered_at: null, // 아직 답변이 완료되지 않은 상태
       order_index: index + 1,
       rfp_analysis_id: analysis_id,
       created_at: new Date().toISOString(),

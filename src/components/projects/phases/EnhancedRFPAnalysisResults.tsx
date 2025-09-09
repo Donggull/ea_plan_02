@@ -1457,10 +1457,20 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   </div>
                 ) : (
                   <div className="ml-9 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm">답변이 필요합니다</span>
-                    </div>
+                    {aiAnswer && aiAnswer.trim() ? (
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                        <Sparkles className="h-4 w-4" />
+                        <span className="text-sm">AI 제안 답변 사용 가능</span>
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                          클릭하여 답변 선택
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span className="text-sm">답변이 필요합니다</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
