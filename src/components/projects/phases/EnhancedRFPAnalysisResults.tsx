@@ -514,13 +514,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           }
           
           if (answerData.type === 'ai') {
-            // AI 답변을 선택한 경우: ai_generated_answer는 보존, user_answer는 null
-            // ai_generated_answer는 이미 저장되어 있으므로 덮어쓰지 않음
-            updatedQuestion.user_answer = null // 사용자 입력 초기화
+            // AI 답변을 선택한 경우: ai_generated_answer에 저장, user_answer는 null
+            updatedQuestion.ai_generated_answer = answerData.answer
+            updatedQuestion.user_answer = null
           } else {
-            // 사용자가 직접 입력한 경우: user_answer에 저장, ai_generated_answer는 보존
+            // 사용자가 직접 입력한 경우: user_answer에 저장
             updatedQuestion.user_answer = answerData.answer
-            // ai_generated_answer는 보존하여 나중에 다시 선택할 수 있도록 함
+            // ai_generated_answer는 기존값 유지 (필요시 다시 선택 가능)
           }
           
           console.log(`✅ [답변저장] 질문 ${question.id} 저장 완료:`, {
@@ -1361,11 +1361,20 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             const aiAnswer = (question as any).ai_generated_answer
             const answerType = (question as any).answer_type || 'user'
             
-            // 디버깅 로그
-            console.log(`🔍 [답변표시] 질문 ${index + 1}:`, {
+            // 상세 디버깅 로그
+            console.log(`🔍 [답변표시] 질문 ${index + 1} 원시 데이터:`, {
               questionId: question.id,
-              userAnswer: userAnswer ? userAnswer.substring(0, 50) + '...' : 'N/A',
-              aiAnswer: aiAnswer ? aiAnswer.substring(0, 50) + '...' : 'N/A',
+              question_text: question.question_text,
+              raw_user_answer: question.user_answer,
+              raw_ai_answer: question.ai_generated_answer,
+              answer_type: question.answer_type,
+              answered_at: question.answered_at
+            })
+
+            console.log(`🔍 [답변표시] 질문 ${index + 1} 파싱된 데이터:`, {
+              questionId: question.id,
+              userAnswer: userAnswer ? userAnswer.substring(0, 50) + '...' : 'NULL',
+              aiAnswer: aiAnswer ? aiAnswer.substring(0, 50) + '...' : 'NULL',
               answerType,
               hasUserAnswer: !!(userAnswer && userAnswer.trim()),
               hasAIAnswer: !!(aiAnswer && aiAnswer.trim())

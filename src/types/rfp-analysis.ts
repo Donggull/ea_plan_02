@@ -111,8 +111,12 @@ export interface AnalysisQuestion {
   depends_on?: string[]; // 다른 질문의 답변에 따라 표시
   next_step_impact: string; // 다음 단계에 미치는 영향
   order_index: number;
-  answer?: string; // 사용자 답변
-  suggested_answer?: string; // AI가 제안하는 답변
+  answer?: string; // 사용자 답변 (호환성)
+  suggested_answer?: string; // AI가 제안하는 답변 (호환성)
+  user_answer?: string; // 사용자 입력 답변
+  ai_generated_answer?: string; // AI 생성 답변
+  answer_type?: 'user' | 'ai' | null; // 선택된 답변 타입
+  answered_at?: string; // 답변 완료 시간
   created_at: string;
 }
 
