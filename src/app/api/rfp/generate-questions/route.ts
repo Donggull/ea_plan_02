@@ -47,64 +47,70 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // AI 모델을 위한 프롬프트 구성
+    // AI 모델을 위한 구체적이고 프로젝트별 맞춤형 프롬프트 구성
     const analysisPrompt = `
-다음 RFP 분석 결과를 바탕으로 시장조사를 위한 후속 질문들을 생성해주세요.
+당신은 시장조사 전문가입니다. 다음 RFP 분석 결과를 바탕으로 이 특정 프로젝트에 맞는 시장조사를 위한 후속 질문들을 생성해주세요.
 
-## RFP 분석 결과:
+## 프로젝트 고유 분석 결과:
 **프로젝트 개요:**
 - 제목: ${rfpAnalysis.project_overview?.title || 'N/A'}
-- 설명: ${rfpAnalysis.project_overview?.description || 'N/A'}
+- 설명: ${rfpAnalysis.project_overview?.description || 'N/A'} 
 - 범위: ${rfpAnalysis.project_overview?.scope || 'N/A'}
 
-**핵심 키워드:** ${JSON.stringify(rfpAnalysis.keywords || [])}
-**기능 요구사항:** ${JSON.stringify(rfpAnalysis.functional_requirements || [])}
-**기술 요구사항:** ${JSON.stringify(rfpAnalysis.technical_requirements || [])}
-**비기능 요구사항:** ${JSON.stringify(rfpAnalysis.non_functional_requirements || [])}
+**핵심 키워드 (${(rfpAnalysis.keywords || []).length}개):** 
+${(rfpAnalysis.keywords || []).map((keyword: any, index: number) => `${index + 1}. ${keyword}`).join('\n')}
 
-## 요구사항:
-위의 RFP 분석 결과를 바탕으로 프로젝트의 복잡성과 범위에 따라 적절한 수의 후속 질문을 생성해주세요.
-**중요: 반드시 최대 ${max_questions}개를 초과하지 않도록 해주세요.**
+**기능 요구사항 (${(rfpAnalysis.functional_requirements || []).length}개):**
+${(rfpAnalysis.functional_requirements || []).map((req: any, index: number) => `${index + 1}. ${req}`).join('\n')}
 
-질문 수 가이드라인:
-- 단순한 프로젝트: 5-8개
-- 중간 복잡도 프로젝트: 8-12개  
-- 복잡한 프로젝트: 12-${max_questions}개
+**기술 요구사항 (${(rfpAnalysis.technical_requirements || []).length}개):**
+${(rfpAnalysis.technical_requirements || []).map((req: any, index: number) => `${index + 1}. ${req}`).join('\n')}
 
-프로젝트 복잡성을 판단하여 필요한 만큼만 생성하되, 절대 ${max_questions}개를 초과하지 마세요.
-질문은 다음 카테고리들을 균형있게 포함해야 합니다: ${categories.join(', ')}
+**비기능 요구사항 (${(rfpAnalysis.non_functional_requirements || []).length}개):**
+${(rfpAnalysis.non_functional_requirements || []).map((req: any, index: number) => `${index + 1}. ${req}`).join('\n')}
 
-질문들은 다음 JSON 형식으로 제공해주세요:
+**프로젝트별 고유성 보장을 위한 추가 컨텍스트:**
+- 분석 ID: ${analysis_id}
+- 생성 시간: ${new Date().toISOString()}
+- 프로젝트 특화 요소: 위의 요구사항과 키워드 조합을 바탕으로 이 프로젝트에만 특화된 질문 생성
 
+## 세부 요구사항:
+위의 RFP 분석 결과를 바탕으로 **이 프로젝트에만 특화된** 시장조사 후속 질문들을 생성해주세요.
+
+**창의성과 고유성 보장:**
+- 위에 제시된 구체적인 키워드와 요구사항들을 반드시 질문에 포함
+- 범용적이거나 일반적인 질문은 피하고, 이 프로젝트만의 특수한 상황을 반영
+- 기능 요구사항과 기술 요구사항의 구체적인 내용을 질문에 직접 인용
+
+**질문 생성 가이드라인:**
+- 기능 요구사항 기반: ${(rfpAnalysis.functional_requirements || []).length}개 중 핵심 기능들을 구체적으로 언급
+- 기술 요구사항 기반: ${(rfpAnalysis.technical_requirements || []).length}개 중 중요 기술들을 질문에 직접 포함  
+- 키워드 활용: ${(rfpAnalysis.keywords || []).length}개 키워드를 자연스럽게 질문에 통합
+- 카테고리 균형: ${categories.join(', ')} 각각에서 프로젝트 특화 질문 생성
+
+**질문 수: 5~${max_questions}개 (프로젝트 복잡성에 따라)**
+
+**JSON 응답 형식 (다른 텍스트 없이 JSON만 출력):**
 {
   "questions": [
     {
-      "id": "question_1",
-      "question_text": "구체적인 질문 내용",
-      "category": "market_context|target_audience|competitor_focus|technical_requirements",
-      "purpose": "이 질문을 하는 목적과 기대하는 인사이트",
-      "suggested_answer": "AI가 예상하는 답변 (자동 진행 시 사용)",
-      "answer_type": "text|multiple_choice|rating|boolean",
-      "importance": "high|medium|low"
+      "id": "question_1", 
+      "question_text": "[구체적 키워드/요구사항을 포함한 프로젝트 특화 질문]",
+      "category": "${categories[0]}",
+      "purpose": "[이 질문이 필요한 구체적 이유]",
+      "suggested_answer": "[RFP 분석 내용 기반 구체적 예상 답변]",
+      "answer_type": "text",
+      "importance": "high"
     }
   ]
 }
 
-생성 원칙:
-1. **질문 수 제한**: 절대로 ${max_questions}개를 초과하지 않습니다
-2. RFP 내용과 직접적으로 관련된 질문
-3. 시장조사에 필요한 핵심 정보를 수집할 수 있는 질문
-4. 구체적이고 답변 가능한 형태의 질문
-5. 각 카테고리별로 균형있게 분배
-6. suggested_answer는 RFP 분석 내용을 바탕으로 합리적인 추정치 제공
-
-**⚠️ 매우 중요: 생성할 질문은 최대 ${max_questions}개까지만 허용됩니다. 이를 초과하면 안 됩니다.**
-
-질문 예시:
-- 시장 맥락: "이 프로젝트가 타겟하는 주요 시장의 규모는 어느 정도입니까?"
-- 타겟 고객: "주요 사용자층의 기술 수준과 업무 특성은 어떻습니까?"
-- 경쟁자: "현재 시장에서 유사한 솔루션을 제공하는 주요 경쟁사는 누구입니까?"
-- 기술 요구사항: "기존 시스템과의 연동에서 가장 중요하게 고려해야 할 요소는 무엇입니까?"
+**절대 준수사항:**
+1. 반드시 ${max_questions}개 이하로만 생성
+2. 각 질문에 위의 키워드나 요구사항을 구체적으로 언급  
+3. "일반적인", "보통의", "주요한" 등 모호한 표현 금지
+4. RFP 분석 결과의 실제 내용을 질문에 직접 인용
+5. JSON 형식만 응답하고 다른 설명 텍스트는 포함하지 않음
 `
 
     // Anthropic API 호출
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest) {
         model: 'claude-3-5-sonnet-20241022',
         messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 4000,
-        temperature: 0.3
+        temperature: 0.8  // 높은 창의성으로 프로젝트별 고유한 질문 생성
       })
     })
 
@@ -142,48 +148,85 @@ export async function POST(request: NextRequest) {
     console.log('📄 [후속질문-생성] AI 응답 수신:', aiResponse.length, '문자')
     console.log('🔍 [후속질문-생성] AI 응답 내용 (처음 500자):', aiResponse.substring(0, 500))
 
-    // JSON 응답 파싱
+    // JSON 응답 파싱 - 강화된 로직
     let questionData
     try {
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        console.log('✅ [후속질문-생성] JSON 매치 성공:', jsonMatch[0].substring(0, 200))
-        questionData = JSON.parse(jsonMatch[0])
-        console.log('📊 [후속질문-생성] 파싱된 질문 수:', questionData.questions?.length || 0)
-        
-        // 첫 번째 질문의 suggested_answer 확인
-        if (questionData.questions && questionData.questions[0]) {
-          console.log('🔍 [후속질문-생성] 첫 번째 질문 suggested_answer:', questionData.questions[0].suggested_answer)
-        }
-      } else {
-        throw new Error('JSON 형식의 응답을 찾을 수 없습니다.')
-      }
-    } catch (parseError) {
-      console.error('❌ [후속질문-생성] JSON 파싱 실패:', parseError)
-      console.error('🔍 [후속질문-생성] 원본 응답:', aiResponse)
-      // 파싱 실패 시 fallback 질문들
-      questionData = {
-        questions: [
-          {
-            id: "question_1",
-            question_text: "이 프로젝트가 타겟하는 주요 시장의 규모와 성장률은 어느 정도입니까?",
-            category: "market_context",
-            purpose: "시장 기회 분석",
-            suggested_answer: "중간 규모 시장으로 연평균 10-15% 성장 예상",
-            answer_type: "text",
-            importance: "high"
-          },
-          {
-            id: "question_2", 
-            question_text: "주요 타겟 사용자층의 특성과 니즈는 무엇입니까?",
-            category: "target_audience",
-            purpose: "사용자 페르소나 정의",
-            suggested_answer: "기업 업무 담당자, 효율성과 편의성 중시",
-            answer_type: "text",
-            importance: "high"
+      console.log('🔍 [후속질문-생성] AI 응답 전체 내용:', aiResponse)
+      
+      // 더 정확한 JSON 추출 - 중첩 괄호 지원
+      const jsonMatches = []
+      let braceCount = 0
+      let startIndex = -1
+      
+      for (let i = 0; i < aiResponse.length; i++) {
+        if (aiResponse[i] === '{') {
+          if (braceCount === 0) {
+            startIndex = i
           }
-        ]
+          braceCount++
+        } else if (aiResponse[i] === '}') {
+          braceCount--
+          if (braceCount === 0 && startIndex !== -1) {
+            jsonMatches.push(aiResponse.substring(startIndex, i + 1))
+            startIndex = -1
+          }
+        }
       }
+      
+      console.log('🔍 [후속질문-생성] 발견된 JSON 블록 수:', jsonMatches.length)
+      
+      if (jsonMatches.length === 0) {
+        throw new Error(`JSON 블록을 찾을 수 없습니다. AI 응답: ${aiResponse.substring(0, 1000)}...`)
+      }
+      
+      // 가장 큰 JSON 블록을 선택 (일반적으로 전체 응답)
+      const largestJson = jsonMatches.reduce((prev, current) => 
+        current.length > prev.length ? current : prev
+      )
+      
+      console.log('✅ [후속질문-생성] 선택된 JSON 블록:', largestJson.substring(0, 300) + '...')
+      
+      questionData = JSON.parse(largestJson)
+      
+      if (!questionData.questions || !Array.isArray(questionData.questions)) {
+        throw new Error('questions 배열이 없거나 올바르지 않습니다.')
+      }
+      
+      console.log('📊 [후속질문-생성] 파싱된 질문 수:', questionData.questions.length)
+      
+      // 질문 유효성 검사
+      const validQuestions = questionData.questions.filter((q: any) => 
+        q.question_text && q.question_text.trim()
+      )
+      
+      if (validQuestions.length === 0) {
+        throw new Error('유효한 질문이 하나도 없습니다.')
+      }
+      
+      questionData.questions = validQuestions
+      console.log('✅ [후속질문-생성] 유효한 질문 수:', validQuestions.length)
+      
+      // 첫 번째 질문의 상세 정보 확인
+      if (questionData.questions[0]) {
+        console.log('🔍 [후속질문-생성] 첫 번째 질문 상세:', {
+          question_text: questionData.questions[0].question_text?.substring(0, 100),
+          suggested_answer: questionData.questions[0].suggested_answer?.substring(0, 100),
+          category: questionData.questions[0].category
+        })
+      }
+      
+    } catch (parseError) {
+      console.error('❌ [후속질문-생성] JSON 파싱 완전 실패:', parseError)
+      console.error('🔍 [후속질문-생성] 실패한 AI 응답 전체:', aiResponse)
+      
+      // Fallback 로직 완전 제거 - 오류 반환
+      return NextResponse.json({
+        success: false,
+        error: `AI 응답 파싱 실패: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        details: 'AI가 올바른 JSON 형식의 질문을 생성하지 못했습니다. 다시 시도해주세요.',
+        raw_response: aiResponse.substring(0, 1000),
+        timestamp: new Date().toISOString()
+      }, { status: 500 })
     }
 
     // analysis_questions 테이블에 질문과 AI 답변 함께 저장
