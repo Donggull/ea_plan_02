@@ -47,71 +47,81 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // AI 모델을 위한 구체적이고 프로젝트별 맞춤형 프롬프트 구성
+    // 실제 RFP 분석 데이터에서 구체적인 정보 추출
+    const projectTitle = rfpAnalysis.project_overview?.title || '프로젝트'
+    const projectDescription = rfpAnalysis.project_overview?.description || ''
+    const projectScope = rfpAnalysis.project_overview?.scope || ''
+    
+    // 키워드 정보 추출 (term 필드 활용)
+    const keywordsList = (rfpAnalysis.keywords || [])
+      .map((kw: any) => `• ${kw.term} (${kw.category}, 중요도: ${Math.round((kw.importance || 0) * 100)}%)`)
+      .join('\n')
+    
+    // 기능 요구사항 정보 추출 (title과 description 활용)
+    const functionalReqsList = (rfpAnalysis.functional_requirements || [])
+      .map((req: any, index: number) => `${index + 1}. ${req.title}: ${req.description}`)
+      .join('\n')
+    
+    // 기술 스펙 정보 추출
+    const techSpecs = rfpAnalysis.technical_specifications
+    const technologiesList = techSpecs?.technologies?.join(', ') || ''
+    const integrationsList = techSpecs?.integrations?.join(', ') || ''
+    const platformsList = techSpecs?.platform?.join(', ') || ''
+
+    // ✅ 완전히 새로운 맞춤형 프롬프트 
     const analysisPrompt = `
-당신은 시장조사 전문가입니다. 다음 RFP 분석 결과를 바탕으로 이 특정 프로젝트에 맞는 시장조사를 위한 후속 질문들을 생성해주세요.
+❗ 중요: 절대 일반적이거나 템플릿 질문을 생성하지 마세요. 아래 구체적인 프로젝트 정보를 바탕으로 이 프로젝트에만 특화된 질문을 만드세요.
 
-## 프로젝트 고유 분석 결과:
-**프로젝트 개요:**
-- 제목: ${rfpAnalysis.project_overview?.title || 'N/A'}
-- 설명: ${rfpAnalysis.project_overview?.description || 'N/A'} 
-- 범위: ${rfpAnalysis.project_overview?.scope || 'N/A'}
+## 🎯 분석 대상 프로젝트:
+**프로젝트**: ${projectTitle}
+**상세 설명**: ${projectDescription}
+**프로젝트 범위**: ${projectScope}
 
-**핵심 키워드 (${(rfpAnalysis.keywords || []).length}개):** 
-${(rfpAnalysis.keywords || []).map((keyword: any, index: number) => `${index + 1}. ${keyword}`).join('\n')}
+## 📋 프로젝트별 핵심 정보:
+### 🔑 핵심 키워드:
+${keywordsList}
 
-**기능 요구사항 (${(rfpAnalysis.functional_requirements || []).length}개):**
-${(rfpAnalysis.functional_requirements || []).map((req: any, index: number) => `${index + 1}. ${req}`).join('\n')}
+### ⚙️ 주요 기능 요구사항:
+${functionalReqsList}
 
-**기술 요구사항 (${(rfpAnalysis.technical_requirements || []).length}개):**
-${(rfpAnalysis.technical_requirements || []).map((req: any, index: number) => `${index + 1}. ${req}`).join('\n')}
+### 🛠️ 기술 환경:
+- 사용 기술: ${technologiesList}
+- 연동 시스템: ${integrationsList}
+- 플랫폼: ${platformsList}
 
-**비기능 요구사항 (${(rfpAnalysis.non_functional_requirements || []).length}개):**
-${(rfpAnalysis.non_functional_requirements || []).map((req: any, index: number) => `${index + 1}. ${req}`).join('\n')}
+## ❌ 금지 사항 (절대 생성 금지):
+- "타겟 시장 규모를 어느 정도로 예상하시나요?"
+- "경쟁사 분석을 어느 정도 깊이로 진행하기를 원하시나요?" 
+- "타겟 시장의 지역적 범위는 어떻게 되나요?"
+- "브랜드 이미지로 인식되기를 원하시나요?"
+- "기술 도입 시 가장 중요하게 고려하는 요소는 무엇인가요?"
+- 기타 모든 일반적, 템플릿, 범용 질문
 
-**프로젝트별 고유성 보장을 위한 추가 컨텍스트:**
-- 분석 ID: ${analysis_id}
-- 생성 시간: ${new Date().toISOString()}
-- 프로젝트 특화 요소: 위의 요구사항과 키워드 조합을 바탕으로 이 프로젝트에만 특화된 질문 생성
+## ✅ 반드시 생성해야 할 질문 유형:
+위의 구체적인 키워드, 기능요구사항, 기술환경을 **직접 언급**하는 맞춤형 질문만 생성하세요.
 
-## 세부 요구사항:
-위의 RFP 분석 결과를 바탕으로 **이 프로젝트에만 특화된** 시장조사 후속 질문들을 생성해주세요.
+예시 (위 프로젝트 정보 기반):
+${keywordsList.includes('Adobe AEM') ? '- "Adobe AEM 컴포넌트 개발 및 운영 경험이 어느 정도 있나요?"' : ''}
+${projectTitle.includes('유지보수') ? '- "기존 웹사이트 유지보수 시 가장 중점을 두는 부분은 무엇인가요?"' : ''}
+${technologiesList.includes('Analytics') ? '- "Adobe Analytics 리포트 작성 및 분석 경험이 있나요?"' : ''}
 
-**창의성과 고유성 보장:**
-- 위에 제시된 구체적인 키워드와 요구사항들을 반드시 질문에 포함
-- 범용적이거나 일반적인 질문은 피하고, 이 프로젝트만의 특수한 상황을 반영
-- 기능 요구사항과 기술 요구사항의 구체적인 내용을 질문에 직접 인용
+## 📝 요구사항:
+- 위의 프로젝트 고유 정보만을 활용한 맞춤형 질문 ${Math.min(8, max_questions)}개 생성
+- 각 질문은 반드시 위에 명시된 구체적인 키워드/기능/기술을 포함해야 함
+- 절대 일반적이거나 템플릿 질문 생성 금지
 
-**질문 생성 가이드라인:**
-- 기능 요구사항 기반: ${(rfpAnalysis.functional_requirements || []).length}개 중 핵심 기능들을 구체적으로 언급
-- 기술 요구사항 기반: ${(rfpAnalysis.technical_requirements || []).length}개 중 중요 기술들을 질문에 직접 포함  
-- 키워드 활용: ${(rfpAnalysis.keywords || []).length}개 키워드를 자연스럽게 질문에 통합
-- 카테고리 균형: ${categories.join(', ')} 각각에서 프로젝트 특화 질문 생성
-
-**질문 수: 5~${max_questions}개 (프로젝트 복잡성에 따라)**
-
-**JSON 응답 형식 (다른 텍스트 없이 JSON만 출력):**
+JSON 응답:
 {
   "questions": [
     {
-      "id": "question_1", 
-      "question_text": "[구체적 키워드/요구사항을 포함한 프로젝트 특화 질문]",
-      "category": "${categories[0]}",
-      "purpose": "[이 질문이 필요한 구체적 이유]",
-      "suggested_answer": "[RFP 분석 내용 기반 구체적 예상 답변]",
-      "answer_type": "text",
-      "importance": "high"
+      "id": "custom_q_1",
+      "question_text": "[위 프로젝트 정보의 구체적 키워드/기능/기술을 직접 언급하는 맞춤형 질문]",
+      "category": "technical_requirements",
+      "context": "[이 질문이 왜 이 프로젝트에 중요한지 설명]",
+      "priority": "high"
     }
   ]
-}
-
-**절대 준수사항:**
-1. 반드시 ${max_questions}개 이하로만 생성
-2. 각 질문에 위의 키워드나 요구사항을 구체적으로 언급  
-3. "일반적인", "보통의", "주요한" 등 모호한 표현 금지
-4. RFP 분석 결과의 실제 내용을 질문에 직접 인용
-5. JSON 형식만 응답하고 다른 설명 텍스트는 포함하지 않음
-`
+}`
 
     // Anthropic API 호출
     const apiKey = process.env.ANTHROPIC_API_KEY
@@ -132,7 +142,7 @@ ${(rfpAnalysis.non_functional_requirements || []).map((req: any, index: number) 
         model: 'claude-3-5-sonnet-20241022',
         messages: [{ role: 'user', content: analysisPrompt }],
         max_tokens: 4000,
-        temperature: 0.8  // 높은 창의성으로 프로젝트별 고유한 질문 생성
+        temperature: 0.7  // 적당한 창의성으로 맞춤형 질문 생성하되 지시 준수
       })
     })
 
