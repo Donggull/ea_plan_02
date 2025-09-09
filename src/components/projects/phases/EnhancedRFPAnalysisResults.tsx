@@ -79,12 +79,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     try {
       console.log('🤖 [후속질문-AI] 프로젝트별 맞춤 질문 생성 시작:', analysisId)
 
-      // 중복 생성 방지: 이미 질문이 있는지 확인
-      const existingQuestions = analysisData.find(data => data.analysis.id === analysisId)?.follow_up_questions || []
-      if (existingQuestions.length > 0) {
-        console.log('⚠️ [후속질문-AI] 이미 질문이 존재함:', existingQuestions.length, '개')
-        return
-      }
+      // 분석 데이터에서 중복 생성 방지 로직 제거 (무한루프 방지)
+      // 대신 DB에서 직접 확인
 
       // 분석 데이터를 직접 DB에서 조회해서 프로젝트별 고유 정보 추출
       const { data: analysisRecord, error: analysisError } = await supabase
@@ -152,22 +148,15 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
         
         if (questions.length > 0) {
-          // 무한 루프 방지: 상태 업데이트를 한 번만 수행하고 다시 트리거되지 않도록 설정
-          setAnalysisData(prev => {
-            const updated = prev.map(data => 
+          // 상태 업데이트 (무한루프 방지를 위해 단순화)
+          console.log('🔄 [후속질문-AI] 상태 업데이트 시작:', questions.length, '개')
+          setAnalysisData(prev => 
+            prev.map(data => 
               data.analysis.id === analysisId 
                 ? { ...data, follow_up_questions: questions }
                 : data
             )
-            // 업데이트가 실제로 발생했는지 확인
-            const hasChanged = prev.some(data => 
-              data.analysis.id === analysisId && data.follow_up_questions.length !== questions.length
-            )
-            if (hasChanged) {
-              console.log('🔄 [후속질문-AI] 상태 업데이트 완료:', questions.length, '개')
-            }
-            return updated
-          })
+          )
         } else {
           console.warn('⚠️ [후속질문-AI] 생성된 질문이 없습니다.')
         }
@@ -189,7 +178,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       })
       alert(`후속 질문 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }, [analysisData])
+  }, [])
 
   // 후속 질문 로드 함수 (수정된 버전 - DB에서 직접 최신 데이터 로드)
   const _loadFollowUpQuestions = useCallback(async (analysisId: string) => {
@@ -278,7 +267,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         analysisId
       })
     }
-  }, [generateAIFollowUpQuestions])
+  }, [])
 
   // 분석 결과 조회 함수 (프로젝트별 독립성 보장 및 최신 데이터 로드)
   const fetchAnalysisResults = useCallback(async (forceRefresh = false) => {
@@ -490,10 +479,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         const firstAnalysis = validAnalysisDataList[0]
         if (!forceRefresh && firstAnalysis.follow_up_questions.length === 0) {
           console.log('🤖 [자동생성] 프로젝트별 맞춤 후속 질문 생성 필요')
-          // 비동기 실행으로 무한루프 방지하면서 프로젝트별 독립성 보장
-          setTimeout(() => {
-            generateAIFollowUpQuestions(firstAnalysis.analysis.id)
-          }, 100)
+          // 무한루프 방지를 위해 조건부로만 실행
+          generateAIFollowUpQuestions(firstAnalysis.analysis.id).catch(console.error)
         } else {
           console.log('✅ [기존질문] 프로젝트별 독립 후속 질문 존재:', {
             project_id: projectId,
@@ -513,7 +500,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, generateAIFollowUpQuestions, selectedAnalysis?.analysis.id])
+  }, [projectId])
 
   useEffect(() => {
     fetchAnalysisResults()
