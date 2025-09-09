@@ -1283,21 +1283,41 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       )
     }
 
-    // 답변 완료 여부 확인 (사용자 답변 또는 AI 답변이 있는 경우)
+    // 답변 완료 여부 확인 (개선된 포용적 로직)
     const answeredQuestions = questions.filter(q => {
       const hasUserAnswer = (q as any).user_answer && (q as any).user_answer.trim()
       const hasAIAnswer = (q as any).ai_generated_answer && (q as any).ai_generated_answer.trim()
       const answerType = (q as any).answer_type
+      const hasAnsweredAt = (q as any).answered_at
       
-      // answer_type이 있는 경우 해당 타입에 맞는 답변 확인
-      if (answerType === 'ai') {
-        return hasAIAnswer
-      } else if (answerType === 'user') {
-        return hasUserAnswer
+      console.log(`🔍 [답변확인] 질문 ${q.id}:`, {
+        answerType,
+        hasUserAnswer: !!hasUserAnswer,
+        hasAIAnswer: !!hasAIAnswer,
+        hasAnsweredAt: !!hasAnsweredAt,
+        userAnswer: hasUserAnswer ? (q as any).user_answer.substring(0, 50) + '...' : null,
+        aiAnswer: hasAIAnswer ? (q as any).ai_generated_answer.substring(0, 50) + '...' : null
+      })
+      
+      // 포용적 답변 완료 판정: 다음 중 하나라도 만족하면 완료
+      const isCompleted = (
+        // 1. answered_at이 있고 어떤 형태로든 답변이 있는 경우
+        (hasAnsweredAt && (hasUserAnswer || hasAIAnswer)) ||
+        // 2. answer_type이 'ai'이고 AI 답변이 있는 경우
+        (answerType === 'ai' && hasAIAnswer) ||
+        // 3. answer_type이 'user'이고 사용자 답변이 있는 경우
+        (answerType === 'user' && hasUserAnswer) ||
+        // 4. answer_type이 없지만 사용자 답변이나 AI 답변이 있는 경우
+        (!answerType && (hasUserAnswer || hasAIAnswer))
+      )
+      
+      if (isCompleted) {
+        console.log(`✅ [답변완료] 질문 ${q.id} - 답변 완료로 판정`)
+      } else {
+        console.log(`❌ [답변대기] 질문 ${q.id} - 답변 대기 중`)
       }
       
-      // answer_type이 없는 경우 사용자 답변 우선 확인
-      return hasUserAnswer || hasAIAnswer
+      return isCompleted
     })
     
     const totalQuestions = questions.length
