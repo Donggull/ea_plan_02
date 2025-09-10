@@ -1839,6 +1839,13 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                 <EnhancedQuestionAnswerSystem 
                   analysisId={selectedAnalysis.analysis.id}
                   projectId={projectId}
+                  autoGenerate={true}
+                  onQuestionsGenerated={(questions) => {
+                    console.log('✅ [RFP분석] AI 질문 생성 완료:', questions.length, '개')
+                  }}
+                  onError={(error) => {
+                    console.error('❌ [RFP분석] 질문 생성 오류:', error)
+                  }}
                   onNextStepRequested={(step, analysisData) => {
                     console.log('🚀 [RFP분석] 다음 단계 요청 받음:', step, analysisData)
                     

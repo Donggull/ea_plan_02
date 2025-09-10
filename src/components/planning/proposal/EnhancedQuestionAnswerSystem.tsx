@@ -224,12 +224,19 @@ export function EnhancedQuestionAnswerSystem({
     }
   }, [analysisId, maxQuestions, selectedCategories, onQuestionsGenerated, onError])
 
-  // 자동 생성 옵션
+  // 자동 생성 옵션 - 기존 질문 로드 완료 후 판단
   useEffect(() => {
-    if (autoGenerate && analysisId && questions.length === 0) {
-      handleGenerateQuestions()
+    if (autoGenerate && analysisId && !isLoading) {
+      // 기존 질문이 없거나 자동 생성이 강제 요청된 경우 질문 생성
+      if (questions.length === 0) {
+        console.log('🤖 [질문시스템-v2] 자동 질문 생성 트리거됨')
+        handleGenerateQuestions()
+      } else {
+        console.log('ℹ️ [질문시스템-v2] 기존 질문이 있어서 자동 생성 생략:', questions.length, '개')
+        setViewMode('questions')
+      }
     }
-  }, [autoGenerate, analysisId, questions.length, handleGenerateQuestions])
+  }, [autoGenerate, analysisId, questions.length, isLoading, handleGenerateQuestions])
 
   // 답변 저장
   const handleSaveAnswer = async () => {

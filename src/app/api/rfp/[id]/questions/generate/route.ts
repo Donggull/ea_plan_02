@@ -88,19 +88,32 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // 기존 질문이 있는지 확인
-    const { data: existingQuestions } = await supabaseAdmin
+    // 기존 질문이 있는지 확인 - 경고만 표시하고 진행 허용
+    const { data: existingQuestions, count: existingCount } = await supabaseAdmin
       .from('rfp_analysis_questions')
-      .select('id')
+      .select('id', { count: 'exact' })
       .eq('rfp_analysis_id', rfpAnalysisId)
-      .limit(1)
 
-    if (existingQuestions && existingQuestions.length > 0) {
-      return NextResponse.json({
-        success: false,
-        error: '이미 생성된 질문이 있습니다. 기존 질문을 삭제 후 다시 생성하세요.',
-        code: 'QUESTIONS_ALREADY_EXIST'
-      }, { status: 409 })
+    if (existingCount && existingCount > 0) {
+      console.log('⚠️ [질문생성-v2] 기존 질문이 있지만 덮어쓰기 허용:', existingCount, '개')
+      
+      // 기존 질문과 관련 데이터 삭제
+      await supabaseAdmin
+        .from('rfp_question_ai_answers')
+        .delete()
+        .in('question_id', existingQuestions!.map(q => q.id))
+
+      await supabaseAdmin
+        .from('rfp_question_user_responses')
+        .delete()
+        .in('question_id', existingQuestions!.map(q => q.id))
+        
+      await supabaseAdmin
+        .from('rfp_analysis_questions')
+        .delete()
+        .eq('rfp_analysis_id', rfpAnalysisId)
+        
+      console.log('🗑️ [질문생성-v2] 기존 질문 데이터 삭제 완료')
     }
 
     // AI 모델을 사용한 질문 생성
