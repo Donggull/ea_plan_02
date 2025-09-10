@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import Badge from '@/basic/src/components/Badge/Badge'
-import { IntegratedAnswerModal } from './IntegratedAnswerModal'
 import { 
   FileText, 
   AlertTriangle,
@@ -1746,7 +1745,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
       {/* 선택된 분석 결과 */}
       {selectedAnalysis && (
-        <>
+        <div className="space-y-8">
           <div className="flex items-center gap-4 mb-6">
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -1805,24 +1804,14 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                   </div>
                 </div>
               
-              {/* 시스템 내용 */}
-              {renderFollowUpQuestions(selectedAnalysis)}
+                {/* 시스템 내용 */}
+                {renderFollowUpQuestions(selectedAnalysis)}
+              </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
-      {/* 통합된 답변 작성 모달 */}
-      {showQuestionnaire && selectedAnalysis && (
-        <IntegratedAnswerModal
-          questions={selectedAnalysis.follow_up_questions}
-          analysisId={selectedAnalysis.analysis.id}
-          projectId={projectId}
-          isOpen={showQuestionnaire}
-          onClose={() => setShowQuestionnaire(false)}
-          onSave={handleAnswerSave}
-        />
-      )}
     </div>
   )
 }
