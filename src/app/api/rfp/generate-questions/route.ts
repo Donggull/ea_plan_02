@@ -116,6 +116,15 @@ ${technologiesList.includes('CMS') ? `- "현재 CMS 시스템에서 가장 개�
 - 일반적 질문 생성 시 즉시 중단하고 다시 생성
 - 모든 질문에 suggested_answer(AI 추천 답변) 포함 필수
 
+## 📊 허용되는 카테고리 (반드시 이 중 하나 선택):
+- market_context: 시장 환경, 시장 규모, 시장 동향 관련
+- target_audience: 타겟 사용자, 고객층, 사용자 경험 관련
+- competitor_focus: 경쟁사 분석, 차별화 전략 관련
+- technology_preference: 기술 스택, 시스템 아키텍처, 개발 방법론 관련
+- business_model: 비즈니스 모델, 수익 구조, 운영 방식 관련
+- project_constraints: 예산, 일정, 리소스, 제약사항 관련
+- success_definition: 성공 지표, KPI, 목표 설정 관련
+
 JSON 형식으로 응답:
 {
   "questions": [
@@ -123,7 +132,7 @@ JSON 형식으로 응답:
       "id": "project_specific_q_1",
       "question_text": "[${projectTitle} 프로젝트의 구체적 키워드/기능을 직접 언급하는 질문]",
       "suggested_answer": "[이 질문에 대한 구체적이고 현실적인 AI 추천 답변]",
-      "category": "technical_requirements",
+      "category": "technology_preference",
       "context": "[이 질문이 ${projectTitle} 프로젝트에 왜 중요한지]",
       "priority": "high",
       "importance": "high"
@@ -273,7 +282,7 @@ JSON 형식으로 응답:
           rfp_analysis_id: analysis_id,
           question_text: question.question_text,
           question_type: question.question_type || 'follow_up',
-          category: question.category || 'general',
+          category: question.category || 'project_constraints',
           priority: question.priority || question.importance || 'medium',
           context: question.context || question.purpose || '',
           ai_generated_answer: aiAnswer,
