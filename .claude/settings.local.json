@@ -145,7 +145,8 @@
       "Bash(cd:*)",
       "Bash(if [ -z \"$ANTHROPIC_API_KEY\" ])",
       "Bash(then echo \"❌ ANTHROPIC_API_KEY가 설정되지 않았습니다.\")",
-      "Bash(else echo \"✅ ANTHROPIC_API_KEY가 설정되어 있습니다. (길이: $#ANTHROPIC_API_KEY자)\")"
+      "Bash(else echo \"✅ ANTHROPIC_API_KEY가 설정되어 있습니다. (길이: $#ANTHROPIC_API_KEY자)\")",
+      "mcp__playwright-stealth__playwright_press_key"
     ],
     "deny": [],
     "ask": []
