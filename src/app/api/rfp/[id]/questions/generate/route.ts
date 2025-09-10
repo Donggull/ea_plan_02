@@ -27,6 +27,10 @@ interface QuestionGenerationRequest {
   categories?: string[]
   generate_ai_answers?: boolean
   selected_model_id?: string
+  ai_model_provider?: 'anthropic' | 'openai'
+  temperature?: number
+  custom_prompt_addition?: string
+  question_types?: ('text_short' | 'text_long' | 'yes_no' | 'multiple_choice' | 'rating')[]
 }
 
 export async function POST(
@@ -50,10 +54,14 @@ export async function POST(
     const { id: rfpAnalysisId } = await params
     const body: QuestionGenerationRequest = await request.json()
     const { 
-      max_questions = 8, 
-      categories = ['market_context', 'technical_requirements', 'business_goals'], 
+      max_questions = 10, 
+      categories = ['market_context', 'technical_requirements', 'business_goals', 'target_audience'], 
       generate_ai_answers = true,
-      selected_model_id = 'claude-3-5-sonnet-20241022'
+      selected_model_id = 'claude-3-5-sonnet-20241022',
+      ai_model_provider = 'anthropic',
+      temperature = 0.7,
+      custom_prompt_addition = '',
+      question_types = ['text_long', 'text_short', 'yes_no', 'multiple_choice']
     } = body
 
     // RFP 분석 데이터 조회
@@ -98,9 +106,16 @@ export async function POST(
     // AI 모델을 사용한 질문 생성
     const generatedQuestions = await generateQuestionsWithAI(
       rfpAnalysis,
-      max_questions,
-      categories,
-      selected_model_id
+      {
+        max_questions,
+        categories,
+        selected_model_id,
+        ai_model_provider,
+        temperature,
+        custom_prompt_addition,
+        question_types,
+        generate_ai_answers
+      }
     )
 
     if (!generatedQuestions || generatedQuestions.length === 0) {
@@ -176,7 +191,10 @@ export async function POST(
       questions: savedQuestions,
       generated_count: savedQuestions.length,
       categories_used: categories,
-      ai_answers_generated: generate_ai_answers
+      ai_answers_generated: generate_ai_answers,
+      model_used: selected_model_id,
+      provider_used: ai_model_provider,
+      question_types_generated: [...new Set(savedQuestions.map(q => q.question_type))]
     })
 
   } catch (error) {
@@ -193,9 +211,16 @@ export async function POST(
 // AI를 통한 질문 생성 함수
 async function generateQuestionsWithAI(
   rfpAnalysis: any,
-  maxQuestions: number,
-  categories: string[],
-  modelId: string
+  options: {
+    max_questions: number
+    categories: string[]
+    selected_model_id: string
+    ai_model_provider: 'anthropic' | 'openai'
+    temperature: number
+    custom_prompt_addition: string
+    question_types: string[]
+    generate_ai_answers: boolean
+  }
 ) {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -209,7 +234,7 @@ async function generateQuestionsWithAI(
   const keywords = rfpAnalysis.keywords || []
 
   const prompt = `
-다음 RFP 분석 결과를 기반으로 ${maxQuestions}개의 맞춤형 질문과 각 질문에 대한 AI 제안 답변을 생성해주세요.
+다음 RFP 분석 결과를 기반으로 ${options.max_questions}개의 맞춤형 질문과 각 질문에 대한 AI 제안 답변을 생성해주세요.
 
 === 프로젝트 정보 ===
 제목: ${projectTitle}
@@ -218,7 +243,7 @@ async function generateQuestionsWithAI(
 기능 요구사항: ${functionalReqs.slice(0, 3).map((req: any) => req.title).join(', ')}
 
 === 요구사항 ===
-- 집중 분야: ${categories.join(', ')}
+- 집중 분야: ${options.categories.join(', ')}
 - 각 질문은 위 프로젝트 정보를 구체적으로 반영해야 함
 - 일반적이거나 템플릿 질문 금지
 - 각 질문에 대한 AI 제안 답변도 함께 생성
@@ -229,7 +254,7 @@ JSON 형식으로 응답:
     {
       "question_text": "구체적인 질문 내용",
       "question_type": "text_long|text_short|yes_no|multiple_choice|rating",
-      "category": "${categories[0]}",
+      "category": "${options.categories[0]}",
       "priority": "high|medium|low",
       "context": "이 질문의 배경과 목적",
       "next_step_impact": "이 답변이 다음 단계에 미치는 영향",
@@ -251,10 +276,10 @@ JSON 형식으로 응답:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: modelId,
+        model: options.selected_model_id,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 6000,
-        temperature: 0.7
+        temperature: options.temperature
       })
     })
 
@@ -279,9 +304,65 @@ JSON 형식으로 응답:
     return parsedData.questions || []
 
   } catch (error) {
-    console.error('AI 질문 생성 오류:', error)
+    console.error(`AI 질문 생성 오류 (${options.ai_model_provider}):`, error)
+    
+    // 폴백 질문 생성 (에러 시 기본 질문 제공)
+    if (options.max_questions <= 5) {
+      console.log('폴백 질문 생성 시작...')
+      return generateFallbackQuestions(rfpAnalysis, options.max_questions, options.categories)
+    }
+    
     throw new Error(`AI 질문 생성 실패: ${error instanceof Error ? error.message : String(error)}`)
   }
+}
+
+// 폴백 질문 생성 함수 (AI 에러 시 사용)
+function generateFallbackQuestions(rfpAnalysis: any, maxQuestions: number, categories: string[]) {
+  const projectTitle = rfpAnalysis.project_overview?.title || '프로젝트'
+  
+  const fallbackQuestionTemplates: Record<string, string[]> = {
+    market_context: [
+      `${projectTitle}의 주요 경쟁자는 누구이며, 차별화 전략은 무엇입니까?`,
+      `${projectTitle} 서비스가 타겟하는 시장의 크기와 성장 가능성은 어떻게 평가하십니까?`
+    ],
+    technical_requirements: [
+      `${projectTitle} 구현에 있어 가장 중요한 기술적 도전 과제는 무엇입니까?`,
+      `새로운 기술 도입 시 기존 시스템과의 호환성 문제를 어떻게 해결하시겠습니까?`
+    ],
+    business_goals: [
+      `${projectTitle}를 통해 달성하고자 하는 핵심 목표는 무엇입니까?`,
+      `프로젝트 성공을 측정할 핵심 KPI는 무엇이며, 목표치는 어떻게 설정하시겠습니까?`
+    ],
+    target_audience: [
+      `${projectTitle}의 핵심 사용자 그룹의 특성과 니즈를 어떻게 정의하시겠습니까?`,
+      `사용자 경험을 개선하기 위해 가장 우선순위로 고려할 요소는 무엇입니까?`
+    ]
+  }
+  
+  const questions = []
+  let questionIndex = 0
+  
+  for (const category of categories) {
+    const templates = fallbackQuestionTemplates[category] || fallbackQuestionTemplates['business_goals']
+    const questionsPerCategory = Math.ceil(maxQuestions / categories.length)
+    
+    for (let i = 0; i < questionsPerCategory && questionIndex < maxQuestions; i++) {
+      const templateIndex = i % templates.length
+      questions.push({
+        question_text: templates[templateIndex],
+        question_type: 'text_long',
+        category,
+        priority: 'medium',
+        context: `${category} 분야에 대한 기본 질문`,
+        next_step_impact: `이 답변은 ${category} 분석에 활용됩니다.`,
+        ai_suggested_answer: '프로젝트 특성에 따라 구체적으로 답변해 주세요.',
+        confidence_score: 0.5
+      })
+      questionIndex++
+    }
+  }
+  
+  return questions
 }
 
 // 분석 요약 업데이트 함수

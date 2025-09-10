@@ -763,7 +763,6 @@ export function EnhancedQuestionAnswerSystem({
                   {currentQuestionIndex === questions.length - 1 ? '답변 완료' : '다음 질문'}
                 </EnhancedButton>
               </div>
-            </div>
             </Card>
           )}
         </div>
