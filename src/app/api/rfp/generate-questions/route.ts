@@ -259,11 +259,8 @@ JSON 형식으로 응답:
                        question.default_answer || 
                        `이 질문에 대한 답변을 제공해주세요. (${question.category || 'general'} 관련)`
 
-      // 고유 ID 생성 (기존 로직 활용)
-      const questionId = question.id || `mq_${Date.now()}_${index + 1}`
-
+      // UUID 자동 생성 (id 필드 제거하여 DB 기본값 사용)
       console.log(`💾 [DB저장] 질문 ${index + 1} 저장 준비:`, {
-        id: questionId,
         question_text: question.question_text?.substring(0, 100) + '...',
         project_id: (rfpAnalysis as any).project_id,
         ai_answer_preview: aiAnswer?.substring(0, 100) + '...'
@@ -272,7 +269,6 @@ JSON 형식으로 응답:
       return (supabase as any)
         .from('analysis_questions')
         .insert({
-          id: questionId,
           project_id: (rfpAnalysis as any).project_id,
           rfp_analysis_id: analysis_id,
           question_text: question.question_text,
