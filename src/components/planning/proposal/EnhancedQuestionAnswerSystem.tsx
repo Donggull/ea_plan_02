@@ -5,6 +5,9 @@ import { IconRenderer } from '@/components/icons/IconRenderer'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import Input from '@/basic/src/components/Input/Input'
+import Tabs from '@/basic/src/components/Tabs/Tabs'
+import Badge from '@/basic/src/components/Badge/Badge'
+import EnhancedButton from '@/basic/src/components/Enhanced Button/Enhanced Button'
 import { cn } from '@/lib/utils'
 
 // 새로운 타입 정의
@@ -375,292 +378,475 @@ export function EnhancedQuestionAnswerSystem({
 
   return (
     <div className={cn('w-full space-y-6', className)}>
-      {/* 질문 생성기 */}
+      {/* 질문 생성기 - 개선된 UI */}
       {viewMode === 'generator' && (
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">🤖 AI 기반 맞춤형 질문 생성</h2>
+        <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-xl">
+              <IconRenderer icon="BrainCircuit" size={24} className="text-blue-600" {...({} as any)} />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">AI 기반 맞춤형 질문 생성</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">프로젝트에 특화된 후속 질문을 자동으로 생성합니다</p>
+            </div>
+          </div>
           
           {!isGenerating && (
-            <div className="space-y-4 mb-6">
+            <div className="space-y-6 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  집중 분야 선택
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  📊 집중 분야 선택
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-3">
                   {categoryOptions.map(category => (
-                    <label key={category.key} className="flex items-start space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(category.key)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedCategories(prev => [...prev, category.key])
-                          } else {
-                            setSelectedCategories(prev => prev.filter(c => c !== category.key))
-                          }
-                        }}
-                        className="mt-1 text-blue-600"
-                      />
-                      <div>
-                        <span className="font-medium text-gray-900 dark:text-white">{category.label}</span>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">{category.description}</p>
+                    <div key={category.key} 
+                         role="checkbox"
+                         aria-checked={selectedCategories.includes(category.key)}
+                         aria-labelledby={`category-${category.key}-label`}
+                         aria-describedby={`category-${category.key}-desc`}
+                         tabIndex={0}
+                         className={cn(
+                           'relative p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                           selectedCategories.includes(category.key)
+                             ? 'border-blue-300 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-600'
+                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                         )}
+                         onClick={() => {
+                           if (selectedCategories.includes(category.key)) {
+                             setSelectedCategories(prev => prev.filter(c => c !== category.key))
+                           } else {
+                             setSelectedCategories(prev => [...prev, category.key])
+                           }
+                         }}
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter' || e.key === ' ') {
+                             e.preventDefault()
+                             if (selectedCategories.includes(category.key)) {
+                               setSelectedCategories(prev => prev.filter(c => c !== category.key))
+                             } else {
+                               setSelectedCategories(prev => [...prev, category.key])
+                             }
+                           }
+                         }}>
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          'flex-shrink-0 w-5 h-5 border-2 rounded-md transition-all',
+                          selectedCategories.includes(category.key)
+                            ? 'bg-blue-600 border-blue-600'
+                            : 'border-gray-300 dark:border-gray-600'
+                        )}>
+                          {selectedCategories.includes(category.key) && (
+                            <IconRenderer icon="Check" size={14} className="text-white" {...({} as any)} />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h3 id={`category-${category.key}-label`} className="font-medium text-gray-900 dark:text-white">{category.label}</h3>
+                          <p id={`category-${category.key}-desc`} className="text-xs text-gray-600 dark:text-gray-400 mt-1">{category.description}</p>
+                        </div>
                       </div>
-                    </label>
+                    </div>
                   ))}
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  생성할 질문 수
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  🎯 생성할 질문 수
                 </label>
-                <Input
-                  type="number"
-                  min="5"
-                  max="15"
-                  value={maxQuestions}
-                  onChange={(e) => setMaxQuestions(parseInt(e.target.value))}
-                  className="w-32"
-                />
+                <div className="flex items-center gap-4">
+                  <Input
+                    type="number"
+                    min="5"
+                    max="15"
+                    value={maxQuestions}
+                    onChange={(e) => setMaxQuestions(parseInt(e.target.value))}
+                    className="w-24 text-center font-semibold"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    권장: 5-12개 (프로젝트 복잡도에 따라 조정)
+                  </span>
+                </div>
               </div>
             </div>
           )}
 
-          <Button 
-            onClick={handleGenerateQuestions}
-            disabled={!analysisId || isGenerating || selectedCategories.length === 0}
-            className="w-full sm:w-auto"
-          >
-            {isGenerating ? (
-              <>
-                <IconRenderer icon="Loader2" size={16} className="mr-2 animate-spin" {...({} as any)} />
-                AI가 맞춤형 질문을 생성하는 중...
-              </>
-            ) : (
-              <>
-                <IconRenderer icon="Zap" size={16} className="mr-2" {...({} as any)} />
-                프로젝트 맞춤 질문 생성
-              </>
-            )}
-          </Button>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              선택된 분야: <Badge variant="primary" size="sm">{selectedCategories.length}개</Badge>
+            </div>
+            <EnhancedButton
+              onClick={handleGenerateQuestions}
+              disabled={!analysisId || isGenerating || selectedCategories.length === 0}
+              loading={isGenerating}
+              loadingText="생성 중..."
+              size="lg"
+              leftIcon={!isGenerating ? <IconRenderer icon="Sparkles" size={20} {...({} as any)} /> : undefined}
+              className="px-8"
+            >
+              {isGenerating ? 'AI가 맞춤형 질문을 생성하는 중...' : '프로젝트 맞춤 질문 생성'}
+            </EnhancedButton>
+          </div>
         </Card>
       )}
 
-      {/* 질문 응답 시스템 */}
+      {/* 질문 응답 시스템 - 개선된 UI */}
       {viewMode === 'questions' && questions.length > 0 && (
         <div className="space-y-6">
-          {/* 진행률 */}
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                질문 {currentQuestionIndex + 1} / {questions.length}
-              </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+          {/* 진행률 카드 - 개선된 디자인 */}
+          <Card className="p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 border-green-200 dark:border-green-800">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                  <IconRenderer icon="MessageSquare" size={20} className="text-green-600" {...({} as any)} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    질문 {currentQuestionIndex + 1} / {questions.length}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    진행률: {Math.round(progress)}%
+                  </p>
+                </div>
+              </div>
+              <Badge variant={progress === 100 ? 'success' : 'primary'} size="lg" rounded>
                 {Math.round(progress)}% 완료
-              </span>
+              </Badge>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className={cn(
+                  'h-3 rounded-full transition-all duration-500 ease-out',
+                  progress === 100 ? 'bg-green-500' : 'bg-blue-500'
+                )}
                 style={{ width: `${progress}%` }}
               />
             </div>
+            <div className="flex items-center justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
+              <span>시작</span>
+              <span>완료</span>
+            </div>
           </Card>
 
-          {/* 현재 질문 */}
+          {/* 현재 질문 - 모던한 카드 디자인 */}
           {currentQuestion && (
-            <Card className="p-6">
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={cn(
-                    'px-2 py-1 rounded-full text-xs font-medium',
-                    getPriorityColor(currentQuestion.priority)
-                  )}>
-                    {currentQuestion.priority === 'high' ? '높음' :
-                     currentQuestion.priority === 'medium' ? '보통' : '낮음'}
-                  </span>
-                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-xs">
+            <Card className="p-0 overflow-hidden shadow-lg border-0 bg-white dark:bg-gray-900">
+              {/* 질문 헤더 */}
+              <div className="bg-gradient-to-r from-indigo-500 to-blue-600 p-6 text-white">
+                <div className="flex items-center gap-3 mb-4">
+                  <Badge 
+                    variant={currentQuestion.priority === 'high' ? 'error' : currentQuestion.priority === 'medium' ? 'warning' : 'success'}
+                    size="sm" 
+                    rounded
+                    className="text-white bg-white/20"
+                  >
+                    {currentQuestion.priority === 'high' ? '🔥 높음' :
+                     currentQuestion.priority === 'medium' ? '⚡ 보통' : '🌟 낮음'}
+                  </Badge>
+                  <Badge variant="secondary" size="sm" rounded className="bg-white/20 text-white">
                     {getCategoryLabel(currentQuestion.category)}
-                  </span>
+                  </Badge>
+                  <Badge variant="secondary" size="sm" rounded className="bg-white/20 text-white ml-auto">
+                    {currentQuestionIndex + 1} of {questions.length}
+                  </Badge>
                 </div>
                 
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                <h3 className="text-xl font-bold text-white mb-2 leading-tight">
                   {currentQuestion.question_text}
                 </h3>
                 
                 {currentQuestion.context && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    💡 {currentQuestion.context}
-                  </p>
+                  <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                    <div className="flex items-start gap-2">
+                      <IconRenderer icon="Lightbulb" size={16} className="text-yellow-300 mt-0.5" {...({} as any)} />
+                      <p className="text-sm text-white/90">
+                        {currentQuestion.context}
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
               {/* 답변 선택 영역 */}
-              <div className="space-y-4">
-                {/* AI 답변 옵션 */}
+              <div className="p-6">
+
+                {/* AI 답변 탭 */}
                 {currentQuestion.has_ai_answers && (
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <input
-                        type="radio"
-                        id="ai-answer"
-                        name="answer-type"
-                        checked={currentAnswerType === 'ai'}
-                        onChange={() => setCurrentAnswerType('ai')}
-                        className="text-blue-600"
-                      />
-                      <label htmlFor="ai-answer" className="font-medium text-gray-900 dark:text-white">
-                        🤖 AI 제안 답변 사용
-                      </label>
-                    </div>
-                    
-                    {currentAnswerType === 'ai' && currentQuestion.ai_answers.map(aiAnswer => (
-                      <div key={aiAnswer.id} className="ml-6">
-                        <label className="flex items-start gap-3 p-3 border border-gray-100 dark:border-gray-600 rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-5 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                        <IconRenderer icon="Sparkles" size={20} className="text-purple-600" {...({} as any)} />
+                      </div>
+                      <div className="flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="radio"
-                            name="ai-answer-selection"
-                            value={aiAnswer.id}
-                            checked={selectedAIAnswerId === aiAnswer.id}
-                            onChange={() => setSelectedAIAnswerId(aiAnswer.id)}
-                            className="mt-1 text-blue-600"
+                            id="ai-answer"
+                            name="answer-type"
+                            checked={currentAnswerType === 'ai'}
+                            onChange={() => setCurrentAnswerType('ai')}
+                            className="w-5 h-5 text-purple-600 focus:ring-purple-500"
                           />
-                          <div className="flex-1">
-                            <p className="text-gray-700 dark:text-gray-300">{aiAnswer.ai_answer_text}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              신뢰도: {Math.round(aiAnswer.confidence_score * 100)}% | 모델: {aiAnswer.ai_model_used}
-                            </p>
-                          </div>
+                          <span className="font-semibold text-gray-900 dark:text-white text-lg">
+                            AI 제안 답변 사용
+                          </span>
                         </label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          AI가 분석한 최적의 답변을 선택하세요
+                        </p>
                       </div>
-                    ))}
+                    </div>
+                    
+                    {currentAnswerType === 'ai' && (
+                      <div className="space-y-3 ml-4">
+                        {currentQuestion.ai_answers.map((aiAnswer, index) => (
+                          <div key={aiAnswer.id} 
+                               className={cn(
+                                 'p-4 rounded-lg border-2 transition-all cursor-pointer',
+                                 selectedAIAnswerId === aiAnswer.id
+                                   ? 'border-purple-300 bg-purple-100 dark:bg-purple-900/30 dark:border-purple-600'
+                                   : 'border-gray-200 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700'
+                               )}
+                               onClick={() => setSelectedAIAnswerId(aiAnswer.id)}>
+                            <div className="flex items-start gap-3">
+                              <div className={cn(
+                                'w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1',
+                                selectedAIAnswerId === aiAnswer.id
+                                  ? 'border-purple-500 bg-purple-500'
+                                  : 'border-gray-300 dark:border-gray-600'
+                              )}>
+                                {selectedAIAnswerId === aiAnswer.id && (
+                                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="secondary" size="sm">AI 답변 #{index + 1}</Badge>
+                                  <Badge variant="success" size="sm">
+                                    신뢰도 {Math.round(aiAnswer.confidence_score * 100)}%
+                                  </Badge>
+                                </div>
+                                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                                  {aiAnswer.ai_answer_text}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                  <IconRenderer icon="Cpu" size={12} {...({} as any)} />
+                                  <span>{aiAnswer.ai_model_used}</span>
+                                  <span>•</span>
+                                  <IconRenderer icon="Clock" size={12} {...({} as any)} />
+                                  <span>{new Date(aiAnswer.generated_at).toLocaleString('ko-KR')}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* 사용자 직접 입력 옵션 */}
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <input
-                      type="radio"
-                      id="user-answer"
-                      name="answer-type"
-                      checked={currentAnswerType === 'user'}
-                      onChange={() => setCurrentAnswerType('user')}
-                      className="text-blue-600"
-                    />
-                    <label htmlFor="user-answer" className="font-medium text-gray-900 dark:text-white">
-                      ✏️ 직접 답변 작성
-                    </label>
+                {/* 사용자 직접 입력 탭 */}
+                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                      <IconRenderer icon="Edit3" size={20} className="text-blue-600" {...({} as any)} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          id="user-answer"
+                          name="answer-type"
+                          checked={currentAnswerType === 'user'}
+                          onChange={() => setCurrentAnswerType('user')}
+                          className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="font-semibold text-gray-900 dark:text-white text-lg">
+                          직접 답변 작성
+                        </span>
+                      </label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        프로젝트에 대한 구체적인 답변을 직접 작성하세요
+                      </p>
+                    </div>
                   </div>
                   
                   {currentAnswerType === 'user' && (
-                    <div className="ml-6">
-                      <textarea
-                        className="w-full h-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="답변을 자세히 입력해주세요..."
-                        value={userInput}
-                        onChange={(e) => setUserInput(e.target.value)}
-                      />
+                    <div className="ml-4">
+                      <div className="relative">
+                        <textarea
+                          className="w-full h-32 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all"
+                          placeholder="이 질문에 대한 답변을 자세히 작성해주세요...\n\n예시:\n• 구체적인 요구사항\n• 기대하는 결과\n• 제약사항이나 고려사항"
+                          value={userInput}
+                          onChange={(e) => setUserInput(e.target.value)}
+                        />
+                        <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                          {userInput.length} / 1000
+                        </div>
+                      </div>
+                      {userInput.trim() && (
+                        <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
+                            <IconRenderer icon="CheckCircle" size={14} {...({} as any)} />
+                            <span>답변이 입력되었습니다</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {/* 추가 메모 */}
                 {(currentAnswerType === 'ai' || currentAnswerType === 'user') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      추가 메모 (선택사항)
-                    </label>
+                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-3">
+                      <IconRenderer icon="FileText" size={16} className="text-gray-600" {...({} as any)} />
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        추가 메모 (선택사항)
+                      </label>
+                    </div>
                     <Input
-                      placeholder="추가로 기록할 내용이 있다면 입력하세요..."
+                      placeholder="추가로 기록할 내용이 있다면 입력하세요... (예: 특별한 고려사항, 참고자료 등)"
                       value={additionalNotes}
                       onChange={(e) => setAdditionalNotes(e.target.value)}
+                      className="bg-white dark:bg-gray-800"
                     />
                   </div>
                 )}
               </div>
 
-              {/* 네비게이션 */}
-              <div className="flex justify-between mt-6">
-                <Button
-                  variant="outline"
+              {/* 네비게이션 - 개선된 디자인 */}
+              <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <EnhancedButton
+                  variant="ghost"
                   onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
                   disabled={currentQuestionIndex === 0}
+                  leftIcon={<IconRenderer icon="ChevronLeft" size={16} {...({} as any)} />}
+                  size="md"
                 >
-                  <IconRenderer icon="ChevronLeft" size={16} className="mr-1" {...({} as any)} />
-                  이전
-                </Button>
+                  이전 질문
+                </EnhancedButton>
 
-                <Button
+                <div className="flex items-center gap-2">
+                  {/* 질문 번호 표시기 */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: questions.length }, (_, index) => (
+                      <div
+                        key={index}
+                        className={cn(
+                          'w-2 h-2 rounded-full transition-all',
+                          index === currentQuestionIndex
+                            ? 'bg-blue-500 w-6'
+                            : index < currentQuestionIndex
+                            ? 'bg-green-500'
+                            : 'bg-gray-300 dark:bg-gray-600'
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <EnhancedButton
                   onClick={handleSaveAnswer}
                   disabled={isSaving || (!currentAnswerType || 
                     (currentAnswerType === 'ai' && !selectedAIAnswerId) ||
                     (currentAnswerType === 'user' && !userInput.trim()))}
-                >
-                  {isSaving ? (
-                    <>
-                      <IconRenderer icon="Loader2" size={16} className="mr-2 animate-spin" {...({} as any)} />
-                      저장 중...
-                    </>
-                  ) : (
-                    <>
-                      <IconRenderer icon="Save" size={16} className="mr-2" {...({} as any)} />
-                      {currentQuestionIndex === questions.length - 1 ? '완료' : '다음'}
-                    </>
+                  loading={isSaving}
+                  loadingText="저장 중..."
+                  rightIcon={!isSaving ? <IconRenderer icon={currentQuestionIndex === questions.length - 1 ? "CheckCircle" : "ChevronRight"} size={16} {...({} as any)} /> : undefined}
+                  size="md"
+                  className={cn(
+                    currentQuestionIndex === questions.length - 1
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : ''
                   )}
-                </Button>
+                >
+                  {currentQuestionIndex === questions.length - 1 ? '답변 완료' : '다음 질문'}
+                </EnhancedButton>
               </div>
+            </div>
             </Card>
           )}
         </div>
       )}
 
-      {/* 완료 화면 */}
+      {/* 완료 화면 - 축하 디자인 */}
       {viewMode === 'completed' && (
-        <Card className="p-6">
-          <div className="text-center">
-            <IconRenderer icon="CheckCircle" size={48} className="text-green-500 mx-auto mb-4" {...({} as any)} />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              🎉 모든 질문 응답이 완료되었습니다!
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              AI가 답변을 분석하여 시장조사와 페르소나 분석 준비를 완료했습니다.
-            </p>
-            
+        <Card className="p-0 overflow-hidden bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-green-950/30 dark:via-blue-950/30 dark:to-purple-950/30 border-green-200 dark:border-green-800">
+          {/* 헤더 */}
+          <div className="bg-gradient-to-r from-green-500 to-blue-600 p-8 text-white text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+            <div className="relative z-10">
+              <div className="inline-flex p-4 bg-white/20 rounded-full mb-4">
+                <IconRenderer icon="PartyPopper" size={48} className="text-white" {...({} as any)} />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">
+                🎉 모든 질문 응답이 완료되었습니다!
+              </h3>
+              <p className="text-white/90 text-lg">
+                AI가 답변을 분석하여 시장조사와 페르소나 분석 준비를 완료했습니다.
+              </p>
+            </div>
+          </div>
+          
+          <div className="p-8">
+            {/* 통계 카드 */}
             {statistics && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{statistics.total_questions}</div>
-                  <div className="text-sm text-gray-500">총 질문</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border">
+                  <div className="text-3xl font-bold text-blue-600 mb-1">{statistics.total_questions}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">총 질문</div>
+                  <div className="w-8 h-1 bg-blue-200 rounded mx-auto mt-2"></div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{statistics.answered_questions}</div>
-                  <div className="text-sm text-gray-500">답변 완료</div>
+                <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border">
+                  <div className="text-3xl font-bold text-green-600 mb-1">{statistics.answered_questions}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">답변 완료</div>
+                  <div className="w-8 h-1 bg-green-200 rounded mx-auto mt-2"></div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{statistics.ai_answers_used}</div>
-                  <div className="text-sm text-gray-500">AI 답변 활용</div>
+                <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border">
+                  <div className="text-3xl font-bold text-purple-600 mb-1">{statistics.ai_answers_used}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">AI 답변 활용</div>
+                  <div className="w-8 h-1 bg-purple-200 rounded mx-auto mt-2"></div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">{statistics.user_answers_used}</div>
-                  <div className="text-sm text-gray-500">직접 답변</div>
+                <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border">
+                  <div className="text-3xl font-bold text-orange-600 mb-1">{statistics.user_answers_used}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">직접 답변</div>
+                  <div className="w-8 h-1 bg-orange-200 rounded mx-auto mt-2"></div>
                 </div>
               </div>
             )}
 
-            <div className="flex gap-3 justify-center">
-              <Button
+            {/* 다음 단계 안내 */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border shadow-sm mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                  <IconRenderer icon="ArrowRight" size={20} className="text-blue-600" {...({} as any)} />
+                </div>
+                <h4 className="font-semibold text-gray-900 dark:text-white">다음 단계로 진행하세요</h4>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                수집된 답변을 바탕으로 정교한 시장 조사와 페르소나 분석을 시작할 수 있습니다.
+              </p>
+            </div>
+
+            {/* 액션 버튼 */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+              <EnhancedButton
                 variant="outline"
                 onClick={() => setViewMode('questions')}
+                leftIcon={<IconRenderer icon="Edit2" size={16} {...({} as any)} />}
+                size="lg"
               >
-                <IconRenderer icon="Edit2" size={16} className="mr-2" {...({} as any)} />
-                답변 수정
-              </Button>
+                답변 수정하기
+              </EnhancedButton>
               
-              <Button>
-                <IconRenderer icon="ArrowRight" size={16} className="mr-2" {...({} as any)} />
+              <EnhancedButton
+                variant="primary"
+                rightIcon={<IconRenderer icon="Sparkles" size={16} {...({} as any)} />}
+                size="lg"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
                 다음 단계 진행
-              </Button>
+              </EnhancedButton>
             </div>
           </div>
         </Card>

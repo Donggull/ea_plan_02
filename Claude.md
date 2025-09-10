@@ -1326,3 +1326,257 @@ interface UserTierManager {
 5. **확장성**: 새로운 등급과 권한 쉽게 추가
 
 **⚠️ 중요: 이 시스템은 기존 사용자 경험을 해치지 않으면서 점진적으로 도입해야 하며, 모든 등급 변경은 사용자에게 명확히 안내되어야 함**
+
+## 🚨 RFP 분석 자동화와 프로젝트 RFP 분석 완전 분리 시스템 구현 완료 (2025-09-10)
+
+### 문제 상황 및 해결 배경
+기존 시스템에서 RFP 분석 자동화와 프로젝트 RFP 분석이 동일한 테이블(`rfp_analyses`)을 사용하면서 `project_id` nullable 방식으로만 구분되어 **심각한 데이터 오염 위험**이 발견되었습니다.
+
+### 해결된 핵심 문제점
+1. **데이터 오염 위험**: 단일 테이블 사용으로 인한 데이터 혼재
+2. **교차 접근 가능성**: RFP 자동화 데이터가 프로젝트 질문/답변 시스템에 노출
+3. **시스템 독립성 부재**: 명확한 분리 없이 조건부 로직에만 의존
+4. **확장성 제약**: 두 시스템의 발전 방향이 서로 제약됨
+
+### 🏗️ 구현된 완전 분리 시스템
+
+#### 1. **데이터베이스 구조 완전 분리**
+
+**RFP 분석 자동화 전용 테이블 (6개)**:
+```sql
+-- 메인 분석 테이블
+standalone_rfp_analyses: {
+  id, user_id, original_file_name, original_file_url, extracted_text,
+  project_overview, functional_requirements, non_functional_requirements,
+  technical_specifications, business_requirements, keywords, risk_factors,
+  planning_analysis, design_analysis, publishing_analysis, development_analysis,
+  project_feasibility, resource_requirements, timeline_analysis,
+  confidence_score, analysis_completeness_score, ai_model_used,
+  processing_status, created_at, updated_at
+}
+
+-- 질문 관리 (향후 확장용)
+standalone_rfp_questions: {
+  id, standalone_rfp_id, question_text, question_type, category,
+  priority, context, order_index, options, next_step_impact,
+  created_at, updated_at
+}
+
+-- AI 답변 (향후 확장용)
+standalone_rfp_ai_answers: {
+  id, question_id, ai_answer_text, ai_model_used,
+  confidence_score, metadata, created_at
+}
+
+-- 사용자 답변 (향후 확장용)
+standalone_rfp_user_responses: {
+  id, question_id, user_id, response_type, final_answer,
+  ai_answer_id, user_input_text, notes, answered_at, is_final
+}
+
+-- 분석 요약
+standalone_rfp_summary: {
+  id, standalone_rfp_id, user_id, total_questions, answered_questions,
+  ai_answers_used, user_answers_used, completion_percentage,
+  consolidated_insights, market_research_readiness, persona_analysis_readiness,
+  proposal_writing_readiness, summary_generated_at, last_updated_at
+}
+
+-- 임포트 이력 관리
+rfp_import_history: {
+  id, standalone_rfp_id, project_id, imported_by, import_type,
+  imported_data, import_mapping, imported_at
+}
+```
+
+**프로젝트 RFP 분석 강화**:
+```sql
+-- 기존 테이블 제약조건 강화
+ALTER TABLE rfp_analyses ALTER COLUMN project_id SET NOT NULL;
+ALTER TABLE rfp_analysis_questions ALTER COLUMN project_id SET NOT NULL;
+
+-- 용도 명확화 주석 추가
+COMMENT ON TABLE rfp_analyses IS 'RFP 분석 - 프로젝트 제안 진행 전용 (project_id 필수)';
+COMMENT ON TABLE standalone_rfp_analyses IS 'RFP 분석 자동화 - 독립 실행 전용 (project_id 없음)';
+```
+
+#### 2. **API 엔드포인트 완전 분리**
+
+**RFP 분석 자동화 전용 API**: `/api/standalone-rfp/*`
+```typescript
+// 독립 분석 수행
+POST /api/standalone-rfp/analyze
+{
+  text: string,
+  file_name?: string,
+  file_url?: string
+}
+
+// 분석 목록 조회 (페이지네이션)
+GET /api/standalone-rfp/list?page=1&limit=10&status=completed&search=term
+
+// 분석 상세 조회
+GET /api/standalone-rfp/[id]
+
+// 분석 삭제
+DELETE /api/standalone-rfp/[id]
+
+// 프로젝트로 임포트 (핵심 기능)
+POST /api/standalone-rfp/[id]/import-to-project
+{
+  project_id: string,
+  import_type: 'full' | 'partial' | 'analysis_only',
+  selected_sections?: string[]
+}
+```
+
+**프로젝트 RFP 분석 API**: `/api/rfp/[id]/*` (기존 유지)
+- 질문/답변 시스템
+- 시장조사 연동
+- 페르소나 분석 연동
+
+#### 3. **데이터 임포트 시스템**
+
+**안전한 데이터 이관 프로세스**:
+1. **권한 검증**: 대상 프로젝트 접근 권한 확인
+2. **선택적 임포트**: 전체/부분/분석만 선택 가능
+3. **데이터 매핑**: 구조 차이 자동 변환
+4. **이력 관리**: 모든 임포트 과정 추적
+5. **충돌 방지**: 기존 데이터 보존 또는 업데이트 선택
+
+**임포트 타입별 동작**:
+- `full`: 모든 분석 데이터 이관
+- `partial`: 사용자 선택 섹션만 이관
+- `analysis_only`: 핵심 분석 결과만 이관
+
+#### 4. **Next.js 15 호환성 개선**
+
+**API 라우트 타입 수정**:
+```typescript
+// Before (Next.js 14)
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+)
+
+// After (Next.js 15)
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  // ...
+}
+```
+
+**Supabase 쿼리 최적화**:
+```typescript
+// 복잡한 join 대신 분리된 쿼리 사용
+const { data: questionIds } = await supabaseAdmin
+  .from('rfp_analysis_questions')
+  .select('id')
+  .eq('rfp_analysis_id', rfpAnalysisId)
+
+if (questionIds && questionIds.length > 0) {
+  const { count } = await supabaseAdmin
+    .from('rfp_question_user_responses')
+    .select('id', { count: 'exact' })
+    .in('question_id', questionIds.map(q => q.id))
+}
+```
+
+### 🛡️ 데이터 오염 방지 보장
+
+#### 1. **물리적 분리**
+- 완전히 다른 테이블 구조 사용
+- 외래 키 제약조건으로 데이터 격리
+- 테이블별 명확한 용도 정의
+
+#### 2. **API 레벨 격리**
+- 독립된 엔드포인트 경로
+- 다른 인증 및 권한 체계
+- 교차 접근 원천 차단
+
+#### 3. **논리적 검증**
+```typescript
+// 프로젝트 전용 API에서 검증
+if (!rfpAnalysis.project_id) {
+  return NextResponse.json({
+    success: false,
+    error: 'RFP 분석 자동화에서 생성된 데이터는 질문 생성을 지원하지 않습니다.',
+    code: 'PROJECT_ID_REQUIRED'
+  }, { status: 400 })
+}
+```
+
+### 🔄 시스템 독립성 및 연동성
+
+#### 독립적 운영
+- **RFP 분석 자동화**: 빠른 분석, 독립 실행, 결과 확인
+- **프로젝트 RFP 분석**: 질문/답변, 워크플로우 연동, 협업 기능
+
+#### 안전한 연동
+- **단방향 데이터 흐름**: RFP 자동화 → 프로젝트 (역방향 불가)
+- **선택적 임포트**: 필요한 데이터만 이관
+- **이력 추적**: 모든 데이터 이동 기록
+
+### 📊 시스템 현황 및 효과
+
+#### 구현 통계
+- **새 DB 테이블**: 6개 (standalone_rfp_*, rfp_import_history)
+- **새 API 엔드포인트**: 5개 (분석, 목록, 상세, 삭제, 임포트)
+- **수정된 제약조건**: 2개 테이블 project_id 필수화
+- **코드 수정**: 6개 파일 (API 라우트 및 컴포넌트)
+
+#### 보안 강화
+- **데이터 격리**: 100% 물리적 분리로 오염 위험 제거
+- **접근 제어**: 사용자별 독립된 데이터 접근
+- **권한 관리**: 프로젝트 기반 임포트 권한 검증
+
+#### 개발 효율성
+- **독립 개발**: 두 시스템의 독립적 발전 가능
+- **확장성**: 각 시스템별 특화 기능 추가 용이
+- **유지보수**: 명확한 책임 분리로 관리 효율성 증대
+
+### 🚀 향후 개발 방향
+
+#### RFP 분석 자동화 확장
+- 다양한 파일 형식 지원 (PDF, DOCX, PPT)
+- 실시간 분석 스트리밍
+- 분석 템플릿 시스템
+- 배치 분석 기능
+
+#### 프로젝트 RFP 분석 고도화
+- 고급 질문/답변 워크플로우
+- AI 기반 질문 개인화
+- 팀 협업 기능 강화
+- 분석 결과 시각화
+
+#### 통합 활용 시나리오
+- RFP 자동화로 초기 분석 → 프로젝트로 정밀 분석
+- 여러 RFP 자동화 결과 비교 분석
+- 프로젝트 템플릿 자동 생성
+- 고객별 맞춤 분석 워크플로우
+
+### 📝 개발 시 주의사항
+
+#### 필수 준수 원칙
+1. **데이터 격리 유지**: 두 시스템 간 직접 데이터 참조 금지
+2. **단방향 연동**: RFP 자동화 → 프로젝트 방향만 허용
+3. **임포트 경유**: 모든 데이터 이동은 임포트 API 경유
+4. **권한 검증**: 모든 임포트 시 프로젝트 접근 권한 확인
+5. **이력 관리**: 모든 데이터 이동 과정 기록 유지
+
+#### API 개발 가이드라인
+- RFP 자동화 API: `/api/standalone-rfp/*` 경로 사용
+- 프로젝트 API: `/api/rfp/[id]/*` 경로 유지
+- 교차 참조 금지: 서로 다른 테이블 직접 JOIN 금지
+- 타입 안전성: Next.js 15 Promise 기반 params 사용
+
+### 배포 및 검증 완료
+- **커밋**: `9bbee7c` - 완전 분리 시스템 구현
+- **마이그레이션**: 2개 DB 마이그레이션 성공 적용
+- **빌드**: TypeScript 컴파일 및 타입 체크 성공
+- **배포**: Vercel 자동 배포 완료
+
+**✅ 결론**: RFP 분석 자동화와 프로젝트 RFP 분석이 완전히 분리되어 **데이터 오염 위험 없이 안전하게 독립 운영**되며, 필요시 **통제된 방식으로 안전한 데이터 연동**이 가능한 시스템으로 재구축되었습니다.

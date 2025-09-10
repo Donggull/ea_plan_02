@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
+import Badge from '@/basic/src/components/Badge/Badge'
 import { IntegratedAnswerModal } from './IntegratedAnswerModal'
 import { EnhancedQuestionAnswerSystem } from '../../planning/proposal/EnhancedQuestionAnswerSystem'
 import { 
@@ -24,6 +25,7 @@ import {
   Sparkles,
   User
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { RFPAnalysis, AnalysisQuestion } from '@/types/rfp-analysis'
 
 interface EnhancedRFPAnalysisResultsProps {
@@ -1724,37 +1726,93 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             </div>
           )}
 
-          {/* 후속 질문 섹션 */}
+          {/* 후속 질문 섹션 - 개선된 UI */}
           <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                다음 단계 준비
-              </h2>
-              
-              {/* 시스템 선택 토글 */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">시스템:</span>
-                <Button
-                  onClick={() => setUseNewSystem(!useNewSystem)}
-                  variant={useNewSystem ? "primary" : "outline"}
-                  size="sm"
-                  className="text-xs"
-                >
-                  {useNewSystem ? "✅ 새 시스템" : "🔄 기존 시스템"}
-                </Button>
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl">
+                    <MessageSquare className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      다음 단계 준비 - 후속 질문 시스템
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      정교한 분석을 위해 추가 질문에 답변해주세요
+                    </p>
+                  </div>
+                </div>
+                
+                {/* 시스템 선택 토글 - 개선된 UI */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    질문 시스템:
+                  </span>
+                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                    <button
+                      onClick={() => setUseNewSystem(true)}
+                      className={cn(
+                        'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                        useNewSystem
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      )}
+                    >
+                      ✨ 새 시스템
+                    </button>
+                    <button
+                      onClick={() => setUseNewSystem(false)}
+                      className={cn(
+                        'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                        !useNewSystem
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      )}
+                    >
+                      🔄 기존 시스템
+                    </button>
+                  </div>
+                </div>
               </div>
+              
+              {/* 시스템 설명 */}
+              <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    useNewSystem ? "bg-indigo-100 dark:bg-indigo-900/50" : "bg-gray-100 dark:bg-gray-700"
+                  )}>
+                    {useNewSystem ? (
+                      <Sparkles className="h-4 w-4 text-indigo-600" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-gray-600" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                      {useNewSystem ? '새로운 질문 시스템' : '기존 질문 시스템'}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {useNewSystem 
+                        ? 'AI가 자동으로 생성한 맞춤형 질문에 단계별로 답변하는 직관적인 인터페이스입니다.' 
+                        : '기존에 생성된 질문들을 목록 형태로 보여주는 전통적인 인터페이스입니다.'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 시스템 내용 */}
+              {useNewSystem ? (
+                <EnhancedQuestionAnswerSystem 
+                  analysisId={selectedAnalysis.analysis.id}
+                  projectId={projectId}
+                />
+              ) : (
+                renderFollowUpQuestions(selectedAnalysis)
+              )}
             </div>
-            
-            {useNewSystem ? (
-              /* 새로운 질문/답변 시스템 */
-              <EnhancedQuestionAnswerSystem 
-                analysisId={selectedAnalysis.analysis.id}
-                projectId={projectId}
-              />
-            ) : (
-              /* 기존 질문/답변 시스템 */
-              renderFollowUpQuestions(selectedAnalysis)
-            )}
           </div>
         </>
       )}
