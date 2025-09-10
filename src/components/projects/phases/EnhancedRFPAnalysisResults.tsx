@@ -6,7 +6,6 @@ import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import Badge from '@/basic/src/components/Badge/Badge'
 import { IntegratedAnswerModal } from './IntegratedAnswerModal'
-import { EnhancedQuestionAnswerSystem } from '../../planning/proposal/EnhancedQuestionAnswerSystem'
 import { 
   FileText, 
   AlertTriangle,
@@ -76,7 +75,6 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisData | null>(null)
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [useNewSystem, setUseNewSystem] = useState(true) // 새로운 시스템 사용 여부
 
   // AI 후속 질문 생성 함수 (프로젝트별 독립성 보장)
   const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
@@ -1398,15 +1396,18 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     if (!questions || questions.length === 0) {
       return (
         <Card className="p-6 text-center">
-          <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <div className="p-3 rounded-full bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 w-fit mx-auto mb-4">
+            <Sparkles className="h-8 w-8 text-purple-600" />
+          </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            후속 질문이 없습니다
+            맞춤형 후속 질문 생성 중
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            AI가 자동으로 후속 질문을 생성 중입니다...
+            RFP 분석 결과를 바탕으로 프로젝트 맞춤형 질문을 AI가 생성하고 있습니다...
           </p>
-          <div className="flex justify-center">
-            <Loader className="h-6 w-6 animate-spin text-blue-600" />
+          <div className="flex justify-center items-center gap-2">
+            <Loader className="h-5 w-5 animate-spin text-purple-600" />
+            <span className="text-sm text-purple-600 font-medium">AI 분석 중</span>
           </div>
         </Card>
       )
@@ -1457,11 +1458,18 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <MessageSquare className="h-6 w-6 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              후속 질문 및 답변
-            </h3>
-            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+            <div className="p-2 rounded-lg bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                맞춤형 후속 질문
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                RFP 분석 결과 기반 AI 생성 질문
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-full text-sm font-medium">
               {totalQuestions}개 질문
             </span>
           </div>
@@ -1494,11 +1502,33 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             />
           </div>
           {isCompleted && (
-            <div className="flex items-center gap-2 mt-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-green-600 font-medium">
-                모든 질문 답변 완료
-              </span>
+            <div className="flex items-center justify-between mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-600 font-medium">
+                  모든 질문 답변 완료
+                </span>
+              </div>
+              <Button 
+                size="sm"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-xs px-3 py-1"
+                onClick={() => {
+                  console.log('🚀 [RFP분석] 다음 단계 진행 - 시장조사로 이동')
+                  // 다음 단계 이벤트 발송
+                  const event = new CustomEvent('rfp-analysis-next-step', {
+                    detail: {
+                      nextStep: 'market-research',
+                      analysisData: analysisData,
+                      analysisId: analysisData.analysis.id,
+                      projectId: projectId
+                    }
+                  })
+                  window.dispatchEvent(event)
+                }}
+              >
+                <ArrowRight className="h-3 w-3 mr-1" />
+                시장조사 시작
+              </Button>
             </div>
           )}
         </div>
@@ -1774,100 +1804,9 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                     </p>
                   </div>
                 </div>
-                
-                {/* 시스템 선택 토글 - 개선된 UI */}
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    질문 시스템:
-                  </span>
-                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                    <button
-                      onClick={() => setUseNewSystem(true)}
-                      className={cn(
-                        'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
-                        useNewSystem
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      )}
-                    >
-                      ✨ 새 시스템
-                    </button>
-                    <button
-                      onClick={() => setUseNewSystem(false)}
-                      className={cn(
-                        'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
-                        !useNewSystem
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      )}
-                    >
-                      🔄 기존 시스템
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 시스템 설명 */}
-              <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <div className="flex items-start gap-3">
-                  <div className={cn(
-                    "p-2 rounded-lg",
-                    useNewSystem ? "bg-indigo-100 dark:bg-indigo-900/50" : "bg-gray-100 dark:bg-gray-700"
-                  )}>
-                    {useNewSystem ? (
-                      <Sparkles className="h-4 w-4 text-indigo-600" />
-                    ) : (
-                      <FileText className="h-4 w-4 text-gray-600" />
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                      {useNewSystem ? '새로운 질문 시스템' : '기존 질문 시스템'}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {useNewSystem 
-                        ? 'AI가 자동으로 생성한 맞춤형 질문에 단계별로 답변하는 직관적인 인터페이스입니다.' 
-                        : '기존에 생성된 질문들을 목록 형태로 보여주는 전통적인 인터페이스입니다.'
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
               
               {/* 시스템 내용 */}
-              {useNewSystem ? (
-                <EnhancedQuestionAnswerSystem 
-                  analysisId={selectedAnalysis.analysis.id}
-                  projectId={projectId}
-                  autoGenerate={true}
-                  onQuestionsGenerated={(questions) => {
-                    console.log('✅ [RFP분석] AI 질문 생성 완료:', questions.length, '개')
-                  }}
-                  onError={(error) => {
-                    console.error('❌ [RFP분석] 질문 생성 오류:', error)
-                  }}
-                  onNextStepRequested={(step, analysisData) => {
-                    console.log('🚀 [RFP분석] 다음 단계 요청 받음:', step, analysisData)
-                    
-                    // 다음 단계 이벤트를 상위로 전달
-                    const event = new CustomEvent('rfp-analysis-next-step', {
-                      detail: {
-                        nextStep: step,
-                        analysisData: analysisData,
-                        analysisId: selectedAnalysis.analysis.id,
-                        projectId: projectId
-                      }
-                    })
-                    window.dispatchEvent(event)
-                    
-                    // 모달 닫기
-                    setShowQuestionnaire(false)
-                    setSelectedAnalysis(null)
-                  }}
-                />
-              ) : (
-                renderFollowUpQuestions(selectedAnalysis)
-              )}
+              {renderFollowUpQuestions(selectedAnalysis)}
             </div>
           </div>
         </>
