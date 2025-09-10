@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client'
 import Button from '@/basic/src/components/Button/Button'
 import Card from '@/basic/src/components/Card/Card'
 import { IntegratedAnswerModal } from './IntegratedAnswerModal'
+import { EnhancedQuestionAnswerSystem } from '../../planning/proposal/EnhancedQuestionAnswerSystem'
 import { 
   FileText, 
   AlertTriangle,
@@ -73,6 +74,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisData | null>(null)
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [useNewSystem, setUseNewSystem] = useState(true) // 새로운 시스템 사용 여부
 
   // AI 후속 질문 생성 함수 (프로젝트별 독립성 보장)
   const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
@@ -1724,10 +1726,35 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
           {/* 후속 질문 섹션 */}
           <div className="mt-8">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              다음 단계 준비
-            </h2>
-            {renderFollowUpQuestions(selectedAnalysis)}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                다음 단계 준비
+              </h2>
+              
+              {/* 시스템 선택 토글 */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">시스템:</span>
+                <Button
+                  onClick={() => setUseNewSystem(!useNewSystem)}
+                  variant={useNewSystem ? "primary" : "outline"}
+                  size="sm"
+                  className="text-xs"
+                >
+                  {useNewSystem ? "✅ 새 시스템" : "🔄 기존 시스템"}
+                </Button>
+              </div>
+            </div>
+            
+            {useNewSystem ? (
+              /* 새로운 질문/답변 시스템 */
+              <EnhancedQuestionAnswerSystem 
+                rfpAnalysisId={selectedAnalysis.analysis.id}
+                projectId={projectId}
+              />
+            ) : (
+              /* 기존 질문/답변 시스템 */
+              renderFollowUpQuestions(selectedAnalysis)
+            )}
           </div>
         </>
       )}
