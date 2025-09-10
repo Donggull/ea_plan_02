@@ -33,7 +33,7 @@ interface ResponseRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('💾 [답변저장-v2] 새로운 답변 저장 API 시작')
   
@@ -49,7 +49,7 @@ export async function POST(
       )
     }
 
-    const rfpAnalysisId = params.id
+    const { id: rfpAnalysisId } = await params
     const userId = session.user.id
     const body: ResponseRequest = await request.json()
 
@@ -174,7 +174,7 @@ export async function POST(
 // 여러 답변 일괄 저장 API
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('📦 [답변일괄저장-v2] 여러 답변 일괄 저장 시작')
   
@@ -190,7 +190,7 @@ export async function PATCH(
       )
     }
 
-    const rfpAnalysisId = params.id
+    const { id: rfpAnalysisId } = await params
     const userId = session.user.id
     const { responses }: { responses: ResponseRequest[] } = await request.json()
 
@@ -316,16 +316,22 @@ async function updateAnalysisSummary(rfpAnalysisId: string, projectId: string, u
         .select('id', { count: 'exact' })
         .eq('rfp_analysis_id', rfpAnalysisId)
 
-      const { data: responseStats } = await supabaseAdmin
-        .from('rfp_question_user_responses')
-        .select('response_type')
-        .eq('user_id', userId)
-        .in('question_id', 
-          supabaseAdmin
-            .from('rfp_analysis_questions')
-            .select('id')
-            .eq('rfp_analysis_id', rfpAnalysisId)
-        )
+      // 질문 ID 목록을 먼저 가져옴
+      const { data: questionIds } = await supabaseAdmin
+        .from('rfp_analysis_questions')
+        .select('id')
+        .eq('rfp_analysis_id', rfpAnalysisId)
+      
+      let responseStats: any[] = []
+      if (questionIds && questionIds.length > 0) {
+        const { data } = await supabaseAdmin
+          .from('rfp_question_user_responses')
+          .select('response_type')
+          .eq('user_id', userId)
+          .in('question_id', questionIds.map(q => q.id))
+        
+        responseStats = data || []
+      }
 
       const answeredQuestions = responseStats?.length || 0
       const aiAnswersUsed = responseStats?.filter(r => r.response_type === 'ai_selected').length || 0

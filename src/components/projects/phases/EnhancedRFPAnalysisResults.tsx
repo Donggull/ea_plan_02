@@ -269,7 +269,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         analysisId
       })
     }
-  }, [])
+  }, [generateAIFollowUpQuestions])
 
   // 분석 결과 조회 함수 (프로젝트별 독립성 보장 및 최신 데이터 로드)
   const fetchAnalysisResults = useCallback(async (forceRefresh = false) => {
@@ -502,7 +502,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
     } finally {
       setIsLoading(false)
     }
-  }, [projectId])
+  }, [projectId, generateAIFollowUpQuestions, selectedAnalysis?.analysis.id])
 
   useEffect(() => {
     fetchAnalysisResults()
@@ -1748,7 +1748,7 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             {useNewSystem ? (
               /* 새로운 질문/답변 시스템 */
               <EnhancedQuestionAnswerSystem 
-                rfpAnalysisId={selectedAnalysis.analysis.id}
+                analysisId={selectedAnalysis.analysis.id}
                 projectId={projectId}
               />
             ) : (

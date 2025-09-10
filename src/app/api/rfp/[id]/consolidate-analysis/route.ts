@@ -29,7 +29,7 @@ interface ConsolidateRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('🔄 [통합분석-v2] 질문답변 통합 분석 시작')
   
@@ -45,7 +45,7 @@ export async function POST(
       )
     }
 
-    const rfpAnalysisId = params.id
+    const { id: rfpAnalysisId } = await params
     const userId = session.user.id
     const body: ConsolidateRequest = await request.json()
     const { force_regenerate = false, selected_model_id = 'claude-3-5-sonnet-20241022' } = body
@@ -317,7 +317,7 @@ ${i + 1}. [${qa.category}] ${qa.question}
 }
 
 // 다음 단계 준비도 평가
-function evaluateReadiness(answeredQuestions: any[], insights: any) {
+function evaluateReadiness(answeredQuestions: any[], _insights: any) {
   const totalQuestions = answeredQuestions.length
   const completionRate = totalQuestions / 8 // 기준: 8개 질문
 

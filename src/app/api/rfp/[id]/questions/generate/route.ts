@@ -31,7 +31,7 @@ interface QuestionGenerationRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('🤖 [질문생성-v2] 새로운 질문 생성 API 시작')
   
@@ -47,7 +47,7 @@ export async function POST(
       )
     }
 
-    const rfpAnalysisId = params.id
+    const { id: rfpAnalysisId } = await params
     const body: QuestionGenerationRequest = await request.json()
     const { 
       max_questions = 8, 
@@ -298,12 +298,21 @@ async function updateAnalysisSummary(rfpAnalysisId: string, projectId: string) {
         .select('id', { count: 'exact' })
         .eq('rfp_analysis_id', rfpAnalysisId)
 
-      const { count: answeredQuestions } = await supabaseAdmin
-        .from('rfp_question_user_responses')
-        .select('ur.id', { count: 'exact' })
-        .from('rfp_question_user_responses ur')
-        .innerJoin('rfp_analysis_questions q', 'ur.question_id', 'q.id')
-        .eq('q.rfp_analysis_id', rfpAnalysisId)
+      // 답변된 질문 수 계산을 위해 질문 ID 목록을 먼저 가져옴
+      const { data: questionIds } = await supabaseAdmin
+        .from('rfp_analysis_questions')
+        .select('id')
+        .eq('rfp_analysis_id', rfpAnalysisId)
+      
+      let answeredQuestions = 0
+      if (questionIds && questionIds.length > 0) {
+        const { count } = await supabaseAdmin
+          .from('rfp_question_user_responses')
+          .select('id', { count: 'exact' })
+          .in('question_id', questionIds.map(q => q.id))
+        
+        answeredQuestions = count || 0
+      }
 
       // 요약 테이블 업데이트
       await supabaseAdmin

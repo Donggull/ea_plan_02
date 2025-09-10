@@ -65,7 +65,7 @@ interface EnhancedQuestionAnswerSystemProps {
 
 export function EnhancedQuestionAnswerSystem({
   analysisId,
-  projectId,
+  projectId: _projectId,
   onQuestionsGenerated,
   onAllQuestionsAnswered,
   onError,
@@ -98,20 +98,6 @@ export function EnhancedQuestionAnswerSystem({
     { key: 'project_constraints', label: '프로젝트 제약사항', description: '예산, 일정, 리소스' },
     { key: 'user_experience', label: '사용자 경험', description: 'UX/UI 및 사용성' }
   ]
-
-  // 컴포넌트 마운트 시 기존 질문 로드
-  useEffect(() => {
-    if (analysisId) {
-      loadExistingQuestions()
-    }
-  }, [analysisId])
-
-  // 자동 생성 옵션
-  useEffect(() => {
-    if (autoGenerate && analysisId && questions.length === 0) {
-      handleGenerateQuestions()
-    }
-  }, [autoGenerate, analysisId, questions.length])
 
   // 기존 질문 목록 로드
   const loadExistingQuestions = useCallback(async () => {
@@ -151,6 +137,13 @@ export function EnhancedQuestionAnswerSystem({
       setIsLoading(false)
     }
   }, [analysisId])
+
+  // 컴포넌트 마운트 시 기존 질문 로드
+  useEffect(() => {
+    if (analysisId) {
+      loadExistingQuestions()
+    }
+  }, [analysisId, loadExistingQuestions])
 
   // 질문 생성
   const handleGenerateQuestions = useCallback(async () => {
@@ -221,6 +214,13 @@ export function EnhancedQuestionAnswerSystem({
       setIsGenerating(false)
     }
   }, [analysisId, maxQuestions, selectedCategories, onQuestionsGenerated, onError])
+
+  // 자동 생성 옵션
+  useEffect(() => {
+    if (autoGenerate && analysisId && questions.length === 0) {
+      handleGenerateQuestions()
+    }
+  }, [autoGenerate, analysisId, questions.length, handleGenerateQuestions])
 
   // 답변 저장
   const handleSaveAnswer = async () => {

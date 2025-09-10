@@ -24,7 +24,7 @@ const supabaseAdmin = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('📋 [질문목록-v2] 질문 목록 조회 API 시작')
   
@@ -40,7 +40,7 @@ export async function GET(
       )
     }
 
-    const rfpAnalysisId = params.id
+    const { id: rfpAnalysisId } = await params
     const userId = session.user.id
 
     // 질문 목록 조회 (AI 답변과 사용자 답변 포함)
