@@ -512,9 +512,40 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
 
 
   const handleNextStepTransition = (nextStep: 'market_research' | 'persona_analysis') => {
-    // 상위 컴포넌트로 단계 전환 신호 전달
+    if (!selectedAnalysis) return
+    
+    // 답변 완료 여부 확인
+    const hasAnsweredQuestions = selectedAnalysis.follow_up_questions?.some((q: any) => {
+      const hasUserAnswer = q.user_answer && q.user_answer.trim()
+      const hasAIAnswer = q.ai_generated_answer && q.ai_generated_answer.trim()
+      return hasUserAnswer || hasAIAnswer
+    })
+    
+    if (!hasAnsweredQuestions) {
+      alert('먼저 질문에 답변을 완료해주세요.')
+      return
+    }
+    
+    console.log('🔄 [단계전환] RFP 분석 → ' + nextStep, {
+      analysisId: selectedAnalysis.analysis.id,
+      projectId,
+      questionsAnswered: hasAnsweredQuestions,
+      totalQuestions: selectedAnalysis.follow_up_questions?.length || 0
+    })
+    
+    // 상위 컴포넌트로 단계 전환 신호 전달 (RFP 답변 데이터 포함)
     const event = new CustomEvent('rfp-analysis-next-step', {
-      detail: { nextStep, analysisData: selectedAnalysis }
+      detail: { 
+        nextStep, 
+        analysisData: selectedAnalysis,
+        projectId,
+        rfpAnalysisId: selectedAnalysis.analysis.id,
+        answeredQuestions: selectedAnalysis.follow_up_questions?.filter((q: any) => {
+          const hasUserAnswer = q.user_answer && q.user_answer.trim()
+          const hasAIAnswer = q.ai_generated_answer && q.ai_generated_answer.trim()
+          return hasUserAnswer || hasAIAnswer
+        }) || []
+      }
     })
     window.dispatchEvent(event)
   }
