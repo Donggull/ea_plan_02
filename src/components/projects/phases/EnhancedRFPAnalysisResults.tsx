@@ -1839,6 +1839,24 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
                 <EnhancedQuestionAnswerSystem 
                   analysisId={selectedAnalysis.analysis.id}
                   projectId={projectId}
+                  onNextStepRequested={(step, analysisData) => {
+                    console.log('🚀 [RFP분석] 다음 단계 요청 받음:', step, analysisData)
+                    
+                    // 다음 단계 이벤트를 상위로 전달
+                    const event = new CustomEvent('rfp-analysis-next-step', {
+                      detail: {
+                        nextStep: step,
+                        analysisData: analysisData,
+                        analysisId: selectedAnalysis.analysis.id,
+                        projectId: projectId
+                      }
+                    })
+                    window.dispatchEvent(event)
+                    
+                    // 모달 닫기
+                    setShowQuestionnaire(false)
+                    setSelectedAnalysis(null)
+                  }}
                 />
               ) : (
                 renderFollowUpQuestions(selectedAnalysis)

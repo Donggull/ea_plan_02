@@ -61,6 +61,7 @@ interface EnhancedQuestionAnswerSystemProps {
   projectId?: string
   onQuestionsGenerated?: (questions: RFPQuestion[]) => void
   onAllQuestionsAnswered?: (summary: any) => void
+  onNextStepRequested?: (step: 'market_research' | 'persona_analysis', analysisData: any) => void
   onError?: (error: string) => void
   className?: string
   autoGenerate?: boolean
@@ -71,6 +72,7 @@ export function EnhancedQuestionAnswerSystem({
   projectId: _projectId,
   onQuestionsGenerated,
   onAllQuestionsAnswered,
+  onNextStepRequested,
   onError,
   className,
   autoGenerate = false
@@ -92,6 +94,10 @@ export function EnhancedQuestionAnswerSystem({
   const [userInput, setUserInput] = useState('')
   const [selectedAIAnswerId, setSelectedAIAnswerId] = useState<string | null>(null)
   const [additionalNotes, setAdditionalNotes] = useState('')
+  
+  // 다음 단계 선택 상태
+  const [selectedNextStep, setSelectedNextStep] = useState<'market_research' | 'persona_analysis' | null>(null)
+  const [isNavigating, setIsNavigating] = useState(false)
 
   const categoryOptions = [
     { key: 'market_context', label: '시장 상황', description: '시장 환경 및 경쟁 상황' },
@@ -344,6 +350,40 @@ export function EnhancedQuestionAnswerSystem({
       console.error('⚠️ [질문시스템-v2] 통합 분석 실패:', error)
       // 통합 분석 실패해도 질문 완료는 성공으로 처리
       setViewMode('completed')
+    }
+  }
+
+  // 다음 단계로 진행
+  const handleNavigateToNextStep = async () => {
+    if (!selectedNextStep) {
+      onError?.('다음 단계를 선택해주세요.')
+      return
+    }
+
+    setIsNavigating(true)
+    try {
+      console.log('🚀 [질문시스템-v2] 다음 단계 진행:', selectedNextStep)
+      
+      // 질문/답변 데이터 수집
+      const analysisData = {
+        analysisId,
+        questions,
+        statistics,
+        completedQuestions: questions.filter(q => q.is_answered),
+        answers: questions.map(q => q.user_response).filter(Boolean)
+      }
+      
+      // 상위 컴포넌트에 다음 단계 요청 전달
+      onNextStepRequested?.(selectedNextStep, analysisData)
+      
+      console.log('✅ [질문시스템-v2] 다음 단계 진행 완료')
+      
+    } catch (error) {
+      console.error('❌ [질문시스템-v2] 다음 단계 진행 실패:', error)
+      const errorMessage = error instanceof Error ? error.message : '다음 단계 진행 중 오류가 발생했습니다.'
+      onError?.(errorMessage)
+    } finally {
+      setIsNavigating(false)
     }
   }
 
@@ -814,17 +854,108 @@ export function EnhancedQuestionAnswerSystem({
               </div>
             )}
 
-            {/* 다음 단계 안내 */}
+            {/* 다음 단계 선택 */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border shadow-sm mb-6">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                   <IconRenderer icon="ArrowRight" size={20} className="text-blue-600" {...({} as any)} />
                 </div>
-                <h4 className="font-semibold text-gray-900 dark:text-white">다음 단계로 진행하세요</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-white">다음 단계를 선택하세요</h4>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                수집된 답변을 바탕으로 정교한 시장 조사와 페르소나 분석을 시작할 수 있습니다.
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
+                수집된 답변을 바탕으로 정교한 분석을 시작할 수 있습니다. 원하는 다음 단계를 선택하세요.
               </p>
+              
+              {/* 다음 단계 옵션 */}
+              <div className="grid gap-4 mb-6">
+                <div 
+                  className={cn(
+                    'p-4 border-2 rounded-xl cursor-pointer transition-all duration-200',
+                    selectedNextStep === 'market_research'
+                      ? 'border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-600'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-green-200 dark:hover:border-green-700'
+                  )}
+                  onClick={() => setSelectedNextStep('market_research')}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      'flex-shrink-0 w-6 h-6 border-2 rounded-full flex items-center justify-center mt-1',
+                      selectedNextStep === 'market_research'
+                        ? 'border-green-500 bg-green-500'
+                        : 'border-gray-300 dark:border-gray-600'
+                    )}>
+                      {selectedNextStep === 'market_research' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <IconRenderer icon="TrendingUp" size={20} className="text-green-600" {...({} as any)} />
+                        <h5 className="font-semibold text-gray-900 dark:text-white">시장 조사 분석</h5>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        시장 환경, 경쟁사 분석, 트렌드 조사를 통한 종합적인 시장 분석을 수행합니다.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="secondary" size="sm">경쟁사 분석</Badge>
+                        <Badge variant="secondary" size="sm">시장 규모</Badge>
+                        <Badge variant="secondary" size="sm">트렌드 분석</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div 
+                  className={cn(
+                    'p-4 border-2 rounded-xl cursor-pointer transition-all duration-200',
+                    selectedNextStep === 'persona_analysis'
+                      ? 'border-purple-300 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-600'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700'
+                  )}
+                  onClick={() => setSelectedNextStep('persona_analysis')}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      'flex-shrink-0 w-6 h-6 border-2 rounded-full flex items-center justify-center mt-1',
+                      selectedNextStep === 'persona_analysis'
+                        ? 'border-purple-500 bg-purple-500'
+                        : 'border-gray-300 dark:border-gray-600'
+                    )}>
+                      {selectedNextStep === 'persona_analysis' && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <IconRenderer icon="Users" size={20} className="text-purple-600" {...({} as any)} />
+                        <h5 className="font-semibold text-gray-900 dark:text-white">페르소나 분석</h5>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        타겟 사용자의 특성, 니즈, 행동 패턴을 분석하여 상세한 페르소나를 생성합니다.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="secondary" size="sm">사용자 특성</Badge>
+                        <Badge variant="secondary" size="sm">니즈 분석</Badge>
+                        <Badge variant="secondary" size="sm">행동 패턴</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {selectedNextStep && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-sm">
+                    <IconRenderer icon="Info" size={14} {...({} as any)} />
+                    <span>
+                      {selectedNextStep === 'market_research' 
+                        ? '시장 조사 분석을 통해 프로젝트의 시장 환경을 파악할 수 있습니다.'
+                        : '페르소나 분석을 통해 타겟 사용자를 명확히 정의할 수 있습니다.'
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 액션 버튼 */}
@@ -840,13 +971,38 @@ export function EnhancedQuestionAnswerSystem({
               
               <EnhancedButton
                 variant="primary"
-                rightIcon={<IconRenderer icon="Sparkles" size={16} {...({} as any)} />}
+                onClick={handleNavigateToNextStep}
+                disabled={!selectedNextStep || isNavigating}
+                loading={isNavigating}
+                loadingText="이동 중..."
+                rightIcon={!isNavigating ? <IconRenderer icon="Sparkles" size={16} {...({} as any)} /> : undefined}
                 size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                className={cn(
+                  'bg-gradient-to-r hover:shadow-lg transition-all',
+                  selectedNextStep === 'market_research' 
+                    ? 'from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700'
+                    : selectedNextStep === 'persona_analysis'
+                    ? 'from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                    : 'from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+                )}
               >
-                다음 단계 진행
+                {!selectedNextStep 
+                  ? '다음 단계 선택 후 진행' 
+                  : selectedNextStep === 'market_research' 
+                  ? '시장 조사 분석 시작' 
+                  : '페르소나 분석 시작'
+                }
               </EnhancedButton>
             </div>
+            
+            {/* 선택 안내 메시지 */}
+            {!selectedNextStep && (
+              <div className="text-center mt-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  ⬆️ 위에서 원하는 다음 단계를 선택한 후 진행 버튼을 클릭하세요
+                </p>
+              </div>
+            )}
           </div>
         </Card>
       )}
