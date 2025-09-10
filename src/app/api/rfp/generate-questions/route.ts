@@ -68,57 +68,65 @@ export async function POST(request: NextRequest) {
     const integrationsList = techSpecs?.integrations?.join(', ') || ''
     const platformsList = techSpecs?.platform?.join(', ') || ''
 
-    // ✅ 완전히 새로운 맞춤형 프롬프트 
+    // ✅ 강화된 프로젝트 맞춤형 프롬프트 (템플릿 질문 완전 차단)
     const analysisPrompt = `
-❗ 중요: 절대 일반적이거나 템플릿 질문을 생성하지 마세요. 아래 구체적인 프로젝트 정보를 바탕으로 이 프로젝트에만 특화된 질문을 만드세요.
+🚨 절대 금지: 일반적, 템플릿, 범용 질문 생성 절대 금지!
+아래는 실제 RFP 프로젝트의 구체적인 정보입니다. 반드시 이 정보만을 활용하여 맞춤형 질문을 생성하세요.
 
-## 🎯 분석 대상 프로젝트:
-**프로젝트**: ${projectTitle}
-**상세 설명**: ${projectDescription}
+## 🎯 실제 프로젝트 정보:
+**프로젝트명**: ${projectTitle}
+**프로젝트 설명**: ${projectDescription}
 **프로젝트 범위**: ${projectScope}
 
-## 📋 프로젝트별 핵심 정보:
-### 🔑 핵심 키워드:
-${keywordsList}
+## 🔑 실제 추출된 핵심 키워드:
+${keywordsList || '키워드 정보 없음'}
 
-### ⚙️ 주요 기능 요구사항:
-${functionalReqsList}
+## ⚙️ 실제 기능 요구사항:
+${functionalReqsList || '기능 요구사항 정보 없음'}
 
-### 🛠️ 기술 환경:
-- 사용 기술: ${technologiesList}
-- 연동 시스템: ${integrationsList}
-- 플랫폼: ${platformsList}
+## 🛠️ 실제 기술 환경:
+- 기술스택: ${technologiesList || '기술 정보 없음'}
+- 연동시스템: ${integrationsList || '연동 정보 없음'}
+- 플랫폼: ${platformsList || '플랫폼 정보 없음'}
 
-## ❌ 금지 사항 (절대 생성 금지):
+## 🚨 절대 생성 금지 질문 (템플릿 질문):
 - "타겟 시장 규모를 어느 정도로 예상하시나요?"
-- "경쟁사 분석을 어느 정도 깊이로 진행하기를 원하시나요?" 
+- "경쟁사 분석을 어느 정도 깊이로 진행하기를 원하시나요?"
 - "타겟 시장의 지역적 범위는 어떻게 되나요?"
 - "브랜드 이미지로 인식되기를 원하시나요?"
 - "기술 도입 시 가장 중요하게 고려하는 요소는 무엇인가요?"
-- 기타 모든 일반적, 템플릿, 범용 질문
+- "사용자 인터뷰를 몇 명 정도 진행하고 싶으신가요?"
+- 그 외 모든 일반적이고 범용적인 질문
 
-## ✅ 반드시 생성해야 할 질문 유형:
-위의 구체적인 키워드, 기능요구사항, 기술환경을 **직접 언급**하는 맞춤형 질문만 생성하세요.
+## ✅ 필수 생성 규칙:
+1. 위에 제시된 구체적인 프로젝트 정보(키워드, 기능, 기술)를 **직접 언급**해야 함
+2. 프로젝트 이름 "${projectTitle}"의 핵심 단어들을 질문에 포함해야 함
+3. 추출된 키워드나 기술스택을 직접 언급하는 질문만 생성
+4. 일반론적 질문은 절대 금지
 
-예시 (위 프로젝트 정보 기반):
-${keywordsList.includes('Adobe AEM') ? '- "Adobe AEM 컴포넌트 개발 및 운영 경험이 어느 정도 있나요?"' : ''}
-${projectTitle.includes('유지보수') ? '- "기존 웹사이트 유지보수 시 가장 중점을 두는 부분은 무엇인가요?"' : ''}
-${technologiesList.includes('Analytics') ? '- "Adobe Analytics 리포트 작성 및 분석 경험이 있나요?"' : ''}
+## 📋 올바른 맞춤형 질문 예시:
+${projectTitle.includes('AIA') ? `- "AIA생명 보험사의 특화된 웹사이트 운영 요구사항이 있나요?"` : ''}
+${projectTitle.includes('유지보수') ? `- "기존 웹사이트 유지보수에서 가장 빈번한 작업 유형은 무엇인가요?"` : ''}
+${keywordsList.includes('Adobe') ? `- "Adobe 솔루션 운영 시 특별히 고려해야 할 기술적 제약사항이 있나요?"` : ''}
+${technologiesList.includes('CMS') ? `- "현재 CMS 시스템에서 가장 개선이 필요한 부분은 무엇인가요?"` : ''}
 
-## 📝 요구사항:
-- 위의 프로젝트 고유 정보만을 활용한 맞춤형 질문 ${Math.min(8, max_questions)}개 생성
-- 각 질문은 반드시 위에 명시된 구체적인 키워드/기능/기술을 포함해야 함
-- 절대 일반적이거나 템플릿 질문 생성 금지
+## 🎯 생성 지침:
+- 총 ${Math.min(8, max_questions)}개의 맞춤형 질문 생성
+- 각 질문은 위 프로젝트의 구체적 정보를 직접 활용
+- 일반적 질문 생성 시 즉시 중단하고 다시 생성
+- 모든 질문에 suggested_answer(AI 추천 답변) 포함 필수
 
-JSON 응답:
+JSON 형식으로 응답:
 {
   "questions": [
     {
-      "id": "custom_q_1",
-      "question_text": "[위 프로젝트 정보의 구체적 키워드/기능/기술을 직접 언급하는 맞춤형 질문]",
+      "id": "project_specific_q_1",
+      "question_text": "[${projectTitle} 프로젝트의 구체적 키워드/기능을 직접 언급하는 질문]",
+      "suggested_answer": "[이 질문에 대한 구체적이고 현실적인 AI 추천 답변]",
       "category": "technical_requirements",
-      "context": "[이 질문이 왜 이 프로젝트에 중요한지 설명]",
-      "priority": "high"
+      "context": "[이 질문이 ${projectTitle} 프로젝트에 왜 중요한지]",
+      "priority": "high",
+      "importance": "high"
     }
   ]
 }`
@@ -239,41 +247,76 @@ JSON 응답:
       }, { status: 500 })
     }
 
-    // analysis_questions 테이블에 질문과 AI 답변 함께 저장
+    // analysis_questions 테이블에 질문과 AI 답변 함께 저장 (개선된 로직)
     const questionsWithAnswers = questionData.questions || []
+    console.log('💾 [DB저장] analysis_questions 테이블 저장 시작:', questionsWithAnswers.length, '개')
+    
     const insertPromises = questionsWithAnswers.map((question: any, index: number) => {
-      // AI 답변 fallback 로직 - 여러 필드명 시도
+      // AI 답변 fallback 로직 강화 - 여러 필드명 시도
       const aiAnswer = question.suggested_answer || 
                        question.answer || 
                        question.ai_answer || 
                        question.default_answer || 
                        `이 질문에 대한 답변을 제공해주세요. (${question.category || 'general'} 관련)`
 
+      // 고유 ID 생성 (기존 로직 활용)
+      const questionId = question.id || `mq_${Date.now()}_${index + 1}`
+
+      console.log(`💾 [DB저장] 질문 ${index + 1} 저장 준비:`, {
+        id: questionId,
+        question_text: question.question_text?.substring(0, 100) + '...',
+        project_id: (rfpAnalysis as any).project_id,
+        ai_answer_preview: aiAnswer?.substring(0, 100) + '...'
+      })
+
       return (supabase as any)
         .from('analysis_questions')
         .insert({
+          id: questionId,
           project_id: (rfpAnalysis as any).project_id,
           rfp_analysis_id: analysis_id,
           question_text: question.question_text,
-          question_type: 'follow_up',
+          question_type: question.question_type || 'follow_up',
           category: question.category || 'general',
-          priority: question.importance || 'medium',
-          context: question.purpose || '',
+          priority: question.priority || question.importance || 'medium',
+          context: question.context || question.purpose || '',
           ai_generated_answer: aiAnswer,
           ai_answer_generated_at: new Date().toISOString(),
-          order_index: index + 1
+          order_index: index + 1,
+          created_at: new Date().toISOString()
         })
     })
 
-    const insertResults = await Promise.all(insertPromises)
-    const insertErrors = insertResults.filter(result => result.error)
+    console.log('💾 [DB저장] analysis_questions 테이블에 저장 실행 중...')
     
-    if (insertErrors.length > 0) {
-      console.error('❌ [후속질문-생성] 질문 저장 실패:', insertErrors)
+    try {
+      const insertResults = await Promise.all(insertPromises)
+      const insertErrors = insertResults.filter(result => result.error)
+      
+      console.log('📊 [DB저장] 저장 결과:', {
+        total: insertResults.length,
+        successful: insertResults.filter(r => !r.error).length,
+        failed: insertErrors.length,
+        errors: insertErrors.map(err => err.error?.message)
+      })
+      
+      if (insertErrors.length > 0) {
+        console.error('❌ [DB저장] analysis_questions 저장 실패:', insertErrors)
+        return NextResponse.json({
+          success: false,
+          error: 'AI 생성 질문 저장 중 오류가 발생했습니다.',
+          details: insertErrors.map(err => err.error?.message).join(', '),
+          failed_questions: insertErrors.length
+        }, { status: 500 })
+      }
+
+      console.log('✅ [DB저장] analysis_questions 테이블 저장 완료:', insertResults.length, '개')
+    } catch (dbError) {
+      console.error('💥 [DB저장] analysis_questions 테이블 저장 중 예외 발생:', dbError)
       return NextResponse.json({
         success: false,
-        error: 'AI 생성 질문 저장 중 오류가 발생했습니다.',
-        details: insertErrors.map(err => err.error?.message).join(', ')
+        error: '데이터베이스 저장 중 예외가 발생했습니다.',
+        details: dbError instanceof Error ? dbError.message : String(dbError)
       }, { status: 500 })
     }
 

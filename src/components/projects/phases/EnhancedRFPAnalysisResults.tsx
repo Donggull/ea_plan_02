@@ -75,13 +75,26 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // AI 후속 질문 생성 함수 (프로젝트별 독립성 보장)
-  const generateAIFollowUpQuestions = useCallback(async (analysisId: string) => {
-    try {
-      console.log('🤖 [후속질문-AI] 프로젝트별 맞춤 질문 생성 시작:', analysisId)
+  // 템플릿 질문 감지 함수
+  const isTemplateQuestion = (questionText: string): boolean => {
+    const templateQuestions = [
+      '타겟 시장 규모를 어느 정도로 예상하시나요',
+      '경쟁사 분석을 어느 정도 깊이로 진행하기를 원하시나요',
+      '타겟 시장의 지역적 범위는 어떻게 되나요',
+      '브랜드 이미지로 인식되기를 원하시나요',
+      '기술 도입 시 가장 중요하게 고려하는 요소는 무엇인가요',
+      '사용자 인터뷰를 몇 명 정도 진행하고 싶으신가요'
+    ]
+    
+    return templateQuestions.some(template => 
+      questionText?.toLowerCase().includes(template.toLowerCase())
+    )
+  }
 
-      // 분석 데이터에서 중복 생성 방지 로직 제거 (무한루프 방지)
-      // 대신 DB에서 직접 확인
+  // AI 후속 질문 생성 함수 (프로젝트별 독립성 보장 + 템플릿 질문 감지)
+  const generateAIFollowUpQuestions = useCallback(async (analysisId: string, forceRegenerate = false) => {
+    try {
+      console.log('🤖 [후속질문-AI] 프로젝트별 맞춤 질문 생성 시작:', { analysisId, forceRegenerate })
 
       // 분석 데이터를 직접 DB에서 조회해서 프로젝트별 고유 정보 추출
       const { data: analysisRecord, error: analysisError } = await supabase
@@ -101,6 +114,21 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         console.error('❌ [후속질문-AI] 프로젝트 ID가 없어 독립적 질문 생성 불가')
         throw new Error('프로젝트와 연결되지 않은 분석은 후속 질문을 생성할 수 없습니다.')
       }
+
+      // 기존 질문이 템플릿 질문인지 확인
+      const existingQuestions = (analysisRecord as any)?.follow_up_questions || []
+      const hasTemplateQuestions = existingQuestions.some((q: any) => 
+        isTemplateQuestion(q.question_text || q.question)
+      )
+
+      if (!forceRegenerate && existingQuestions.length > 0 && !hasTemplateQuestions) {
+        console.log('✅ [후속질문-AI] 이미 맞춤형 질문이 존재하므로 생성하지 않습니다.')
+        return
+      }
+
+      if (hasTemplateQuestions) {
+        console.log('🔄 [후속질문-AI] 템플릿 질문 감지 - 프로젝트 맞춤형으로 재생성합니다.')
+      }
       
       // 프로젝트별 복잡성 점수 계산
       const functionalReqs = (analysisRecord as any)?.functional_requirements?.length || 0
@@ -109,16 +137,17 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       const complexityScore = functionalReqs + technicalReqs + Math.floor(keywords / 3)
       
       // 복잡성에 따른 질문 수 결정 (프로젝트별 최적화)
-      const maxQuestions = Math.max(6, Math.min(12, complexityScore + 4)) // 6-12개 범위
+      const maxQuestions = Math.max(6, Math.min(10, complexityScore + 4)) // 6-10개 범위
       
       const requestBody = {
         analysis_id: analysisId,
         max_questions: maxQuestions,
-        categories: ['market_context', 'target_audience', 'competitor_focus', 'technical_requirements'],
+        categories: ['technical_requirements', 'project_specific', 'stakeholder_needs', 'implementation_details'],
         project_context: {
           project_id: projectId,
           project_title: (analysisRecord as any)?.project_overview?.title,
-          complexity_score: complexityScore
+          complexity_score: complexityScore,
+          regenerate: forceRegenerate || hasTemplateQuestions
         }
       }
       
@@ -128,7 +157,8 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         technicalReqs, 
         keywords,
         complexityScore,
-        maxQuestions
+        maxQuestions,
+        hasTemplateQuestions
       })
 
       const response = await fetch('/api/rfp/generate-questions', {
@@ -147,6 +177,15 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
         
         const questions = responseData.questions || []
         console.log('✅ [후속질문-AI] 생성 완료:', questions.length, '개')
+        
+        // 생성된 질문이 여전히 템플릿인지 확인
+        const stillHasTemplates = questions.some((q: any) => 
+          isTemplateQuestion(q.question_text)
+        )
+        
+        if (stillHasTemplates) {
+          console.warn('⚠️ [후속질문-AI] 생성된 질문에 여전히 템플릿이 포함되어 있습니다.')
+        }
         
         if (questions.length > 0) {
           // 상태 업데이트 (무한루프 방지를 위해 단순화)
@@ -476,18 +515,33 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
           is_project_specific: finalSelected.follow_up_questions.every((q: any) => !q.project_id || q.project_id === projectId)
         })
         
-        // 프로젝트별 독립 후속 질문이 없으면 자동 생성 트리거
+        // 프로젝트별 독립 후속 질문 생성 및 템플릿 질문 감지 자동 처리
         const firstAnalysis = validAnalysisDataList[0]
-        if (!forceRefresh && firstAnalysis.follow_up_questions.length === 0) {
-          console.log('🤖 [자동생성] 프로젝트별 맞춤 후속 질문 생성 필요')
-          // 무한루프 방지를 위해 조건부로만 실행
-          generateAIFollowUpQuestions(firstAnalysis.analysis.id).catch(console.error)
+        const hasQuestions = firstAnalysis.follow_up_questions.length > 0
+        
+        if (hasQuestions) {
+          // 기존 질문이 있는 경우 템플릿 질문 감지
+          const hasTemplateQuestions = firstAnalysis.follow_up_questions.some((q: any) => 
+            isTemplateQuestion(q.question_text || q.question)
+          )
+          
+          if (hasTemplateQuestions && !forceRefresh) {
+            console.log('🔄 [자동재생성] 템플릿 질문 감지 - 프로젝트 맞춤형으로 자동 재생성')
+            generateAIFollowUpQuestions(firstAnalysis.analysis.id, true).catch(console.error)
+          } else {
+            console.log('✅ [기존질문] 프로젝트별 맞춤형 질문 존재:', {
+              project_id: projectId,
+              questions_count: firstAnalysis.follow_up_questions.length,
+              has_templates: hasTemplateQuestions,
+              sample_question: firstAnalysis.follow_up_questions[0]?.question_text?.substring(0, 50) + '...'
+            })
+          }
         } else {
-          console.log('✅ [기존질문] 프로젝트별 독립 후속 질문 존재:', {
-            project_id: projectId,
-            questions_count: firstAnalysis.follow_up_questions.length,
-            sample_question: firstAnalysis.follow_up_questions[0]?.question_text?.substring(0, 50) + '...'
-          })
+          // 질문이 없는 경우 새로 생성
+          if (!forceRefresh) {
+            console.log('🤖 [자동생성] 프로젝트별 맞춤 후속 질문 생성 필요')
+            generateAIFollowUpQuestions(firstAnalysis.analysis.id).catch(console.error)
+          }
         }
       } else {
         console.warn('⚠️ [분석데이터] 프로젝트별 유효한 분석 데이터가 없음:', {
@@ -1412,6 +1466,15 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
       )
     }
 
+    // 템플릿 질문 감지
+    const hasTemplateQuestions = questions.some(q => 
+      isTemplateQuestion(q.question_text || (q as any).question)
+    )
+    
+    const templateQuestionCount = questions.filter(q => 
+      isTemplateQuestion(q.question_text || (q as any).question)
+    ).length
+
     // 답변 완료 여부 확인 (개선된 포용적 로직)
     const answeredQuestions = questions.filter(q => {
       const hasUserAnswer = (q as any).user_answer && (q as any).user_answer.trim()
@@ -1462,25 +1525,73 @@ export default function EnhancedRFPAnalysisResults({ projectId }: EnhancedRFPAna
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                맞춤형 후속 질문
+                {hasTemplateQuestions ? '일반적 질문 (재생성 권장)' : '맞춤형 후속 질문'}
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                RFP 분석 결과 기반 AI 생성 질문
+                {hasTemplateQuestions 
+                  ? `템플릿 질문 ${templateQuestionCount}개 감지됨 - 프로젝트 맞춤형 질문으로 교체 권장`
+                  : 'RFP 분석 결과 기반 AI 생성 질문'
+                }
               </p>
             </div>
-            <span className="px-3 py-1 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-full text-sm font-medium">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              hasTemplateQuestions 
+                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300' 
+                : 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700'
+            }`}>
               {totalQuestions}개 질문
             </span>
+            {hasTemplateQuestions && (
+              <Badge variant="warning" className="text-xs">
+                ⚠️ 재생성 필요
+              </Badge>
+            )}
           </div>
           
-          <Button
-            onClick={() => setShowQuestionnaire(true)}
-            className={`${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            {isCompleted ? '답변 수정하기' : '질문 답변하기'}
-          </Button>
+          <div className="flex gap-2">
+            {hasTemplateQuestions && (
+              <Button
+                onClick={() => generateAIFollowUpQuestions(analysisData.analysis.id, true)}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+                size="sm"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                맞춤형으로 재생성
+              </Button>
+            )}
+            <Button
+              onClick={() => setShowQuestionnaire(true)}
+              className={`${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              {isCompleted ? '답변 수정하기' : '질문 답변하기'}
+            </Button>
+          </div>
         </div>
+
+        {/* 템플릿 질문 경고 */}
+        {hasTemplateQuestions && (
+          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                일반적인 템플릿 질문이 감지되었습니다
+              </span>
+            </div>
+            <p className="text-xs text-orange-600 dark:text-orange-400 mb-3">
+              현재 질문들은 프로젝트의 구체적인 요구사항을 반영하지 않는 일반적인 질문들입니다. 
+              더 정확한 분석을 위해 프로젝트 맞춤형 질문으로 재생성하는 것을 권장합니다.
+            </p>
+            <Button
+              onClick={() => generateAIFollowUpQuestions(analysisData.analysis.id, true)}
+              size="sm"
+              className="bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-1"
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              지금 재생성하기
+            </Button>
+          </div>
+        )}
 
         {/* 진행률 표시 */}
         <div className="mb-6">
